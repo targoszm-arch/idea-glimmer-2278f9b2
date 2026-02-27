@@ -7,6 +7,7 @@ const HeroSection = () => {
     <section className="container py-8 lg:py-12">
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8">
         {/* Featured Article */}
+        <a href="/article/featured">
         <motion.article
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -35,6 +36,7 @@ const HeroSection = () => {
             </div>
           </div>
         </motion.article>
+        </a>
 
         {/* Featured Posts Sidebar */}
         <motion.aside
@@ -49,7 +51,7 @@ const HeroSection = () => {
           <ul className="divide-y divide-border">
             {featuredPosts.map((post) => (
               <li key={post.id} className="py-4 group cursor-pointer">
-                <a href="#" className="block">
+                <a href={`/article/${post.id}`} className="block">
                   <h3 className="text-sm font-semibold text-foreground leading-snug group-hover:text-primary transition-colors">
                     {post.title}
                   </h3>
