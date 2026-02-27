@@ -4,23 +4,15 @@ import TopicClusters from "@/components/TopicClusters";
 import ContentGrid from "@/components/ContentGrid";
 import NewsletterSection from "@/components/NewsletterSection";
 import Footer from "@/components/Footer";
-import { useWikinewsArticles } from "@/hooks/useWikinewsArticles";
 
 const Index = () => {
-  const { featuredArticle, featuredPosts, gridArticles, isLoading } =
-    useWikinewsArticles();
-
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main>
-        <HeroSection
-          featuredArticle={featuredArticle}
-          featuredPosts={featuredPosts}
-          isLoading={isLoading}
-        />
+        <HeroSection />
         <TopicClusters />
-        <ContentGrid articles={gridArticles} isLoading={isLoading} />
+        <ContentGrid />
         <NewsletterSection />
       </main>
       <Footer />
