@@ -17,6 +17,7 @@ serve(async (req) => {
       app_description = "",
       app_audience = "",
       reference_urls = [],
+      brand_assets = { logos: [], visuals: [] },
     } = await req.json();
 
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
