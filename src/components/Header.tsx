@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, X, PenSquare, Lightbulb, Library, Settings } from "lucide-react";
+import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 
