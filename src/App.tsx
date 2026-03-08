@@ -29,6 +29,7 @@ const App = () => (
           <Route path="/settings" element={<AISettings />} />
           <Route path="/article/:id" element={<Article />} />
           <Route path="/social" element={<SocialMedia />} />
+          <Route path="/brand" element={<BrandAssets />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

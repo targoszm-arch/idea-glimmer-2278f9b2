@@ -8,6 +8,7 @@ const navItems = [
   { label: "New Article", href: "/new", icon: PenSquare },
   { label: "Content Ideas", href: "/ideas", icon: Lightbulb },
   { label: "Social Media", href: "/social", icon: Share2 },
+  { label: "Brand Assets", href: "/brand", icon: Palette },
   { label: "AI Settings", href: "/settings", icon: Settings },
 ];
 
