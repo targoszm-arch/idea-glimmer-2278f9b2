@@ -4,7 +4,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Save, Sparkles, Loader2, ArrowLeft, Settings } from "lucide-react";
+import { Save, Sparkles, Loader2, ArrowLeft, Settings, ImagePlus, X } from "lucide-react";
 import { motion } from "framer-motion";
 import Header from "@/components/Header";
 import EditorToolbar from "@/components/EditorToolbar";
