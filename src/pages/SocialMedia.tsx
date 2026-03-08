@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Linkedin, Youtube, Twitter, Instagram, Film, Loader2, Sparkles, Trash2, Copy, Check, ChevronDown, ChevronUp, Lightbulb, Video, Play, Images } from "lucide-react";
+import { Linkedin, Youtube, Twitter, Instagram, Film, Loader2, Sparkles, Trash2, Copy, Check, ChevronDown, ChevronUp, Lightbulb, Video, Play, Images, Clapperboard } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -11,6 +11,7 @@ import { streamAI } from "@/lib/ai-stream";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import CarouselSlidePreview, { parseCarouselContent } from "@/components/CarouselSlidePreview";
+import HeyGenPanel from "@/components/HeyGenPanel";
 
 const platforms = [
   { key: "linkedin", label: "LinkedIn", icon: Linkedin },
@@ -18,6 +19,7 @@ const platforms = [
   { key: "twitter", label: "Twitter", icon: Twitter },
   { key: "instagram_carousel", label: "IG Carousel", icon: Instagram },
   { key: "instagram_reel", label: "IG Reel", icon: Film },
+  { key: "heygen", label: "HeyGen", icon: Clapperboard },
 ] as const;
 
 type Platform = (typeof platforms)[number]["key"];
@@ -610,7 +612,7 @@ const SocialMedia = () => {
           </p>
 
           <Tabs value={platform} onValueChange={(v) => setPlatform(v as Platform)}>
-            <TabsList className="grid w-full grid-cols-5 mb-6">
+            <TabsList className="grid w-full grid-cols-6 mb-6">
               {platforms.map((p) => {
                 const Icon = p.icon;
                 return (
@@ -624,77 +626,83 @@ const SocialMedia = () => {
 
             {platforms.map((p) => (
               <TabsContent key={p.key} value={p.key}>
-                {/* Generation Form */}
-                <div className="mb-8 rounded-xl border border-border bg-card p-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Lightbulb className="h-5 w-5 text-primary" />
-                    <h2 className="text-lg font-bold text-foreground">Generate {p.label} Ideas</h2>
-                  </div>
-                  {p.key === "instagram_reel" && (
-                    <div className="mb-3 flex items-center gap-3">
-                      <p className="text-xs text-muted-foreground">Reel type:</p>
-                      <div className="flex rounded-lg border border-input overflow-hidden">
-                        <button
-                          onClick={() => setReelMode("video")}
-                          className={cn(
-                            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
-                            reelMode === "video" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
-                          )}
+                {p.key === "heygen" ? (
+                  <HeyGenPanel />
+                ) : (
+                  <>
+                    {/* Generation Form */}
+                    <div className="mb-8 rounded-xl border border-border bg-card p-6">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Lightbulb className="h-5 w-5 text-primary" />
+                        <h2 className="text-lg font-bold text-foreground">Generate {p.label} Ideas</h2>
+                      </div>
+                      {p.key === "instagram_reel" && (
+                        <div className="mb-3 flex items-center gap-3">
+                          <p className="text-xs text-muted-foreground">Reel type:</p>
+                          <div className="flex rounded-lg border border-input overflow-hidden">
+                            <button
+                              onClick={() => setReelMode("video")}
+                              className={cn(
+                                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
+                                reelMode === "video" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              <Video className="h-3 w-3" /> AI Video
+                            </button>
+                            <button
+                              onClick={() => setReelMode("multipage")}
+                              className={cn(
+                                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
+                                reelMode === "multipage" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              <Images className="h-3 w-3" /> Multipage Reel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {aiSettings?.app_description && (
+                        <p className="mb-3 text-xs text-muted-foreground">
+                          Using your AI Settings: <span className="font-medium text-foreground">{aiSettings.app_description.slice(0, 80)}{aiSettings.app_description.length > 80 ? "…" : ""}</span>
+                        </p>
+                      )}
+                      <div className="flex gap-3">
+                        <input
+                          value={niche}
+                          onChange={(e) => setNiche(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleGenerateIdeas()}
+                          placeholder={aiSettings?.app_description ? "Optional: add extra context or leave empty" : "Describe your product or niche"}
+                          className="flex-1 rounded-lg border border-input bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        />
+                        <Button
+                          onClick={handleGenerateIdeas}
+                          disabled={isGeneratingIdeas}
+                          className="gap-2"
                         >
-                          <Video className="h-3 w-3" /> AI Video
-                        </button>
-                        <button
-                          onClick={() => setReelMode("multipage")}
-                          className={cn(
-                            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
-                            reelMode === "multipage" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
+                          {isGeneratingIdeas ? (
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</>
+                          ) : (
+                            <><Sparkles className="h-4 w-4" /> Generate Ideas</>
                           )}
-                        >
-                          <Images className="h-3 w-3" /> Multipage Reel
-                        </button>
+                        </Button>
                       </div>
                     </div>
-                  )}
-                  {aiSettings?.app_description && (
-                    <p className="mb-3 text-xs text-muted-foreground">
-                      Using your AI Settings: <span className="font-medium text-foreground">{aiSettings.app_description.slice(0, 80)}{aiSettings.app_description.length > 80 ? "…" : ""}</span>
-                    </p>
-                  )}
-                  <div className="flex gap-3">
-                    <input
-                      value={niche}
-                      onChange={(e) => setNiche(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleGenerateIdeas()}
-                      placeholder={aiSettings?.app_description ? "Optional: add extra context or leave empty" : "Describe your product or niche"}
-                      className="flex-1 rounded-lg border border-input bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    />
-                    <Button
-                      onClick={handleGenerateIdeas}
-                      disabled={isGeneratingIdeas}
-                      className="gap-2"
-                    >
-                      {isGeneratingIdeas ? (
-                        <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</>
-                      ) : (
-                        <><Sparkles className="h-4 w-4" /> Generate Ideas</>
-                      )}
-                    </Button>
-                  </div>
-                </div>
 
-                {/* Ideas Grid */}
-                {loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                ) : filteredIdeas.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <p>No {p.label} ideas yet. Generate some above!</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredIdeas.map((idea, index) => renderIdeaCard(idea, index))}
-                  </div>
+                    {/* Ideas Grid */}
+                    {loading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      </div>
+                    ) : filteredIdeas.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <p>No {p.label} ideas yet. Generate some above!</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {filteredIdeas.map((idea, index) => renderIdeaCard(idea, index))}
+                      </div>
+                    )}
+                  </>
                 )}
               </TabsContent>
             ))}
