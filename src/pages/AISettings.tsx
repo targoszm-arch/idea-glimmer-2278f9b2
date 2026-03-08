@@ -68,9 +68,15 @@ const AISettings = () => {
   };
 
   const addUrl = () => {
-    const trimmed = newUrl.trim();
-    if (trimmed && !referenceUrls.includes(trimmed)) {
-      setReferenceUrls([...referenceUrls, trimmed]);
+    const input = newUrl.trim();
+    if (!input) return;
+    // Support pasting multiple URLs (comma, space, or newline separated)
+    const urls = input
+      .split(/[\s,\n]+/)
+      .map((u) => u.trim())
+      .filter((u) => u && !referenceUrls.includes(u));
+    if (urls.length > 0) {
+      setReferenceUrls([...referenceUrls, ...urls]);
       setNewUrl("");
     }
   };
