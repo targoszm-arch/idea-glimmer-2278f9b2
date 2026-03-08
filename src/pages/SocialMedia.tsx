@@ -828,29 +828,30 @@ const SocialMedia = () => {
                         <Lightbulb className="h-5 w-5 text-primary" />
                         <h2 className="text-lg font-bold text-foreground">Generate {p.label} Ideas</h2>
                       </div>
-                      {p.key === "instagram_reel" && (
+                      {p.key !== "instagram_carousel" && (
                         <div className="mb-3 space-y-2">
                           <p className="text-xs text-muted-foreground">Generation method:</p>
                           <div className="flex flex-wrap rounded-lg border border-input overflow-hidden">
                             {([
-                              { key: "sora_video" as ReelMode, label: "Sora Video", icon: Video },
-                              { key: "heygen_template" as ReelMode, label: "HeyGen Template", icon: Clapperboard },
-                              { key: "heygen_agent" as ReelMode, label: "HeyGen Agent", icon: Sparkles },
-                              { key: "multipage" as ReelMode, label: "Multipage Reel", icon: Images },
+                              { key: "text_post" as VideoMode, label: "Text Post", icon: Sparkles },
+                              { key: "sora_video" as VideoMode, label: "Sora Video", icon: Video },
+                              { key: "heygen_template" as VideoMode, label: "HeyGen Template", icon: Clapperboard },
+                              { key: "heygen_agent" as VideoMode, label: "HeyGen Agent", icon: Sparkles },
+                              ...(p.key === "instagram_reel" ? [{ key: "multipage" as VideoMode, label: "Multipage Reel", icon: Images }] : []),
                             ]).map((opt) => {
                               const OptIcon = opt.icon;
                               return (
                                 <button
                                   key={opt.key}
                                   onClick={() => {
-                                    setReelMode(opt.key);
+                                    setVideoMode(opt.key);
                                     if (opt.key === "heygen_template" && heygenTemplates.length === 0) {
                                       fetchHeygenTemplates();
                                     }
                                   }}
                                   className={cn(
                                     "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
-                                    reelMode === opt.key ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
+                                    videoMode === opt.key ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
                                   )}
                                 >
                                   <OptIcon className="h-3 w-3" /> {opt.label}
@@ -860,7 +861,7 @@ const SocialMedia = () => {
                           </div>
 
                           {/* HeyGen template selector */}
-                          {reelMode === "heygen_template" && (
+                          {videoMode === "heygen_template" && (
                             <div className="mt-3 space-y-2">
                               <div className="flex items-center justify-between">
                                 <p className="text-xs font-medium text-foreground">Select HeyGen Template:</p>
