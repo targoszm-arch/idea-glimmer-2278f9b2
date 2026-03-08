@@ -188,6 +188,7 @@ export type Database = {
           platform: string
           title: string
           topic: string
+          video_url: string | null
         }
         Insert: {
           content?: string
@@ -196,6 +197,7 @@ export type Database = {
           platform: string
           title?: string
           topic: string
+          video_url?: string | null
         }
         Update: {
           content?: string
@@ -204,6 +206,7 @@ export type Database = {
           platform?: string
           title?: string
           topic?: string
+          video_url?: string | null
         }
         Relationships: []
       }

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Linkedin, Youtube, Twitter, Instagram, Film, Loader2, Sparkles, Trash2, Copy, Check, ChevronDown, ChevronUp, Lightbulb } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Linkedin, Youtube, Twitter, Instagram, Film, Loader2, Sparkles, Trash2, Copy, Check, ChevronDown, ChevronUp, Lightbulb, Video, Play } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { streamAI } from "@/lib/ai-stream";
 import { cn } from "@/lib/utils";
+import { Progress } from "@/components/ui/progress";
 
 const platforms = [
   { key: "linkedin", label: "LinkedIn", icon: Linkedin },
@@ -37,6 +38,7 @@ type SocialPost = {
   topic: string;
   title: string;
   content: string;
+  video_url?: string | null;
   created_at: string;
 };
 
@@ -51,6 +53,9 @@ const SocialMedia = () => {
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
   const [streamingContent, setStreamingContent] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [videoProgress, setVideoProgress] = useState<string | null>(null);
+  const [videoProgressPercent, setVideoProgressPercent] = useState(0);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
 
   const [aiSettings, setAiSettings] = useState<{
@@ -66,6 +71,9 @@ const SocialMedia = () => {
     supabase.from("ai_settings").select("*").limit(1).single().then(({ data }) => {
       if (data) setAiSettings(data as any);
     });
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
   }, []);
 
   const fetchData = async () => {
@@ -142,7 +150,134 @@ const SocialMedia = () => {
     setIsGeneratingIdeas(false);
   };
 
+  const callReelFunction = async (body: Record<string, unknown>) => {
+    const resp = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-reel-video`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify(body),
+      }
+    );
+    if (!resp.ok) {
+      const t = await resp.text();
+      let errMsg = t;
+      try { errMsg = JSON.parse(t).error || t; } catch {}
+      throw new Error(errMsg);
+    }
+    return resp.json();
+  };
+
+  const handleGenerateReelVideo = useCallback(async (idea: SocialPostIdea) => {
+    if (generatingPostId) return;
+    setGeneratingPostId(idea.id);
+    setExpandedPostId(idea.id);
+    setVideoProgress("Generating video prompt...");
+    setVideoProgressPercent(5);
+
+    try {
+      // Step 1: Start generation
+      const startResult = await callReelFunction({
+        action: "start",
+        topic: idea.title_suggestion,
+        tone: aiSettings?.tone_label || "Engaging",
+        tone_description: aiSettings?.tone_description || "",
+        app_description: aiSettings?.app_description || "",
+        app_audience: aiSettings?.app_audience || "",
+        reference_urls: aiSettings?.reference_urls || [],
+      });
+
+      const videoId = startResult.video_id;
+      setVideoProgress("Video generation started. This may take 1-3 minutes...");
+      setVideoProgressPercent(15);
+      setStreamingContent(startResult.video_prompt || "");
+
+      // Step 2: Poll for status
+      await new Promise<void>((resolve, reject) => {
+        let attempts = 0;
+        const maxAttempts = 60; // 5 minutes max
+
+        pollingRef.current = setInterval(async () => {
+          attempts++;
+          if (attempts > maxAttempts) {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            reject(new Error("Video generation timed out after 5 minutes"));
+            return;
+          }
+
+          try {
+            const statusResult = await callReelFunction({ action: "status", video_id: videoId });
+            const status = statusResult.status;
+            const progress = statusResult.progress || 0;
+
+            if (status === "completed") {
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              setVideoProgress("Downloading and saving video...");
+              setVideoProgressPercent(90);
+              resolve();
+            } else if (status === "failed") {
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              reject(new Error(statusResult.error?.message || "Video generation failed"));
+            } else {
+              const pct = Math.min(15 + (progress || (attempts / maxAttempts) * 70), 85);
+              setVideoProgressPercent(pct);
+              setVideoProgress(`Generating video... ${status === "in_progress" ? "Rendering" : "Queued"}`);
+            }
+          } catch (e) {
+            // Don't stop polling on transient errors
+            console.warn("Poll error:", e);
+          }
+        }, 5000);
+      });
+
+      // Step 3: Download and store
+      const dlResult = await callReelFunction({ action: "download", video_id: videoId });
+      setVideoProgressPercent(100);
+
+      // Save post to DB
+      const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
+        platform: idea.platform,
+        topic: idea.topic,
+        title: idea.title_suggestion,
+        content: streamingContent || startResult.video_prompt || idea.title_suggestion,
+        video_url: dlResult.video_url,
+      }).select().single();
+
+      if (saveError) throw new Error(saveError.message);
+
+      await supabase.from("social_post_ideas").update({
+        status: "used",
+        post_id: postData.id,
+      }).eq("id", idea.id);
+
+      setIdeas((prev) => prev.map((i) =>
+        i.id === idea.id ? { ...i, status: "used", post_id: postData.id } : i
+      ));
+      setPosts((prev) => ({ ...prev, [postData.id]: postData as SocialPost }));
+      setVideoProgress(null);
+      setVideoProgressPercent(0);
+      setStreamingContent("");
+      setGeneratingPostId(null);
+      toast({ title: "Reel video generated!", description: `"${idea.title_suggestion}" video is ready.` });
+    } catch (e) {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      setGeneratingPostId(null);
+      setVideoProgress(null);
+      setVideoProgressPercent(0);
+      setStreamingContent("");
+      toast({ title: "Video generation failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    }
+  }, [aiSettings, generatingPostId, toast]);
+
   const handleGeneratePost = useCallback(async (idea: SocialPostIdea) => {
+    // For IG Reels, generate video instead
+    if (idea.platform === "instagram_reel") {
+      return handleGenerateReelVideo(idea);
+    }
+
     if (generatingPostId) return;
     setGeneratingPostId(idea.id);
     setExpandedPostId(idea.id);
@@ -168,7 +303,6 @@ const SocialMedia = () => {
         setStreamingContent(accumulated);
       },
       onDone: async () => {
-        // Save post to DB
         const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
           platform: idea.platform,
           topic: idea.topic,
@@ -182,7 +316,6 @@ const SocialMedia = () => {
           return;
         }
 
-        // Update idea with post_id and status
         await supabase.from("social_post_ideas").update({
           status: "used",
           post_id: postData.id,
@@ -202,7 +335,7 @@ const SocialMedia = () => {
         toast({ title: "Generation failed", description: error, variant: "destructive" });
       },
     });
-  }, [aiSettings, generatingPostId, toast]);
+  }, [aiSettings, generatingPostId, toast, handleGenerateReelVideo]);
 
   const handleDeleteIdea = async (id: string) => {
     const { error } = await supabase.from("social_post_ideas").delete().eq("id", id);
@@ -225,7 +358,9 @@ const SocialMedia = () => {
     const hasPost = !!idea.post_id;
     const post = idea.post_id ? posts[idea.post_id] : null;
     const isExpanded = expandedPostId === idea.id;
+    const isReel = idea.platform === "instagram_reel";
     const displayContent = isGeneratingThis ? streamingContent : post?.content;
+    const hasVideo = !!post?.video_url;
 
     return (
       <motion.div
@@ -243,11 +378,14 @@ const SocialMedia = () => {
           <div className="flex items-center gap-2">
             {isGeneratingThis && (
               <span className="text-xs text-primary flex items-center gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" /> Generating
+                <Loader2 className="h-3 w-3 animate-spin" /> {isReel ? "Generating Video" : "Generating"}
               </span>
             )}
             {hasPost && !isGeneratingThis && (
-              <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded">Post Ready</span>
+              <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded flex items-center gap-1">
+                {hasVideo && <Video className="h-3 w-3" />}
+                {hasVideo ? "Video Ready" : "Post Ready"}
+              </span>
             )}
           </div>
         </div>
@@ -257,9 +395,23 @@ const SocialMedia = () => {
           <p className="mb-4 text-sm text-muted-foreground line-clamp-3">{idea.description}</p>
         )}
 
+        {/* Video progress for reels */}
+        {isGeneratingThis && isReel && videoProgress && (
+          <div className="mb-4 space-y-2">
+            <Progress value={videoProgressPercent} className="h-2" />
+            <p className="text-xs text-muted-foreground">{videoProgress}</p>
+            {streamingContent && (
+              <details className="text-xs">
+                <summary className="cursor-pointer text-muted-foreground hover:text-foreground">View video prompt</summary>
+                <p className="mt-1 text-muted-foreground italic">{streamingContent}</p>
+              </details>
+            )}
+          </div>
+        )}
+
         {/* Expanded post content */}
         <AnimatePresence>
-          {isExpanded && displayContent && (
+          {isExpanded && (displayContent || hasVideo) && !isGeneratingThis && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
@@ -267,8 +419,10 @@ const SocialMedia = () => {
               className="mb-4 rounded-lg border border-border bg-muted/30 p-4 relative"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-muted-foreground uppercase">Generated Content</span>
-                {post && (
+                <span className="text-xs font-semibold text-muted-foreground uppercase">
+                  {hasVideo ? "Generated Video" : "Generated Content"}
+                </span>
+                {post && !hasVideo && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -279,9 +433,45 @@ const SocialMedia = () => {
                   </Button>
                 )}
               </div>
+              {hasVideo ? (
+                <div className="rounded-lg overflow-hidden bg-black aspect-[9/16] max-h-96 mx-auto">
+                  <video
+                    src={post!.video_url!}
+                    controls
+                    className="w-full h-full object-contain"
+                    preload="metadata"
+                  />
+                </div>
+              ) : (
+                <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap text-sm max-h-80 overflow-y-auto">
+                  {displayContent}
+                </div>
+              )}
+              {displayContent && hasVideo && (
+                <details className="mt-3 text-xs">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">View video prompt</summary>
+                  <p className="mt-1 text-muted-foreground italic">{displayContent}</p>
+                </details>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Non-reel streaming content while generating */}
+        <AnimatePresence>
+          {isExpanded && displayContent && isGeneratingThis && !isReel && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-4 rounded-lg border border-border bg-muted/30 p-4 relative"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Generated Content</span>
+              </div>
               <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap text-sm max-h-80 overflow-y-auto">
                 {displayContent}
-                {isGeneratingThis && <span className="inline-block w-1.5 h-4 bg-primary animate-pulse ml-0.5" />}
+                <span className="inline-block w-1.5 h-4 bg-primary animate-pulse ml-0.5" />
               </div>
             </motion.div>
           )}
@@ -305,7 +495,17 @@ const SocialMedia = () => {
                 className="text-xs gap-1"
               >
                 {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                {isExpanded ? "Hide" : "View Post"}
+                {isExpanded ? "Hide" : hasVideo ? "View Video" : "View Post"}
+              </Button>
+            )}
+            {hasVideo && post?.video_url && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => window.open(post.video_url!, "_blank")}
+                className="text-xs gap-1"
+              >
+                <Play className="h-3 w-3" /> Download
               </Button>
             )}
             {!hasPost && (
@@ -317,9 +517,9 @@ const SocialMedia = () => {
                 className="text-xs gap-1"
               >
                 {isGeneratingThis ? (
-                  <><Loader2 className="h-3 w-3 animate-spin" /> Generating...</>
+                  <><Loader2 className="h-3 w-3 animate-spin" /> {isReel ? "Generating Video..." : "Generating..."}</>
                 ) : (
-                  <><Sparkles className="h-3 w-3" /> Generate Post</>
+                  <>{isReel ? <Video className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />} {isReel ? "Generate Video" : "Generate Post"}</>
                 )}
               </Button>
             )}
@@ -360,6 +560,11 @@ const SocialMedia = () => {
                     <Lightbulb className="h-5 w-5 text-primary" />
                     <h2 className="text-lg font-bold text-foreground">Generate {p.label} Ideas</h2>
                   </div>
+                  {p.key === "instagram_reel" && (
+                    <p className="mb-3 text-xs text-primary/80 flex items-center gap-1">
+                      <Video className="h-3 w-3" /> Reel ideas will generate actual videos using OpenAI Sora
+                    </p>
+                  )}
                   {aiSettings?.app_description && (
                     <p className="mb-3 text-xs text-muted-foreground">
                       Using your AI Settings: <span className="font-medium text-foreground">{aiSettings.app_description.slice(0, 80)}{aiSettings.app_description.length > 80 ? "…" : ""}</span>
