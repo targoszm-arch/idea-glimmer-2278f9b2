@@ -75,7 +75,6 @@ ${reference_urls?.length ? `\nReference content style from: ${reference_urls.joi
           model: "sora-2",
           prompt: videoPrompt,
           size: "720x1280", // 9:16 portrait for IG Reels
-          duration: 8,
           n: 1,
         }),
       });
