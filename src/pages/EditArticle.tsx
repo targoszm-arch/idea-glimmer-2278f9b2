@@ -116,6 +116,41 @@ const EditArticle = () => {
 
           <div className="flex flex-col gap-6 lg:flex-row">
             <div className="flex-1">
+              {/* Cover Image */}
+              <div className="mb-4">
+                {coverImageUrl ? (
+                  <div className="relative overflow-hidden rounded-xl border border-border">
+                    <img src={coverImageUrl} alt="Cover" className="h-48 w-full object-cover" />
+                    <button
+                      onClick={() => setCoverImageUrl(null)}
+                      className="absolute right-2 top-2 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm hover:bg-background"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={handleGenerateCoverImage}
+                      disabled={isGeneratingImage}
+                      className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50"
+                    >
+                      {isGeneratingImage ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImagePlus className="h-3 w-3" />}
+                      Regenerate
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleGenerateCoverImage}
+                    disabled={isGeneratingImage}
+                    className="flex h-32 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+                  >
+                    {isGeneratingImage ? (
+                      <><Loader2 className="h-5 w-5 animate-spin" /> Generating cover image...</>
+                    ) : (
+                      <><ImagePlus className="h-5 w-5" /> Generate AI Cover Image</>
+                    )}
+                  </button>
+                )}
+              </div>
+
               <div className="mb-4 flex gap-4">
                 <input
                   value={title}
