@@ -437,8 +437,9 @@ const SocialMedia = () => {
     const post = idea.post_id ? posts[idea.post_id] : null;
     const isExpanded = expandedPostId === idea.id;
     const isReel = idea.platform === "instagram_reel";
+    const isCarousel = idea.platform === "instagram_carousel";
     const displayContent = isGeneratingThis ? streamingContent : post?.content;
-    const hasVideo = !!post?.video_url;
+    const carouselData = isCarousel && displayContent ? parseCarouselContent(displayContent) : null;
 
     return (
       <motion.div
