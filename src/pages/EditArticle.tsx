@@ -50,6 +50,7 @@ const EditArticle = () => {
       setTitle(data.title);
       setCategory(data.category || "");
       setStatus(data.status as "draft" | "published");
+      setCoverImageUrl(data.cover_image_url || null);
       editor?.commands.setContent(data.content || "");
       setLoading(false);
     })();
