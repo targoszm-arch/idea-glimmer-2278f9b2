@@ -11,7 +11,6 @@ import { streamAI } from "@/lib/ai-stream";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import CarouselSlidePreview, { parseCarouselContent } from "@/components/CarouselSlidePreview";
-import HeyGenPanel from "@/components/HeyGenPanel";
 
 const platforms = [
   { key: "linkedin", label: "LinkedIn", icon: Linkedin },
@@ -19,8 +18,9 @@ const platforms = [
   { key: "twitter", label: "Twitter", icon: Twitter },
   { key: "instagram_carousel", label: "IG Carousel", icon: Instagram },
   { key: "instagram_reel", label: "IG Reel", icon: Film },
-  { key: "heygen", label: "HeyGen", icon: Clapperboard },
 ] as const;
+
+type ReelMode = "sora_video" | "heygen_template" | "heygen_agent" | "multipage";
 
 type Platform = (typeof platforms)[number]["key"];
 
@@ -58,7 +58,10 @@ const SocialMedia = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [videoProgress, setVideoProgress] = useState<string | null>(null);
   const [videoProgressPercent, setVideoProgressPercent] = useState(0);
-  const [reelMode, setReelMode] = useState<"video" | "multipage">("video");
+  const [reelMode, setReelMode] = useState<ReelMode>("sora_video");
+  const [heygenTemplates, setHeygenTemplates] = useState<Array<{ template_id: string; name: string; thumbnail_image_url?: string }>>([]);
+  const [selectedHeygenTemplate, setSelectedHeygenTemplate] = useState<string | null>(null);
+  const [loadingHeygenTemplates, setLoadingHeygenTemplates] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
 
@@ -347,14 +350,209 @@ const SocialMedia = () => {
     });
   }, [aiSettings, brandAssets, generatingPostId, toast]);
 
+  const callHeygen = async (body: Record<string, unknown>) => {
+    const resp = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/heygen`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify(body),
+      }
+    );
+    if (!resp.ok) {
+      const t = await resp.text();
+      let errMsg = t;
+      try { errMsg = JSON.parse(t).error || t; } catch {}
+      throw new Error(errMsg);
+    }
+    return resp.json();
+  };
+
+  const fetchHeygenTemplates = async () => {
+    setLoadingHeygenTemplates(true);
+    try {
+      const data = await callHeygen({ action: "list_templates" });
+      const tpls = data?.data?.templates || [];
+      setHeygenTemplates(tpls);
+      if (tpls.length === 0) {
+        toast({ title: "No HeyGen templates found", description: "Create templates in your HeyGen dashboard." });
+      }
+    } catch (e) {
+      toast({ title: "Failed to load HeyGen templates", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    }
+    setLoadingHeygenTemplates(false);
+  };
+
+  const handleGenerateHeygenTemplate = useCallback(async (idea: SocialPostIdea) => {
+    if (generatingPostId) return;
+    if (!selectedHeygenTemplate) {
+      toast({ title: "Select a template", description: "Pick a HeyGen template first.", variant: "destructive" });
+      return;
+    }
+    setGeneratingPostId(idea.id);
+    setExpandedPostId(idea.id);
+    setVideoProgress("Starting HeyGen video from template...");
+    setVideoProgressPercent(5);
+
+    try {
+      const result = await callHeygen({
+        action: "generate",
+        template_id: selectedHeygenTemplate,
+        title: idea.title_suggestion,
+      });
+
+      const videoId = result?.data?.video_id;
+      if (!videoId) throw new Error("No video_id returned from HeyGen");
+
+      setVideoProgress("HeyGen is rendering your video. This may take 1-5 minutes...");
+      setVideoProgressPercent(15);
+
+      // Poll for status
+      const videoUrl = await new Promise<string>((resolve, reject) => {
+        let attempts = 0;
+        const maxAttempts = 120;
+        pollingRef.current = setInterval(async () => {
+          attempts++;
+          if (attempts > maxAttempts) {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            reject(new Error("HeyGen video generation timed out"));
+            return;
+          }
+          try {
+            const statusResult = await callHeygen({ action: "status", video_id: videoId });
+            const status = statusResult?.data?.status;
+            if (status === "completed") {
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              resolve(statusResult?.data?.video_url || "");
+            } else if (status === "failed") {
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              reject(new Error(statusResult?.data?.error || "HeyGen rendering failed"));
+            } else {
+              const pct = Math.min(15 + (attempts / maxAttempts) * 75, 90);
+              setVideoProgressPercent(pct);
+              setVideoProgress(`Rendering... (${status || "processing"})`);
+            }
+          } catch (e) { console.warn("Poll error:", e); }
+        }, 5000);
+      });
+
+      setVideoProgressPercent(100);
+
+      const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
+        platform: idea.platform,
+        topic: idea.topic,
+        title: idea.title_suggestion,
+        content: `HeyGen template video: ${idea.title_suggestion}`,
+        video_url: videoUrl,
+      }).select().single();
+      if (saveError) throw new Error(saveError.message);
+
+      await supabase.from("social_post_ideas").update({ status: "used", post_id: postData.id }).eq("id", idea.id);
+      setIdeas((prev) => prev.map((i) => i.id === idea.id ? { ...i, status: "used", post_id: postData.id } : i));
+      setPosts((prev) => ({ ...prev, [postData.id]: postData as SocialPost }));
+      setVideoProgress(null);
+      setVideoProgressPercent(0);
+      setGeneratingPostId(null);
+      toast({ title: "HeyGen video ready!", description: `"${idea.title_suggestion}" generated from template.` });
+    } catch (e) {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      setGeneratingPostId(null);
+      setVideoProgress(null);
+      setVideoProgressPercent(0);
+      toast({ title: "HeyGen generation failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    }
+  }, [generatingPostId, selectedHeygenTemplate, toast]);
+
+  const handleGenerateHeygenAgent = useCallback(async (idea: SocialPostIdea) => {
+    if (generatingPostId) return;
+    setGeneratingPostId(idea.id);
+    setExpandedPostId(idea.id);
+    setVideoProgress("Sending to HeyGen Video Agent...");
+    setVideoProgressPercent(5);
+
+    try {
+      const prompt = `Create a professional Instagram Reel video about: ${idea.title_suggestion}. ${idea.description || ""}${aiSettings?.app_description ? ` Brand: ${aiSettings.app_description}.` : ""}${aiSettings?.app_audience ? ` Target audience: ${aiSettings.app_audience}.` : ""}`;
+
+      const result = await callHeygen({ action: "agent", prompt });
+      const videoId = result?.data?.video_id;
+      if (!videoId) throw new Error("No video_id returned from HeyGen Agent");
+
+      setVideoProgress("HeyGen Agent is creating your video. This may take 2-5 minutes...");
+      setVideoProgressPercent(15);
+
+      const videoUrl = await new Promise<string>((resolve, reject) => {
+        let attempts = 0;
+        const maxAttempts = 120;
+        pollingRef.current = setInterval(async () => {
+          attempts++;
+          if (attempts > maxAttempts) {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            reject(new Error("HeyGen Agent video timed out"));
+            return;
+          }
+          try {
+            const statusResult = await callHeygen({ action: "status", video_id: videoId });
+            const status = statusResult?.data?.status;
+            if (status === "completed") {
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              resolve(statusResult?.data?.video_url || "");
+            } else if (status === "failed") {
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              reject(new Error(statusResult?.data?.error || "HeyGen Agent failed"));
+            } else {
+              setVideoProgressPercent(Math.min(15 + (attempts / maxAttempts) * 75, 90));
+              setVideoProgress(`Agent working... (${status || "processing"})`);
+            }
+          } catch (e) { console.warn("Poll error:", e); }
+        }, 5000);
+      });
+
+      setVideoProgressPercent(100);
+
+      const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
+        platform: idea.platform,
+        topic: idea.topic,
+        title: idea.title_suggestion,
+        content: `HeyGen Agent video: ${prompt}`,
+        video_url: videoUrl,
+      }).select().single();
+      if (saveError) throw new Error(saveError.message);
+
+      await supabase.from("social_post_ideas").update({ status: "used", post_id: postData.id }).eq("id", idea.id);
+      setIdeas((prev) => prev.map((i) => i.id === idea.id ? { ...i, status: "used", post_id: postData.id } : i));
+      setPosts((prev) => ({ ...prev, [postData.id]: postData as SocialPost }));
+      setVideoProgress(null);
+      setVideoProgressPercent(0);
+      setGeneratingPostId(null);
+      toast({ title: "HeyGen Agent video ready!", description: `"${idea.title_suggestion}" created by AI agent.` });
+    } catch (e) {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      setGeneratingPostId(null);
+      setVideoProgress(null);
+      setVideoProgressPercent(0);
+      toast({ title: "HeyGen Agent failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    }
+  }, [aiSettings, generatingPostId, toast]);
+
   const handleGeneratePost = useCallback(async (idea: SocialPostIdea) => {
-    // For IG Reels with video mode, generate video
-    if (idea.platform === "instagram_reel" && reelMode === "video") {
+    // For IG Reels with Sora video mode
+    if (idea.platform === "instagram_reel" && reelMode === "sora_video") {
       return handleGenerateReelVideo(idea);
     }
-    // For IG Reels with multipage mode, generate multipage reel content
+    // For IG Reels with multipage mode
     if (idea.platform === "instagram_reel" && reelMode === "multipage") {
       return handleGenerateMultipageReel(idea);
+    }
+    // For IG Reels with HeyGen template mode
+    if (idea.platform === "instagram_reel" && reelMode === "heygen_template") {
+      return handleGenerateHeygenTemplate(idea);
+    }
+    // For IG Reels with HeyGen agent mode
+    if (idea.platform === "instagram_reel" && reelMode === "heygen_agent") {
+      return handleGenerateHeygenAgent(idea);
     }
 
     if (generatingPostId) return;
@@ -415,7 +613,7 @@ const SocialMedia = () => {
         toast({ title: "Generation failed", description: error, variant: "destructive" });
       },
     });
-  }, [aiSettings, generatingPostId, toast, handleGenerateReelVideo, handleGenerateMultipageReel, reelMode]);
+  }, [aiSettings, generatingPostId, toast, handleGenerateReelVideo, handleGenerateMultipageReel, handleGenerateHeygenTemplate, handleGenerateHeygenAgent, reelMode]);
 
   const handleDeleteIdea = async (id: string) => {
     const { error } = await supabase.from("social_post_ideas").delete().eq("id", id);
@@ -589,9 +787,9 @@ const SocialMedia = () => {
                 className="text-xs gap-1"
               >
                 {isGeneratingThis ? (
-                  <><Loader2 className="h-3 w-3 animate-spin" /> {isReel ? (reelMode === "video" ? "Generating Video..." : "Generating Slides...") : "Generating..."}</>
+                  <><Loader2 className="h-3 w-3 animate-spin" /> {isReel ? (reelMode === "multipage" ? "Generating Slides..." : "Generating Video...") : "Generating..."}</>
                 ) : (
-                  <>{isReel ? (reelMode === "video" ? <Video className="h-3 w-3" /> : <Images className="h-3 w-3" />) : <Sparkles className="h-3 w-3" />} {isReel ? (reelMode === "video" ? "Generate Video" : "Generate Multipage") : "Generate Post"}</>
+                  <>{isReel ? (reelMode === "multipage" ? <Images className="h-3 w-3" /> : <Video className="h-3 w-3" />) : <Sparkles className="h-3 w-3" />} {isReel ? (reelMode === "sora_video" ? "Sora Video" : reelMode === "heygen_template" ? "HeyGen Template" : reelMode === "heygen_agent" ? "HeyGen Agent" : "Multipage") : "Generate Post"}</>
                 )}
               </Button>
             )}
@@ -612,7 +810,7 @@ const SocialMedia = () => {
           </p>
 
           <Tabs value={platform} onValueChange={(v) => setPlatform(v as Platform)}>
-            <TabsList className="grid w-full grid-cols-6 mb-6">
+            <TabsList className="grid w-full grid-cols-5 mb-6">
               {platforms.map((p) => {
                 const Icon = p.icon;
                 return (
@@ -626,9 +824,6 @@ const SocialMedia = () => {
 
             {platforms.map((p) => (
               <TabsContent key={p.key} value={p.key}>
-                {p.key === "heygen" ? (
-                  <HeyGenPanel />
-                ) : (
                   <>
                     {/* Generation Form */}
                     <div className="mb-8 rounded-xl border border-border bg-card p-6">
@@ -637,28 +832,81 @@ const SocialMedia = () => {
                         <h2 className="text-lg font-bold text-foreground">Generate {p.label} Ideas</h2>
                       </div>
                       {p.key === "instagram_reel" && (
-                        <div className="mb-3 flex items-center gap-3">
-                          <p className="text-xs text-muted-foreground">Reel type:</p>
-                          <div className="flex rounded-lg border border-input overflow-hidden">
-                            <button
-                              onClick={() => setReelMode("video")}
-                              className={cn(
-                                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
-                                reelMode === "video" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
-                              )}
-                            >
-                              <Video className="h-3 w-3" /> AI Video
-                            </button>
-                            <button
-                              onClick={() => setReelMode("multipage")}
-                              className={cn(
-                                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
-                                reelMode === "multipage" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
-                              )}
-                            >
-                              <Images className="h-3 w-3" /> Multipage Reel
-                            </button>
+                        <div className="mb-3 space-y-2">
+                          <p className="text-xs text-muted-foreground">Generation method:</p>
+                          <div className="flex flex-wrap rounded-lg border border-input overflow-hidden">
+                            {([
+                              { key: "sora_video" as ReelMode, label: "Sora Video", icon: Video },
+                              { key: "heygen_template" as ReelMode, label: "HeyGen Template", icon: Clapperboard },
+                              { key: "heygen_agent" as ReelMode, label: "HeyGen Agent", icon: Sparkles },
+                              { key: "multipage" as ReelMode, label: "Multipage Reel", icon: Images },
+                            ]).map((opt) => {
+                              const OptIcon = opt.icon;
+                              return (
+                                <button
+                                  key={opt.key}
+                                  onClick={() => {
+                                    setReelMode(opt.key);
+                                    if (opt.key === "heygen_template" && heygenTemplates.length === 0) {
+                                      fetchHeygenTemplates();
+                                    }
+                                  }}
+                                  className={cn(
+                                    "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
+                                    reelMode === opt.key ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
+                                  )}
+                                >
+                                  <OptIcon className="h-3 w-3" /> {opt.label}
+                                </button>
+                              );
+                            })}
                           </div>
+
+                          {/* HeyGen template selector */}
+                          {reelMode === "heygen_template" && (
+                            <div className="mt-3 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs font-medium text-foreground">Select HeyGen Template:</p>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={fetchHeygenTemplates}
+                                  disabled={loadingHeygenTemplates}
+                                  className="text-xs h-7 gap-1"
+                                >
+                                  {loadingHeygenTemplates ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clapperboard className="h-3 w-3" />}
+                                  Refresh
+                                </Button>
+                              </div>
+                              {loadingHeygenTemplates ? (
+                                <div className="flex items-center gap-2 py-3 justify-center text-muted-foreground text-xs">
+                                  <Loader2 className="h-4 w-4 animate-spin" /> Loading templates...
+                                </div>
+                              ) : heygenTemplates.length > 0 ? (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                                  {heygenTemplates.map((tpl) => (
+                                    <button
+                                      key={tpl.template_id}
+                                      onClick={() => setSelectedHeygenTemplate(tpl.template_id === selectedHeygenTemplate ? null : tpl.template_id)}
+                                      className={cn(
+                                        "rounded-lg border p-2 text-left transition-all text-xs",
+                                        selectedHeygenTemplate === tpl.template_id
+                                          ? "border-primary ring-2 ring-primary/20 bg-primary/5"
+                                          : "border-border hover:border-primary/30"
+                                      )}
+                                    >
+                                      {tpl.thumbnail_image_url && (
+                                        <img src={tpl.thumbnail_image_url} alt={tpl.name} className="w-full aspect-video rounded object-cover mb-1" />
+                                      )}
+                                      <p className="font-medium truncate text-foreground">{tpl.name}</p>
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground py-2">No templates loaded. Click Refresh to load from HeyGen.</p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                       {aiSettings?.app_description && (
@@ -703,7 +951,6 @@ const SocialMedia = () => {
                       </div>
                     )}
                   </>
-                )}
               </TabsContent>
             ))}
           </Tabs>
