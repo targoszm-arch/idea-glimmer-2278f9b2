@@ -1,15 +1,16 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Save, Sparkles, Loader2, ArrowLeft } from "lucide-react";
+import { Save, Sparkles, Loader2, ArrowLeft, Settings } from "lucide-react";
 import { motion } from "framer-motion";
 import Header from "@/components/Header";
 import EditorToolbar from "@/components/EditorToolbar";
 import AIAssistantPanel from "@/components/AIAssistantPanel";
 import { supabase } from "@/lib/supabase";
+import { TONE_PRESETS } from "@/lib/tones";
 import { streamAI } from "@/lib/ai-stream";
 import { toast } from "@/hooks/use-toast";
 
@@ -20,11 +21,30 @@ const NewArticle = () => {
 
   const [title, setTitle] = useState("");
   const [topic, setTopic] = useState(prefillTopic);
-  const [tone, setTone] = useState("professional");
+  const [tone, setTone] = useState("informative");
   const [category, setCategory] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showAssistant, setShowAssistant] = useState(false);
+
+  // AI Settings from knowledge base
+  const [aiSettings, setAiSettings] = useState<{
+    tone_key: string;
+    tone_description: string;
+    app_description: string;
+    app_audience: string;
+    reference_urls: string[];
+  } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("ai_settings").select("*").limit(1).single();
+      if (data) {
+        setAiSettings(data as any);
+        setTone(data.tone_key || "informative");
+      }
+    })();
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -50,9 +70,19 @@ const NewArticle = () => {
     editor?.commands.clearContent();
     let accumulated = "";
 
+    const tonePreset = TONE_PRESETS.find((t) => t.key === tone);
+
     await streamAI({
       functionName: "generate-article",
-      body: { topic, tone, category },
+      body: {
+        topic,
+        tone: tonePreset?.label || tone,
+        tone_description: tonePreset?.description || "",
+        category,
+        app_description: aiSettings?.app_description || "",
+        app_audience: aiSettings?.app_audience || "",
+        reference_urls: aiSettings?.reference_urls || [],
+      },
       onDelta: (text) => {
         accumulated += text;
         // Parse title from first line if starts with #
@@ -136,11 +166,13 @@ const NewArticle = () => {
                   onChange={(e) => setTone(e.target.value)}
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <option value="professional">Professional</option>
-                  <option value="conversational">Conversational</option>
-                  <option value="educational">Educational</option>
-                  <option value="persuasive">Persuasive</option>
+                  {TONE_PRESETS.map((t) => (
+                    <option key={t.key} value={t.key}>{t.label}</option>
+                  ))}
                 </select>
+                <a href="/settings" className="mt-1 flex items-center gap-1 text-xs text-muted-foreground hover:text-primary">
+                  <Settings className="h-3 w-3" /> Manage in AI Settings
+                </a>
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-foreground">Category</label>

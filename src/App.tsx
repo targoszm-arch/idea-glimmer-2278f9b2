@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import NewArticle from "./pages/NewArticle";
 import EditArticle from "./pages/EditArticle";
 import ContentIdeas from "./pages/ContentIdeas";
+import AISettings from "./pages/AISettings";
 import Article from "./pages/Article";
 import NotFound from "./pages/NotFound";
 
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/new" element={<NewArticle />} />
           <Route path="/edit/:id" element={<EditArticle />} />
           <Route path="/ideas" element={<ContentIdeas />} />
+          <Route path="/settings" element={<AISettings />} />
           <Route path="/article/:id" element={<Article />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
