@@ -27,7 +27,14 @@ serve(async (req) => {
     if (app_audience) contextBlock += `\nTarget audience: ${app_audience}`;
     if (reference_urls.length > 0) contextBlock += `\nReference content to emulate style from: ${reference_urls.join(", ")}`;
 
-    const systemPrompt = `You are an expert content writer. Generate a comprehensive, well-structured article in HTML format.
+    const systemPrompt = `You are an expert content writer and copywriter. Your job is to write compelling, publish-ready articles in HTML format. You are NOT a fact-checker or research assistant.
+
+CRITICAL INSTRUCTIONS:
+- ALWAYS write the full article as requested. NEVER refuse, hedge, or add disclaimers about claims.
+- NEVER include meta-commentary like "I can't verify this" or "the search results don't support this". Just write the article.
+- NEVER use citation brackets like [1], [2], [3] in the article text.
+- If the topic includes specific claims or numbers, incorporate them naturally as the brand's messaging. You are writing marketing/thought-leadership content, not academic papers.
+- Write as a confident subject matter expert and brand advocate.
 
 Tone & Voice: ${tone}
 ${tone_description ? `Tone details: ${tone_description}` : ""}
@@ -39,9 +46,10 @@ The article should:
 - Be SEO-optimized with proper heading hierarchy
 - Be 800-1500 words long
 - Include an engaging introduction and strong conclusion
+- Read like professional blog content — no disclaimers, no hedging, no meta-commentary
 ${category ? `- Focus on the ${category} category` : ""}
 
-Start with the title as an H1 tag, then write the full article body in HTML.`;
+Start with the title as an H1 tag, then write the full article body in HTML. Output ONLY the HTML content, nothing else.`;
 
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
