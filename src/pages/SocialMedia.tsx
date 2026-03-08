@@ -538,21 +538,18 @@ const SocialMedia = () => {
   }, [aiSettings, generatingPostId, toast]);
 
   const handleGeneratePost = useCallback(async (idea: SocialPostIdea) => {
-    // For IG Reels with Sora video mode
-    if (idea.platform === "instagram_reel" && reelMode === "sora_video") {
+    // Video generation modes (available for all platforms)
+    if (videoMode === "sora_video") {
       return handleGenerateReelVideo(idea);
     }
-    // For IG Reels with multipage mode
-    if (idea.platform === "instagram_reel" && reelMode === "multipage") {
-      return handleGenerateMultipageReel(idea);
-    }
-    // For IG Reels with HeyGen template mode
-    if (idea.platform === "instagram_reel" && reelMode === "heygen_template") {
+    if (videoMode === "heygen_template") {
       return handleGenerateHeygenTemplate(idea);
     }
-    // For IG Reels with HeyGen agent mode
-    if (idea.platform === "instagram_reel" && reelMode === "heygen_agent") {
+    if (videoMode === "heygen_agent") {
       return handleGenerateHeygenAgent(idea);
+    }
+    if (videoMode === "multipage") {
+      return handleGenerateMultipageReel(idea);
     }
 
     if (generatingPostId) return;
