@@ -21,7 +21,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "dall-e-3",
-        prompt: `A professional, high-quality blog cover image for the following article topic. The image should be visually striking, modern, and suitable as a hero/cover image for a blog post. No text in the image. Topic: ${prompt}`,
+        prompt: `A professional, high-quality blog cover image for the following article topic. The image should be visually striking, modern, and suitable as a hero/cover image for a blog post. No text in the image.${brand_assets.logos?.length > 0 ? ` Subtly incorporate brand identity elements.` : ""} Topic: ${prompt}`,
         n: 1,
         size: "1024x1024",
         quality: "standard",
