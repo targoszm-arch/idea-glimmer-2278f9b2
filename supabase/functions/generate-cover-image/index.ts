@@ -10,24 +10,22 @@ serve(async (req) => {
 
   try {
     const { prompt } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
-        messages: [
-          {
-            role: "user",
-            content: `Generate a professional, high-quality blog cover image for the following article topic. The image should be visually striking, modern, and suitable as a hero/cover image for a blog post. No text in the image. Topic: ${prompt}`,
-          },
-        ],
-        modalities: ["image", "text"],
+        model: "dall-e-3",
+        prompt: `A professional, high-quality blog cover image for the following article topic. The image should be visually striking, modern, and suitable as a hero/cover image for a blog post. No text in the image. Topic: ${prompt}`,
+        n: 1,
+        size: "1792x1024",
+        quality: "standard",
+        response_format: "b64_json",
       }),
     });
 
@@ -37,26 +35,28 @@ serve(async (req) => {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required, please add credits." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      if (response.status === 402 || response.status === 401) {
+        return new Response(JSON.stringify({ error: "OpenAI API key issue — check billing or key validity." }), {
+          status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const t = await response.text();
-      console.error("Image generation error:", response.status, t);
+      console.error("OpenAI DALL-E error:", response.status, t);
       return new Response(JSON.stringify({ error: "Image generation failed" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await response.json();
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const b64 = data.data?.[0]?.b64_json;
 
-    if (!imageUrl) {
+    if (!b64) {
       return new Response(JSON.stringify({ error: "No image generated" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const imageUrl = `data:image/png;base64,${b64}`;
 
     return new Response(JSON.stringify({ image_url: imageUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
