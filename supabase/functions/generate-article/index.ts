@@ -9,13 +9,32 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { topic, tone = "professional", category = "" } = await req.json();
+    const {
+      topic,
+      tone = "Informative",
+      tone_description = "",
+      category = "",
+      app_description = "",
+      app_audience = "",
+      reference_urls = [],
+    } = await req.json();
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    let contextBlock = "";
+    if (app_description) contextBlock += `\nApp/Product context: ${app_description}`;
+    if (app_audience) contextBlock += `\nTarget audience: ${app_audience}`;
+    if (reference_urls.length > 0) contextBlock += `\nReference content to emulate style from: ${reference_urls.join(", ")}`;
+
     const systemPrompt = `You are an expert content writer. Generate a comprehensive, well-structured article in HTML format.
+
+Tone & Voice: ${tone}
+${tone_description ? `Tone details: ${tone_description}` : ""}
+${contextBlock}
+
 The article should:
-- Be written in a ${tone} tone
+- Follow the tone and voice instructions precisely
 - Include proper HTML tags (h2, h3, p, ul, ol, blockquote, strong, em)
 - Be SEO-optimized with proper heading hierarchy
 - Be 800-1500 words long
