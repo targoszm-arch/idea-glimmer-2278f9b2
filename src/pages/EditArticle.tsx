@@ -87,6 +87,35 @@ const EditArticle = () => {
     }
   };
 
+  const handleGenerateCoverImage = async () => {
+    const imagePrompt = title.trim();
+    if (!imagePrompt) {
+      toast({ title: "Enter a title first", variant: "destructive" });
+      return;
+    }
+    setIsGeneratingImage(true);
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-cover-image`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ prompt: imagePrompt }),
+        }
+      );
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Image generation failed");
+      setCoverImageUrl(data.image_url);
+      toast({ title: "Cover image generated!" });
+    } catch (e: any) {
+      toast({ title: "Image generation failed", description: e.message, variant: "destructive" });
+    }
+    setIsGeneratingImage(false);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
