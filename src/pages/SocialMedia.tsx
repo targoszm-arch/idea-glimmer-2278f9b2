@@ -612,7 +612,7 @@ const SocialMedia = () => {
           </p>
 
           <Tabs value={platform} onValueChange={(v) => setPlatform(v as Platform)}>
-            <TabsList className="grid w-full grid-cols-5 mb-6">
+            <TabsList className="grid w-full grid-cols-6 mb-6">
               {platforms.map((p) => {
                 const Icon = p.icon;
                 return (
