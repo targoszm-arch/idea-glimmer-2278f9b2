@@ -538,6 +538,7 @@ const SocialMedia = () => {
     }
   }, [aiSettings, generatingPostId, toast]);
 
+  const handleGeneratePost = useCallback(async (idea: SocialPostIdea) => {
     // For IG Reels with Sora video mode
     if (idea.platform === "instagram_reel" && reelMode === "sora_video") {
       return handleGenerateReelVideo(idea);
