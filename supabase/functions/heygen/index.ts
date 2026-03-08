@@ -115,6 +115,30 @@ serve(async (req) => {
       });
     }
 
+    // ACTION: agent - Generate video using HeyGen Video Agent (prompt-to-video)
+    if (action === "agent") {
+      if (!prompt) throw new Error("prompt is required for agent action");
+
+      const resp = await fetch(`${HEYGEN_BASE}/v1/video_agent/generate`, {
+        method: "POST",
+        headers: heygenHeaders,
+        body: JSON.stringify({ prompt }),
+      });
+
+      if (!resp.ok) {
+        const t = await resp.text();
+        console.error("HeyGen agent error:", resp.status, t);
+        throw new Error(`HeyGen Agent API error (${resp.status}): ${t}`);
+      }
+
+      const data = await resp.json();
+      console.log("HeyGen agent video started:", JSON.stringify(data));
+
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     throw new Error(`Unknown action: ${action}`);
   } catch (e) {
     console.error("heygen error:", e);
