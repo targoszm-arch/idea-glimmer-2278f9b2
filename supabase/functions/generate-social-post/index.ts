@@ -87,6 +87,42 @@ Recommended trending audio style or original audio approach
 
 ## CTA
 Specific call to action (save, share, comment, link in bio)`,
+
+  instagram_reel_multipage: `Generate a multipage Instagram Reel (swipeable image carousel designed as a Reel) for Skill Studio AI.
+This is NOT a video — it's a series of static slides designed to be posted as a carousel Reel.
+
+Structure:
+## Hook Slide (Slide 1)
+**Headline:** Bold, scroll-stopping text (5-8 words max)
+**Subtext:** 1 line of supporting context
+**Visual direction:** Background color/gradient, typography style, imagery suggestions
+**Brand logo placement:** Where to place the logo
+
+## Content Slides (Slides 2-7)
+For each slide:
+### Slide [number]
+**Headline:** Large bold text (the key point — 3-8 words)
+**Body text:** 1-2 short sentences expanding on the headline
+**Visual direction:** Background style, icons/illustrations to include, color palette
+**Text overlay style:** Font size hierarchy, alignment, any animated text suggestions
+
+Follow formats like:
+- "5 things you need to know about..."
+- "Stop doing X, start doing Y"
+- Myth vs Reality
+- Step-by-step guides
+- Before → After comparisons
+
+## CTA Slide (Final Slide)
+**Headline:** Clear call to action
+**Body:** What the viewer should do next
+**Visual direction:** Brand-consistent design with logo prominent
+
+## Caption
+Engaging caption (under 2,200 chars) with hook, value proposition, CTA, and 20-30 hashtags
+
+## Design Notes
+Overall color palette, font recommendations, and visual consistency guidelines for the entire reel`,
 };
 
 serve(async (req) => {

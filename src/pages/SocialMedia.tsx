@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Linkedin, Youtube, Twitter, Instagram, Film, Loader2, Sparkles, Trash2, Copy, Check, ChevronDown, ChevronUp, Lightbulb, Video, Play } from "lucide-react";
+import { Linkedin, Youtube, Twitter, Instagram, Film, Loader2, Sparkles, Trash2, Copy, Check, ChevronDown, ChevronUp, Lightbulb, Video, Play, Images } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -55,6 +55,7 @@ const SocialMedia = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [videoProgress, setVideoProgress] = useState<string | null>(null);
   const [videoProgressPercent, setVideoProgressPercent] = useState(0);
+  const [reelMode, setReelMode] = useState<"video" | "multipage">("video");
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
 
@@ -282,10 +283,75 @@ const SocialMedia = () => {
     }
   }, [aiSettings, generatingPostId, toast]);
 
+  const handleGenerateMultipageReel = useCallback(async (idea: SocialPostIdea) => {
+    if (generatingPostId) return;
+    setGeneratingPostId(idea.id);
+    setExpandedPostId(idea.id);
+    setStreamingContent("");
+
+    let accumulated = "";
+
+    toast({ title: "Generating multipage reel...", description: `"${idea.title_suggestion}" — creating slides...` });
+
+    await streamAI({
+      functionName: "generate-social-post",
+      body: {
+        platform: "instagram_reel_multipage",
+        topic: idea.title_suggestion,
+        tone: aiSettings?.tone_label || "Engaging",
+        tone_description: aiSettings?.tone_description || "",
+        app_description: aiSettings?.app_description || "",
+        app_audience: aiSettings?.app_audience || "",
+        reference_urls: aiSettings?.reference_urls || [],
+        brand_assets: brandAssets,
+      },
+      onDelta: (text) => {
+        accumulated += text;
+        setStreamingContent(accumulated);
+      },
+      onDone: async () => {
+        const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
+          platform: idea.platform,
+          topic: idea.topic,
+          title: idea.title_suggestion,
+          content: accumulated,
+        }).select().single();
+
+        if (saveError) {
+          toast({ title: "Failed to save", description: saveError.message, variant: "destructive" });
+          setGeneratingPostId(null);
+          return;
+        }
+
+        await supabase.from("social_post_ideas").update({
+          status: "used",
+          post_id: postData.id,
+        }).eq("id", idea.id);
+
+        setIdeas((prev) => prev.map((i) =>
+          i.id === idea.id ? { ...i, status: "used", post_id: postData.id } : i
+        ));
+        setPosts((prev) => ({ ...prev, [postData.id]: postData as SocialPost }));
+        setStreamingContent("");
+        setGeneratingPostId(null);
+        toast({ title: "Multipage reel created!", description: `"${idea.title_suggestion}" slides ready.` });
+      },
+      onError: (error) => {
+        setGeneratingPostId(null);
+        setStreamingContent("");
+        toast({ title: "Generation failed", description: error, variant: "destructive" });
+      },
+    });
+  }, [aiSettings, brandAssets, generatingPostId, toast]);
+
   const handleGeneratePost = useCallback(async (idea: SocialPostIdea) => {
-    // For IG Reels, generate video instead
-    if (idea.platform === "instagram_reel") {
+    // For IG Reels with video mode, generate video
+    if (idea.platform === "instagram_reel" && reelMode === "video") {
       return handleGenerateReelVideo(idea);
+    }
+    // For IG Reels with multipage mode, generate multipage reel content
+    if (idea.platform === "instagram_reel" && reelMode === "multipage") {
+      return handleGenerateMultipageReel(idea);
     }
 
     if (generatingPostId) return;
@@ -346,7 +412,7 @@ const SocialMedia = () => {
         toast({ title: "Generation failed", description: error, variant: "destructive" });
       },
     });
-  }, [aiSettings, generatingPostId, toast, handleGenerateReelVideo]);
+  }, [aiSettings, generatingPostId, toast, handleGenerateReelVideo, handleGenerateMultipageReel, reelMode]);
 
   const handleDeleteIdea = async (id: string) => {
     const { error } = await supabase.from("social_post_ideas").delete().eq("id", id);
@@ -516,9 +582,9 @@ const SocialMedia = () => {
                 className="text-xs gap-1"
               >
                 {isGeneratingThis ? (
-                  <><Loader2 className="h-3 w-3 animate-spin" /> {isReel ? "Generating Video..." : "Generating..."}</>
+                  <><Loader2 className="h-3 w-3 animate-spin" /> {isReel ? (reelMode === "video" ? "Generating Video..." : "Generating Slides...") : "Generating..."}</>
                 ) : (
-                  <>{isReel ? <Video className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />} {isReel ? "Generate Video" : "Generate Post"}</>
+                  <>{isReel ? (reelMode === "video" ? <Video className="h-3 w-3" /> : <Images className="h-3 w-3" />) : <Sparkles className="h-3 w-3" />} {isReel ? (reelMode === "video" ? "Generate Video" : "Generate Multipage") : "Generate Post"}</>
                 )}
               </Button>
             )}
@@ -560,9 +626,29 @@ const SocialMedia = () => {
                     <h2 className="text-lg font-bold text-foreground">Generate {p.label} Ideas</h2>
                   </div>
                   {p.key === "instagram_reel" && (
-                    <p className="mb-3 text-xs text-primary/80 flex items-center gap-1">
-                      <Video className="h-3 w-3" /> Reel ideas will generate actual videos using OpenAI Sora
-                    </p>
+                    <div className="mb-3 flex items-center gap-3">
+                      <p className="text-xs text-muted-foreground">Reel type:</p>
+                      <div className="flex rounded-lg border border-input overflow-hidden">
+                        <button
+                          onClick={() => setReelMode("video")}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
+                            reelMode === "video" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <Video className="h-3 w-3" /> AI Video
+                        </button>
+                        <button
+                          onClick={() => setReelMode("multipage")}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
+                            reelMode === "multipage" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <Images className="h-3 w-3" /> Multipage Reel
+                        </button>
+                      </div>
+                    </div>
                   )}
                   {aiSettings?.app_description && (
                     <p className="mb-3 text-xs text-muted-foreground">
