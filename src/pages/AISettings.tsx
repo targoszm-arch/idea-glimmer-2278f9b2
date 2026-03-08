@@ -182,21 +182,28 @@ const AISettings = () => {
             </p>
 
             <div className="flex gap-2">
-              <input
+              <textarea
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addUrl()}
-                placeholder="https://example.com/blog/great-article"
-                className="flex-1 rounded-lg border border-input bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    addUrl();
+                  }
+                }}
+                placeholder="Paste one or multiple URLs (separated by commas, spaces, or new lines)"
+                rows={2}
+                className="flex-1 rounded-lg border border-input bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
               />
               <button
                 onClick={addUrl}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary/80"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary/80 self-end"
               >
                 <Plus className="h-4 w-4" />
                 Add
               </button>
             </div>
+            <p className="mt-1.5 text-xs text-muted-foreground">{referenceUrls.length} URLs added</p>
 
             {referenceUrls.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
