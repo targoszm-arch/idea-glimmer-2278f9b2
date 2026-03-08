@@ -74,8 +74,7 @@ ${reference_urls?.length ? `\nReference content style from: ${reference_urls.joi
         body: JSON.stringify({
           model: "sora-2",
           prompt: videoPrompt,
-          size: "720x1280", // 9:16 portrait for IG Reels
-          n: 1,
+          size: "720x1280",
         }),
       });
 
