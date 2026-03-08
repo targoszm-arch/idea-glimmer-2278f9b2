@@ -151,7 +151,19 @@ const ContentIdeas = () => {
         if (h1Match) articleTitle = h1Match[1].replace(/<[^>]*>/g, "");
       },
       onDone: async () => {
-        // Also generate cover image in parallel (fire & forget, will update later if needed)
+        // Parse meta title and description from comments
+        const metaTitleMatch = accumulated.match(/<!--\s*META_TITLE:\s*(.*?)\s*-->/i);
+        const metaDescMatch = accumulated.match(/<!--\s*META_DESCRIPTION:\s*(.*?)\s*-->/i);
+        const metaTitle = metaTitleMatch ? metaTitleMatch[1].trim() : "";
+        const metaDescription = metaDescMatch ? metaDescMatch[1].trim() : "";
+
+        // Remove meta comments from article content
+        const cleanContent = accumulated
+          .replace(/<!--\s*META_TITLE:.*?-->/gi, "")
+          .replace(/<!--\s*META_DESCRIPTION:.*?-->/gi, "")
+          .trim();
+
+        // Generate cover image
         let coverImageUrl: string | null = null;
         try {
           const imgResp = await fetch(
@@ -168,20 +180,24 @@ const ContentIdeas = () => {
           if (imgResp.ok) {
             const imgData = await imgResp.json();
             coverImageUrl = imgData.image_url || null;
+          } else {
+            console.error("Cover image generation failed:", imgResp.status);
+            toast({ title: "Cover image failed", description: "Article saved without a cover image.", variant: "destructive" });
           }
-        } catch {
-          // Image generation failed silently — article still saved
+        } catch (imgErr) {
+          console.error("Cover image error:", imgErr);
+          toast({ title: "Cover image failed", description: "Article saved without a cover image.", variant: "destructive" });
         }
 
         const slug = articleTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-        const excerpt = accumulated.replace(/<[^>]*>/g, "").slice(0, 200);
+        const excerpt = cleanContent.replace(/<[^>]*>/g, "").slice(0, 200);
 
         const { data: articleData, error: saveError } = await supabase.from("articles").insert({
-          title: articleTitle,
+          title: metaTitle || articleTitle,
           slug,
-          content: accumulated,
+          content: cleanContent,
           excerpt,
-          meta_description: excerpt,
+          meta_description: metaDescription || excerpt,
           category: idea.category,
           status: "draft",
           cover_image_url: coverImageUrl,
