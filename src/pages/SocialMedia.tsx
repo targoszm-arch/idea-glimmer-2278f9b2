@@ -582,9 +582,9 @@ const SocialMedia = () => {
                 className="text-xs gap-1"
               >
                 {isGeneratingThis ? (
-                  <><Loader2 className="h-3 w-3 animate-spin" /> {isReel ? "Generating Video..." : "Generating..."}</>
+                  <><Loader2 className="h-3 w-3 animate-spin" /> {isReel ? (reelMode === "video" ? "Generating Video..." : "Generating Slides...") : "Generating..."}</>
                 ) : (
-                  <>{isReel ? <Video className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />} {isReel ? "Generate Video" : "Generate Post"}</>
+                  <>{isReel ? (reelMode === "video" ? <Video className="h-3 w-3" /> : <Images className="h-3 w-3" />) : <Sparkles className="h-3 w-3" />} {isReel ? (reelMode === "video" ? "Generate Video" : "Generate Multipage") : "Generate Post"}</>
                 )}
               </Button>
             )}
