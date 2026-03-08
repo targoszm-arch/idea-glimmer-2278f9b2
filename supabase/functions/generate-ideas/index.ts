@@ -9,9 +9,34 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { niche } = await req.json();
+    const {
+      niche = "",
+      app_description = "",
+      app_audience = "",
+      tone = "",
+      tone_description = "",
+      reference_urls = [],
+    } = await req.json();
+
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
     if (!PERPLEXITY_API_KEY) throw new Error("PERPLEXITY_API_KEY is not configured");
+
+    // Build context from AI settings + optional niche override
+    let contextParts: string[] = [];
+    if (app_description) contextParts.push(`Product/App: ${app_description}`);
+    if (app_audience) contextParts.push(`Target audience: ${app_audience}`);
+    if (tone) contextParts.push(`Preferred tone: ${tone}`);
+    if (tone_description) contextParts.push(`Tone details: ${tone_description}`);
+    if (reference_urls.length > 0) contextParts.push(`Reference content style from: ${reference_urls.join(", ")}`);
+    if (niche) contextParts.push(`Additional context/niche: ${niche}`);
+
+    const contextBlock = contextParts.length > 0 ? `\n\nContext:\n${contextParts.join("\n")}` : "";
+
+    const userPrompt = niche
+      ? `Generate content ideas for: ${niche}`
+      : app_description
+        ? `Generate content ideas for this product/app: ${app_description}`
+        : "Generate content ideas";
 
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
@@ -25,10 +50,11 @@ serve(async (req) => {
           {
             role: "system",
             content: `You are a content strategist. Generate 8 content ideas using the TOFU/MOFU/BOFU funnel strategy.
+Use the provided context about the product, audience, and tone to make ideas highly relevant and specific.
 Return ideas as a JSON object only, no markdown, no code fences. Format:
-{"ideas":[{"title":"...","strategy":"TOFU|MOFU|BOFU","category":"...","topic":"..."}]}`
+{"ideas":[{"title":"...","strategy":"TOFU|MOFU|BOFU","category":"...","topic":"..."}]}${contextBlock}`
           },
-          { role: "user", content: `Generate content ideas for: ${niche}` },
+          { role: "user", content: userPrompt },
         ],
       }),
     });
@@ -55,13 +81,11 @@ Return ideas as a JSON object only, no markdown, no code fences. Format:
     const content = data.choices?.[0]?.message?.content || "";
 
     try {
-      // Try to parse the content directly as JSON
       const parsed = JSON.parse(content);
       return new Response(JSON.stringify(parsed), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch {
-      // Try to extract JSON from markdown code fences
       const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (jsonMatch) {
         try {
