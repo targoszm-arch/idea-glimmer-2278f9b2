@@ -23,7 +23,7 @@ serve(async (req) => {
         model: "dall-e-3",
         prompt: `A professional, high-quality blog cover image for the following article topic. The image should be visually striking, modern, and suitable as a hero/cover image for a blog post. No text in the image. Topic: ${prompt}`,
         n: 1,
-        size: "1792x1024",
+        size: "1024x1024",
         quality: "standard",
         response_format: "b64_json",
       }),
