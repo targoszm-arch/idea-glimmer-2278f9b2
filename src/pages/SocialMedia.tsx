@@ -353,7 +353,7 @@ const SocialMedia = () => {
     toast({ title: "Copied to clipboard" });
   };
 
-  const IdeaCard = ({ idea, index }: { idea: SocialPostIdea; index: number }) => {
+  const renderIdeaCard = useCallback((idea: SocialPostIdea, index: number) => {
     const isGeneratingThis = generatingPostId === idea.id;
     const hasPost = !!idea.post_id;
     const post = idea.post_id ? posts[idea.post_id] : null;
@@ -364,11 +364,13 @@ const SocialMedia = () => {
 
     return (
       <motion.div
+        key={idea.id}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.05 }}
+        layout={false}
         className={cn(
-          "rounded-xl border bg-card p-5 transition-all hover:shadow-md",
+          "rounded-xl border bg-card p-5 transition-shadow hover:shadow-md",
           isGeneratingThis && "border-primary/50 bg-primary/5",
           !isGeneratingThis && hasPost ? "border-border/50" : "border-border hover:border-primary/30"
         )}
@@ -410,72 +412,58 @@ const SocialMedia = () => {
         )}
 
         {/* Expanded post content */}
-        <AnimatePresence>
-          {isExpanded && (displayContent || hasVideo) && !isGeneratingThis && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-4 rounded-lg border border-border bg-muted/30 p-4 relative"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-muted-foreground uppercase">
-                  {hasVideo ? "Generated Video" : "Generated Content"}
-                </span>
-                {post && !hasVideo && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCopy(post.content, post.id)}
-                    className="h-7 px-2"
-                  >
-                    {copiedId === post.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  </Button>
-                )}
-              </div>
-              {hasVideo ? (
-                <div className="rounded-lg overflow-hidden bg-black aspect-[9/16] max-h-96 mx-auto">
-                  <video
-                    src={post!.video_url!}
-                    controls
-                    className="w-full h-full object-contain"
-                    preload="metadata"
-                  />
-                </div>
-              ) : (
-                <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap text-sm max-h-80 overflow-y-auto">
-                  {displayContent}
-                </div>
+        {isExpanded && (displayContent || hasVideo) && !isGeneratingThis && (
+          <div className="mb-4 rounded-lg border border-border bg-muted/30 p-4 relative">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-muted-foreground uppercase">
+                {hasVideo ? "Generated Video" : "Generated Content"}
+              </span>
+              {post && !hasVideo && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleCopy(post.content, post.id)}
+                  className="h-7 px-2"
+                >
+                  {copiedId === post.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                </Button>
               )}
-              {displayContent && hasVideo && (
-                <details className="mt-3 text-xs">
-                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">View video prompt</summary>
-                  <p className="mt-1 text-muted-foreground italic">{displayContent}</p>
-                </details>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Non-reel streaming content while generating */}
-        <AnimatePresence>
-          {isExpanded && displayContent && isGeneratingThis && !isReel && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-4 rounded-lg border border-border bg-muted/30 p-4 relative"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-muted-foreground uppercase">Generated Content</span>
+            </div>
+            {hasVideo ? (
+              <div className="rounded-lg overflow-hidden bg-black aspect-[9/16] max-h-96 mx-auto">
+                <video
+                  src={post!.video_url!}
+                  controls
+                  className="w-full h-full object-contain"
+                  preload="metadata"
+                />
               </div>
+            ) : (
               <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap text-sm max-h-80 overflow-y-auto">
                 {displayContent}
-                <span className="inline-block w-1.5 h-4 bg-primary animate-pulse ml-0.5" />
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+            {displayContent && hasVideo && (
+              <details className="mt-3 text-xs">
+                <summary className="cursor-pointer text-muted-foreground hover:text-foreground">View video prompt</summary>
+                <p className="mt-1 text-muted-foreground italic">{displayContent}</p>
+              </details>
+            )}
+          </div>
+        )}
+
+        {/* Non-reel streaming content while generating */}
+        {isExpanded && displayContent && isGeneratingThis && !isReel && (
+          <div className="mb-4 rounded-lg border border-border bg-muted/30 p-4 relative">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-muted-foreground uppercase">Generated Content</span>
+            </div>
+            <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap text-sm max-h-80 overflow-y-auto">
+              {displayContent}
+              <span className="inline-block w-1.5 h-4 bg-primary animate-pulse ml-0.5" />
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center justify-between pt-3 border-t border-border">
           <button
@@ -527,7 +515,7 @@ const SocialMedia = () => {
         </div>
       </motion.div>
     );
-  };
+  }, [generatingPostId, posts, expandedPostId, streamingContent, videoProgress, videoProgressPercent, copiedId, handleGeneratePost, handleCopy, handleDeleteIdea]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -603,9 +591,7 @@ const SocialMedia = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredIdeas.map((idea, index) => (
-                      <IdeaCard key={idea.id} idea={idea} index={index} />
-                    ))}
+                    {filteredIdeas.map((idea, index) => renderIdeaCard(idea, index))}
                   </div>
                 )}
               </TabsContent>
