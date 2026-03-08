@@ -533,17 +533,17 @@ const SocialMedia = () => {
       const videoId = result?.data?.video_id;
       if (!videoId) throw new Error("No video_id returned from HeyGen Agent");
 
-      setVideoProgress("HeyGen Agent is creating your video. This may take 2-5 minutes...");
+      setVideoProgress("HeyGen Agent is creating your video. This can take up to 15 minutes...");
       setVideoProgressPercent(15);
 
-      const videoUrl = await new Promise<string>((resolve, reject) => {
+      await new Promise<void>((resolve, reject) => {
         let attempts = 0;
-        const maxAttempts = 120;
+        const maxAttempts = 240;
         pollingRef.current = setInterval(async () => {
           attempts++;
           if (attempts > maxAttempts) {
             if (pollingRef.current) clearInterval(pollingRef.current);
-            reject(new Error("HeyGen Agent video timed out"));
+            reject(new Error("HeyGen Agent video timed out after 20 minutes"));
             return;
           }
           try {
@@ -551,17 +551,24 @@ const SocialMedia = () => {
             const status = statusResult?.data?.status;
             if (status === "completed") {
               if (pollingRef.current) clearInterval(pollingRef.current);
-              resolve(statusResult?.data?.video_url || "");
+              resolve();
             } else if (status === "failed") {
               if (pollingRef.current) clearInterval(pollingRef.current);
               reject(new Error(statusResult?.data?.error || "HeyGen Agent failed"));
             } else {
-              setVideoProgressPercent(Math.min(15 + (attempts / maxAttempts) * 75, 90));
-              setVideoProgress(`Agent working... (${status || "processing"})`);
+              setVideoProgressPercent(Math.min(15 + (attempts / maxAttempts) * 70, 85));
+              setVideoProgress(`Agent working... (${status || "processing"}) — ${Math.floor(attempts * 5 / 60)}m ${(attempts * 5) % 60}s`);
             }
           } catch (e) { console.warn("Poll error:", e); }
         }, 5000);
       });
+
+      // Download video to Supabase storage
+      setVideoProgress("Downloading video to library...");
+      setVideoProgressPercent(92);
+      const dlResult = await callHeygen({ action: "download", video_id: videoId });
+      const storedVideoUrl = dlResult?.video_url;
+      if (!storedVideoUrl) throw new Error("Failed to download and store video");
 
       setVideoProgressPercent(100);
 
@@ -570,7 +577,7 @@ const SocialMedia = () => {
         topic: idea.topic,
         title: idea.title_suggestion,
         content: `HeyGen Agent video: ${prompt}`,
-        video_url: videoUrl,
+        video_url: storedVideoUrl,
       }).select().single();
       if (saveError) throw new Error(saveError.message);
 
