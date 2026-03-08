@@ -96,7 +96,9 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          description: string
           id: string
+          scheduled_for: string | null
           status: string
           strategy: string
           title_suggestion: string
@@ -105,7 +107,9 @@ export type Database = {
         Insert: {
           category?: string
           created_at?: string
+          description?: string
           id?: string
+          scheduled_for?: string | null
           status?: string
           strategy?: string
           title_suggestion: string
@@ -114,7 +118,9 @@ export type Database = {
         Update: {
           category?: string
           created_at?: string
+          description?: string
           id?: string
+          scheduled_for?: string | null
           status?: string
           strategy?: string
           title_suggestion?: string
