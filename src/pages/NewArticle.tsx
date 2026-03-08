@@ -21,11 +21,30 @@ const NewArticle = () => {
 
   const [title, setTitle] = useState("");
   const [topic, setTopic] = useState(prefillTopic);
-  const [tone, setTone] = useState("professional");
+  const [tone, setTone] = useState("informative");
   const [category, setCategory] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showAssistant, setShowAssistant] = useState(false);
+
+  // AI Settings from knowledge base
+  const [aiSettings, setAiSettings] = useState<{
+    tone_key: string;
+    tone_description: string;
+    app_description: string;
+    app_audience: string;
+    reference_urls: string[];
+  } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("ai_settings").select("*").limit(1).single();
+      if (data) {
+        setAiSettings(data as any);
+        setTone(data.tone_key || "informative");
+      }
+    })();
+  }, []);
 
   const editor = useEditor({
     extensions: [
