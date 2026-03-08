@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, X, PenSquare, Lightbulb, Library, Settings } from "lucide-react";
+import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 
@@ -7,6 +7,7 @@ const navItems = [
   { label: "Library", href: "/", icon: Library },
   { label: "New Article", href: "/new", icon: PenSquare },
   { label: "Content Ideas", href: "/ideas", icon: Lightbulb },
+  { label: "Social Media", href: "/social", icon: Share2 },
   { label: "AI Settings", href: "/settings", icon: Settings },
 ];
 
