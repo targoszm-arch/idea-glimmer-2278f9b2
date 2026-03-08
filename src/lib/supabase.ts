@@ -24,5 +24,6 @@ export type ContentIdea = {
   category: string;
   status: 'unused' | 'used';
   scheduled_for: string | null;
+  article_id: string | null;
   created_at: string;
 };

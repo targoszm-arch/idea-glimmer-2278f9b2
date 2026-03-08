@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lightbulb, Sparkles, Loader2, ArrowRight, Trash2, CalendarIcon, List, CalendarPlus } from "lucide-react";
+import { Lightbulb, Sparkles, Loader2, ArrowRight, Trash2, CalendarIcon, List, CalendarPlus, Eye } from "lucide-react";
 import { motion } from "framer-motion";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, getDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay } from "date-fns";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { supabase, type ContentIdea } from "@/lib/supabase";
+import { streamAI } from "@/lib/ai-stream";
+import { TONE_PRESETS } from "@/lib/tones";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +35,7 @@ const ContentIdeas = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [schedulingId, setSchedulingId] = useState<string | null>(null);
+  const [generatingArticleId, setGeneratingArticleId] = useState<string | null>(null);
   const [aiSettings, setAiSettings] = useState<{
     app_description: string;
     app_audience: string;
@@ -120,10 +123,95 @@ const ContentIdeas = () => {
     setIsGenerating(false);
   };
 
-  const handleUseIdea = async (idea: ContentIdea) => {
-    await supabase.from("content_ideas").update({ status: "used" }).eq("id", idea.id);
-    navigate(`/new?topic=${encodeURIComponent(idea.title_suggestion)}`);
-  };
+  const handleUseIdea = useCallback(async (idea: ContentIdea) => {
+    if (generatingArticleId) return;
+    setGeneratingArticleId(idea.id);
+
+    const tonePreset = TONE_PRESETS.find((t) => t.key === (aiSettings?.tone_key || "informative"));
+    let accumulated = "";
+    let articleTitle = idea.title_suggestion;
+
+    toast({ title: "Generating article...", description: `"${idea.title_suggestion}" — this may take a moment.` });
+
+    await streamAI({
+      functionName: "generate-article",
+      body: {
+        topic: idea.title_suggestion,
+        tone: aiSettings?.tone_label || tonePreset?.label || "Informative",
+        tone_description: aiSettings?.tone_description || tonePreset?.description || "",
+        category: idea.category,
+        app_description: aiSettings?.app_description || "",
+        app_audience: aiSettings?.app_audience || "",
+        reference_urls: aiSettings?.reference_urls || [],
+      },
+      onDelta: (text) => {
+        accumulated += text;
+        // Extract title from first H1
+        const h1Match = accumulated.match(/<h1[^>]*>(.*?)<\/h1>/i);
+        if (h1Match) articleTitle = h1Match[1].replace(/<[^>]*>/g, "");
+      },
+      onDone: async () => {
+        // Also generate cover image in parallel (fire & forget, will update later if needed)
+        let coverImageUrl: string | null = null;
+        try {
+          const imgResp = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-cover-image`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify({ prompt: idea.title_suggestion }),
+            }
+          );
+          if (imgResp.ok) {
+            const imgData = await imgResp.json();
+            coverImageUrl = imgData.image_url || null;
+          }
+        } catch {
+          // Image generation failed silently — article still saved
+        }
+
+        const slug = articleTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+        const excerpt = accumulated.replace(/<[^>]*>/g, "").slice(0, 200);
+
+        const { data: articleData, error: saveError } = await supabase.from("articles").insert({
+          title: articleTitle,
+          slug,
+          content: accumulated,
+          excerpt,
+          meta_description: excerpt,
+          category: idea.category,
+          status: "draft",
+          cover_image_url: coverImageUrl,
+        }).select().single();
+
+        if (saveError) {
+          toast({ title: "Failed to save article", description: saveError.message, variant: "destructive" });
+          setGeneratingArticleId(null);
+          return;
+        }
+
+        // Update idea with article_id and status
+        await supabase.from("content_ideas").update({
+          status: "used",
+          article_id: articleData.id,
+        }).eq("id", idea.id);
+
+        setIdeas((prev) => prev.map((i) =>
+          i.id === idea.id ? { ...i, status: "used", article_id: articleData.id } : i
+        ));
+
+        setGeneratingArticleId(null);
+        toast({ title: "Article generated!", description: `"${articleTitle}" saved as draft.` });
+      },
+      onError: (error) => {
+        setGeneratingArticleId(null);
+        toast({ title: "Article generation failed", description: error, variant: "destructive" });
+      },
+    });
+  }, [aiSettings, generatingArticleId]);
 
   const handleDeleteIdea = async (id: string) => {
     const { error } = await supabase.from("content_ideas").delete().eq("id", id);
@@ -167,82 +255,105 @@ const ContentIdeas = () => {
   const getIdeasForDay = (day: Date) =>
     scheduledIdeas.filter((i) => i.scheduled_for && isSameDay(new Date(i.scheduled_for), day));
 
-  const IdeaCard = ({ idea, index }: { idea: ContentIdea; index: number }) => (
-    <motion.div
-      key={idea.id}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className={`group relative rounded-xl border bg-card p-5 transition-all hover:shadow-md ${
-        idea.status === "used" ? "border-border/50 opacity-60" : "border-border hover:border-primary/30"
-      }`}
-    >
-      <div className="mb-3 flex items-center justify-between">
-        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${strategyColors[idea.strategy] || ""}`}>
-          {idea.strategy}
-        </span>
-        <div className="flex items-center gap-2">
-          {idea.scheduled_for && (
-            <Badge variant="outline" className="text-xs gap-1">
-              <CalendarIcon className="h-3 w-3" />
-              {format(new Date(idea.scheduled_for), "MMM d")}
-            </Badge>
-          )}
-          {idea.status === "used" && <Badge variant="secondary" className="text-xs">Used</Badge>}
+  const IdeaCard = ({ idea, index }: { idea: ContentIdea; index: number }) => {
+    const isGeneratingThis = generatingArticleId === idea.id;
+    const hasArticle = !!idea.article_id;
+
+    return (
+      <motion.div
+        key={idea.id}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.05 }}
+        className={cn(
+          "group relative rounded-xl border bg-card p-5 transition-all hover:shadow-md",
+          isGeneratingThis && "border-primary/50 bg-primary/5 animate-pulse",
+          !isGeneratingThis && idea.status === "used" ? "border-border/50" : "border-border hover:border-primary/30"
+        )}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${strategyColors[idea.strategy] || ""}`}>
+            {idea.strategy}
+          </span>
+          <div className="flex items-center gap-2">
+            {idea.scheduled_for && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <CalendarIcon className="h-3 w-3" />
+                {format(new Date(idea.scheduled_for), "MMM d")}
+              </Badge>
+            )}
+            {isGeneratingThis && <Badge className="text-xs gap-1 bg-primary"><Loader2 className="h-3 w-3 animate-spin" /> Generating</Badge>}
+            {hasArticle && !isGeneratingThis && <Badge variant="secondary" className="text-xs">Article Ready</Badge>}
+          </div>
         </div>
-      </div>
-      <h3 className="mb-2 font-bold text-foreground line-clamp-2">{idea.title_suggestion}</h3>
-      {idea.description && (
-        <p className="mb-3 text-sm text-muted-foreground line-clamp-3">{idea.description}</p>
-      )}
-      {idea.category && (
-        <p className="mb-4 text-xs text-muted-foreground">{idea.category}</p>
-      )}
-      <div className="flex items-center justify-between pt-3 border-t border-border">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleDeleteIdea(idea.id)}
-            className="text-muted-foreground hover:text-destructive transition-colors"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-          <Popover open={schedulingId === idea.id} onOpenChange={(open) => setSchedulingId(open ? idea.id : null)}>
-            <PopoverTrigger asChild>
-              <button className="text-muted-foreground hover:text-primary transition-colors" title="Schedule">
-                <CalendarPlus className="h-4 w-4" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={idea.scheduled_for ? new Date(idea.scheduled_for) : undefined}
-                onSelect={(date) => handleSchedule(idea.id, date)}
-                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-              />
-              {idea.scheduled_for && (
-                <div className="px-3 pb-3">
-                  <button
-                    onClick={() => { handleUnschedule(idea.id); setSchedulingId(null); }}
-                    className="w-full text-xs text-destructive hover:underline"
-                  >
-                    Remove schedule
-                  </button>
-                </div>
+        <h3 className="mb-2 font-bold text-foreground line-clamp-2">{idea.title_suggestion}</h3>
+        {idea.description && (
+          <p className="mb-3 text-sm text-muted-foreground line-clamp-3">{idea.description}</p>
+        )}
+        {idea.category && (
+          <p className="mb-4 text-xs text-muted-foreground">{idea.category}</p>
+        )}
+        <div className="flex items-center justify-between pt-3 border-t border-border">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleDeleteIdea(idea.id)}
+              className="text-muted-foreground hover:text-destructive transition-colors"
+              disabled={isGeneratingThis}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+            <Popover open={schedulingId === idea.id} onOpenChange={(open) => setSchedulingId(open ? idea.id : null)}>
+              <PopoverTrigger asChild>
+                <button className="text-muted-foreground hover:text-primary transition-colors" title="Schedule" disabled={isGeneratingThis}>
+                  <CalendarPlus className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={idea.scheduled_for ? new Date(idea.scheduled_for) : undefined}
+                  onSelect={(date) => handleSchedule(idea.id, date)}
+                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+                {idea.scheduled_for && (
+                  <div className="px-3 pb-3">
+                    <button
+                      onClick={() => { handleUnschedule(idea.id); setSchedulingId(null); }}
+                      className="w-full text-xs text-destructive hover:underline"
+                    >
+                      Remove schedule
+                    </button>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
+          </div>
+          {hasArticle ? (
+            <button
+              onClick={() => navigate(`/article/${idea.article_id}`)}
+              className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+            >
+              <Eye className="h-3 w-3" /> Preview Article
+            </button>
+          ) : (
+            <button
+              onClick={() => handleUseIdea(idea)}
+              disabled={isGeneratingThis || !!generatingArticleId}
+              className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+            >
+              {isGeneratingThis ? (
+                <><Loader2 className="h-3 w-3 animate-spin" /> Generating...</>
+              ) : (
+                <><Sparkles className="h-3 w-3" /> Generate Article</>
               )}
-            </PopoverContent>
-          </Popover>
+            </button>
+          )}
         </div>
-        <button
-          onClick={() => handleUseIdea(idea)}
-          className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
-        >
-          Use this idea <ArrowRight className="h-3 w-3" />
-        </button>
-      </div>
-    </motion.div>
-  );
+      </motion.div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -374,7 +485,7 @@ const ContentIdeas = () => {
                           {dayIdeas.map((idea) => (
                             <button
                               key={idea.id}
-                              onClick={() => handleUseIdea(idea)}
+                              onClick={() => idea.article_id ? navigate(`/article/${idea.article_id}`) : handleUseIdea(idea)}
                               className={cn(
                                 "w-full text-left rounded px-1.5 py-1 text-[10px] leading-tight font-medium truncate border transition-colors hover:opacity-80",
                                 strategyColors[idea.strategy] || "bg-secondary text-foreground"
