@@ -20,7 +20,7 @@ const platforms = [
   { key: "instagram_reel", label: "IG Reel", icon: Film },
 ] as const;
 
-type ReelMode = "sora_video" | "heygen_template" | "heygen_agent" | "multipage";
+type VideoMode = "text_post" | "sora_video" | "heygen_template" | "heygen_agent" | "multipage";
 
 type Platform = (typeof platforms)[number]["key"];
 
