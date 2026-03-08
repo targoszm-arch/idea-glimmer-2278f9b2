@@ -49,11 +49,20 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a content strategist. Generate 8 content ideas using the TOFU/MOFU/BOFU funnel strategy.
+            content: `You are an expert content strategist for B2B SaaS and enterprise audiences. Generate 8 highly specific, actionable content ideas using the TOFU/MOFU/BOFU funnel strategy.
+
+CRITICAL RULES FOR QUALITY:
+- Titles must be specific and compelling — NOT generic. Include the target persona, the specific outcome, or a concrete angle. Bad: "Benefits of AI in Training". Good: "Beyond Completion Rates: Essential L&D Metrics for HR Teams".
+- Descriptions must be 2-3 sentences that clearly articulate: (1) what specific angle the article takes, (2) what actionable value the reader gets, and (3) who specifically benefits. Think of the description as a brief for a writer — it should make the article's direction crystal clear.
+- TOFU ideas should be educational and thought-leadership oriented, helping readers discover concepts. Prefer "What is X and How it Does Y?" or "The Benefits of X for Y" formats.
+- MOFU ideas should be practical how-to guides, step-by-step processes, or comparison content. Use formats like "How to X for Y: A Step-by-Step Guide" or "X vs Y: What Z Teams Need to Know".
+- BOFU ideas should drive decisions — case studies, feature comparisons, ROI arguments, or transformation stories. Use formats like "Why X Teams Switch to Y for Z" or "Choosing the Right X: Essential Features for Y Success".
+- Each idea must feel like it could be a standalone, publishable article that a professional would want to read.
+- Avoid vague, buzzword-heavy titles. Be concrete and specific to the product domain and audience.
+
 Use the provided context about the product, audience, and tone to make ideas highly relevant and specific.
-For each idea, include a detailed description (2-3 sentences) explaining the angle, key points to cover, and why it matters for the target audience.
 Return ideas as a JSON object only, no markdown, no code fences. Format:
-{"ideas":[{"title":"...","description":"2-3 sentence summary of the article angle and key points","strategy":"TOFU|MOFU|BOFU","category":"...","topic":"..."}]}${contextBlock}`
+{"ideas":[{"title":"...","description":"2-3 sentence brief explaining the specific angle, actionable value, and target reader","strategy":"TOFU|MOFU|BOFU","category":"...","topic":"..."}]}${contextBlock}`
           },
           { role: "user", content: userPrompt },
         ],
