@@ -139,12 +139,54 @@ export type Database = {
           },
         ]
       }
+      social_post_ideas: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          platform: string
+          post_id: string | null
+          status: string
+          title_suggestion: string
+          topic: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          platform: string
+          post_id?: string | null
+          status?: string
+          title_suggestion: string
+          topic: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          platform?: string
+          post_id?: string | null
+          status?: string
+          title_suggestion?: string
+          topic?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_post_ideas_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_posts: {
         Row: {
           content: string
           created_at: string
           id: string
           platform: string
+          title: string
           topic: string
         }
         Insert: {
@@ -152,6 +194,7 @@ export type Database = {
           created_at?: string
           id?: string
           platform: string
+          title?: string
           topic: string
         }
         Update: {
@@ -159,6 +202,7 @@ export type Database = {
           created_at?: string
           id?: string
           platform?: string
+          title?: string
           topic?: string
         }
         Relationships: []
