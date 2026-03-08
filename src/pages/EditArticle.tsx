@@ -4,7 +4,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Save, Sparkles, Loader2, ArrowLeft, Trash2 } from "lucide-react";
+import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X } from "lucide-react";
 import { motion } from "framer-motion";
 import Header from "@/components/Header";
 import EditorToolbar from "@/components/EditorToolbar";
@@ -21,6 +21,8 @@ const EditArticle = () => {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showAssistant, setShowAssistant] = useState(false);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -48,6 +50,7 @@ const EditArticle = () => {
       setTitle(data.title);
       setCategory(data.category || "");
       setStatus(data.status as "draft" | "published");
+      setCoverImageUrl(data.cover_image_url || null);
       editor?.commands.setContent(data.content || "");
       setLoading(false);
     })();
@@ -61,7 +64,7 @@ const EditArticle = () => {
     const finalStatus = newStatus || status;
 
     const { error } = await supabase.from("articles").update({
-      title, slug, content, excerpt, meta_description: excerpt, category, status: finalStatus, updated_at: new Date().toISOString(),
+      title, slug, content, excerpt, meta_description: excerpt, category, status: finalStatus, cover_image_url: coverImageUrl, updated_at: new Date().toISOString(),
     }).eq("id", id);
 
     if (error) {
@@ -82,6 +85,35 @@ const EditArticle = () => {
       toast({ title: "Article deleted" });
       navigate("/");
     }
+  };
+
+  const handleGenerateCoverImage = async () => {
+    const imagePrompt = title.trim();
+    if (!imagePrompt) {
+      toast({ title: "Enter a title first", variant: "destructive" });
+      return;
+    }
+    setIsGeneratingImage(true);
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-cover-image`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ prompt: imagePrompt }),
+        }
+      );
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Image generation failed");
+      setCoverImageUrl(data.image_url);
+      toast({ title: "Cover image generated!" });
+    } catch (e: any) {
+      toast({ title: "Image generation failed", description: e.message, variant: "destructive" });
+    }
+    setIsGeneratingImage(false);
   };
 
   if (loading) {
@@ -113,6 +145,41 @@ const EditArticle = () => {
 
           <div className="flex flex-col gap-6 lg:flex-row">
             <div className="flex-1">
+              {/* Cover Image */}
+              <div className="mb-4">
+                {coverImageUrl ? (
+                  <div className="relative overflow-hidden rounded-xl border border-border">
+                    <img src={coverImageUrl} alt="Cover" className="h-48 w-full object-cover" />
+                    <button
+                      onClick={() => setCoverImageUrl(null)}
+                      className="absolute right-2 top-2 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm hover:bg-background"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={handleGenerateCoverImage}
+                      disabled={isGeneratingImage}
+                      className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50"
+                    >
+                      {isGeneratingImage ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImagePlus className="h-3 w-3" />}
+                      Regenerate
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleGenerateCoverImage}
+                    disabled={isGeneratingImage}
+                    className="flex h-32 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+                  >
+                    {isGeneratingImage ? (
+                      <><Loader2 className="h-5 w-5 animate-spin" /> Generating cover image...</>
+                    ) : (
+                      <><ImagePlus className="h-5 w-5" /> Generate AI Cover Image</>
+                    )}
+                  </button>
+                )}
+              </div>
+
               <div className="mb-4 flex gap-4">
                 <input
                   value={title}
