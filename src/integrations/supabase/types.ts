@@ -92,6 +92,33 @@ export type Database = {
         }
         Relationships: []
       }
+      brand_assets: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_url: string
+          id: string
+          name: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string
+          file_url: string
+          id?: string
+          name?: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_url?: string
+          id?: string
+          name?: string
+          type?: string
+        }
+        Relationships: []
+      }
       content_ideas: {
         Row: {
           article_id: string | null

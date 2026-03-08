@@ -101,6 +101,7 @@ serve(async (req) => {
       app_description = "",
       app_audience = "",
       reference_urls = [],
+      brand_assets = { logos: [], visuals: [] },
     } = await req.json();
 
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
@@ -113,6 +114,8 @@ serve(async (req) => {
     if (app_description) contextBlock += `\nApp/Product context: ${app_description}`;
     if (app_audience) contextBlock += `\nTarget audience: ${app_audience}`;
     if (reference_urls.length > 0) contextBlock += `\nIMPORTANT — Reference posts/content the user likes (study these for tone, structure, hooks, and style): ${reference_urls.join(", ")}. Analyse these links and generate content that matches their style, format, and engagement patterns.`;
+    if (brand_assets.logos?.length > 0) contextBlock += `\n\nBRAND ASSETS — The brand has these logos available: ${brand_assets.logos.map((l: any) => l.name).join(", ")}. Reference and incorporate the brand identity in content recommendations. When suggesting visuals, include instructions to overlay/include the brand logo.`;
+    if (brand_assets.visuals?.length > 0) contextBlock += `\n\nVISUAL LIBRARY — The brand has ${brand_assets.visuals.length} visual assets available. When suggesting visuals or image prompts for slides/posts, recommend using these brand visuals where appropriate instead of generic stock images. Available visuals: ${brand_assets.visuals.map((v: any) => v.name).join(", ")}.`;
 
     const systemPrompt = `You are an expert B2B social media content strategist writing for Skill Studio AI, an AI‑native learning platform for enterprises in regulated and complex industries.
 

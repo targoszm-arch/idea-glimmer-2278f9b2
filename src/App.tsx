@@ -10,6 +10,7 @@ import ContentIdeas from "./pages/ContentIdeas";
 import AISettings from "./pages/AISettings";
 import Article from "./pages/Article";
 import SocialMedia from "./pages/SocialMedia";
+import BrandAssets from "./pages/BrandAssets";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/settings" element={<AISettings />} />
           <Route path="/article/:id" element={<Article />} />
           <Route path="/social" element={<SocialMedia />} />
+          <Route path="/brand" element={<BrandAssets />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
