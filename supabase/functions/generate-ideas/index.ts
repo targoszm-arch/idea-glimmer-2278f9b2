@@ -51,8 +51,9 @@ serve(async (req) => {
             role: "system",
             content: `You are a content strategist. Generate 8 content ideas using the TOFU/MOFU/BOFU funnel strategy.
 Use the provided context about the product, audience, and tone to make ideas highly relevant and specific.
+For each idea, include a detailed description (2-3 sentences) explaining the angle, key points to cover, and why it matters for the target audience.
 Return ideas as a JSON object only, no markdown, no code fences. Format:
-{"ideas":[{"title":"...","strategy":"TOFU|MOFU|BOFU","category":"...","topic":"..."}]}${contextBlock}`
+{"ideas":[{"title":"...","description":"2-3 sentence summary of the article angle and key points","strategy":"TOFU|MOFU|BOFU","category":"...","topic":"..."}]}${contextBlock}`
           },
           { role: "user", content: userPrompt },
         ],
