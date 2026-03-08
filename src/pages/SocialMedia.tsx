@@ -613,7 +613,7 @@ const SocialMedia = () => {
         toast({ title: "Generation failed", description: error, variant: "destructive" });
       },
     });
-  }, [aiSettings, generatingPostId, toast, handleGenerateReelVideo, handleGenerateMultipageReel, reelMode]);
+  }, [aiSettings, generatingPostId, toast, handleGenerateReelVideo, handleGenerateMultipageReel, handleGenerateHeygenTemplate, handleGenerateHeygenAgent, reelMode]);
 
   const handleDeleteIdea = async (id: string) => {
     const { error } = await supabase.from("social_post_ideas").delete().eq("id", id);
