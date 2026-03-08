@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { streamAI } from "@/lib/ai-stream";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
+import CarouselSlidePreview, { parseCarouselContent } from "@/components/CarouselSlidePreview";
 
 const platforms = [
   { key: "linkedin", label: "LinkedIn", icon: Linkedin },
@@ -436,7 +437,9 @@ const SocialMedia = () => {
     const post = idea.post_id ? posts[idea.post_id] : null;
     const isExpanded = expandedPostId === idea.id;
     const isReel = idea.platform === "instagram_reel";
+    const isCarousel = idea.platform === "instagram_carousel";
     const displayContent = isGeneratingThis ? streamingContent : post?.content;
+    const carouselData = isCarousel && displayContent ? parseCarouselContent(displayContent) : null;
     const hasVideo = !!post?.video_url;
 
     return (
@@ -493,9 +496,9 @@ const SocialMedia = () => {
           <div className="mb-4 rounded-lg border border-border bg-muted/30 p-4 relative">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-muted-foreground uppercase">
-                {hasVideo ? "Generated Video" : "Generated Content"}
+                {hasVideo ? "Generated Video" : isCarousel && carouselData ? "Carousel Preview" : "Generated Content"}
               </span>
-              {post && !hasVideo && (
+              {post && !hasVideo && !carouselData && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -515,6 +518,8 @@ const SocialMedia = () => {
                   preload="metadata"
                 />
               </div>
+            ) : carouselData ? (
+              <CarouselSlidePreview data={carouselData} />
             ) : (
               <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap text-sm max-h-80 overflow-y-auto">
                 {displayContent}
