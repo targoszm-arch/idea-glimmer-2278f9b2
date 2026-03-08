@@ -626,9 +626,29 @@ const SocialMedia = () => {
                     <h2 className="text-lg font-bold text-foreground">Generate {p.label} Ideas</h2>
                   </div>
                   {p.key === "instagram_reel" && (
-                    <p className="mb-3 text-xs text-primary/80 flex items-center gap-1">
-                      <Video className="h-3 w-3" /> Reel ideas will generate actual videos using OpenAI Sora
-                    </p>
+                    <div className="mb-3 flex items-center gap-3">
+                      <p className="text-xs text-muted-foreground">Reel type:</p>
+                      <div className="flex rounded-lg border border-input overflow-hidden">
+                        <button
+                          onClick={() => setReelMode("video")}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
+                            reelMode === "video" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <Video className="h-3 w-3" /> AI Video
+                        </button>
+                        <button
+                          onClick={() => setReelMode("multipage")}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
+                            reelMode === "multipage" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <Images className="h-3 w-3" /> Multipage Reel
+                        </button>
+                      </div>
+                    </div>
                   )}
                   {aiSettings?.app_description && (
                     <p className="mb-3 text-xs text-muted-foreground">
