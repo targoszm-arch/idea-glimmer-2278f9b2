@@ -134,16 +134,22 @@ const ContentIdeas = () => {
 
           {/* Generation Form */}
           <div className="mb-8 rounded-xl border border-border bg-card p-6">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-2">
               <Lightbulb className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-bold text-foreground">Generate Ideas</h2>
             </div>
+            {aiSettings?.app_description && (
+              <p className="mb-3 text-xs text-muted-foreground">
+                Using your AI Settings: <span className="font-medium text-foreground">{aiSettings.app_description.slice(0, 80)}{aiSettings.app_description.length > 80 ? "…" : ""}</span>
+                {aiSettings.app_audience && <> · Audience: <span className="font-medium text-foreground">{aiSettings.app_audience.slice(0, 60)}</span></>}
+              </p>
+            )}
             <div className="flex gap-3">
               <input
                 value={niche}
                 onChange={(e) => setNiche(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
-                placeholder="Describe your product or niche (e.g., B2B SaaS project management tool)"
+                placeholder={aiSettings?.app_description ? "Optional: add extra context or leave empty to use AI Settings" : "Describe your product or niche (e.g., B2B SaaS project management tool)"}
                 className="flex-1 rounded-lg border border-input bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               <button
