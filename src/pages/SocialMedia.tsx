@@ -825,9 +825,6 @@ const SocialMedia = () => {
 
             {platforms.map((p) => (
               <TabsContent key={p.key} value={p.key}>
-                {p.key === "heygen" ? (
-                  <HeyGenPanel />
-                ) : (
                   <>
                     {/* Generation Form */}
                     <div className="mb-8 rounded-xl border border-border bg-card p-6">
