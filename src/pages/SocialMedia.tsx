@@ -283,9 +283,13 @@ const SocialMedia = () => {
   }, [aiSettings, generatingPostId, toast]);
 
   const handleGeneratePost = useCallback(async (idea: SocialPostIdea) => {
-    // For IG Reels, generate video instead
-    if (idea.platform === "instagram_reel") {
+    // For IG Reels with video mode, generate video
+    if (idea.platform === "instagram_reel" && reelMode === "video") {
       return handleGenerateReelVideo(idea);
+    }
+    // For IG Reels with multipage mode, generate multipage reel content
+    if (idea.platform === "instagram_reel" && reelMode === "multipage") {
+      return handleGenerateMultipageReel(idea);
     }
 
     if (generatingPostId) return;
