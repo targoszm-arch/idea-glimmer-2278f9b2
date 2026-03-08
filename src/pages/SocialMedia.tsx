@@ -408,7 +408,7 @@ const SocialMedia = () => {
       const varKeys = Object.keys(templateVars);
 
       // 2. Auto-fill variables: split idea description into scenes/fields
-      const filledVariables: Record<string, { type: string; properties: { content: string } }> = {};
+      const filledVariables: Record<string, { name: string; type: string; properties: { content: string } }> = {};
       const sentences = idea.description
         .split(/(?<=[.!?])\s+/)
         .filter((s) => s.trim().length > 0);
