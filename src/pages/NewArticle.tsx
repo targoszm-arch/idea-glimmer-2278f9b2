@@ -105,6 +105,35 @@ const NewArticle = () => {
     });
   }, [topic, tone, category, editor, title]);
 
+  const handleGenerateCoverImage = async () => {
+    const imagePrompt = topic.trim() || title.trim();
+    if (!imagePrompt) {
+      toast({ title: "Enter a topic or title first", variant: "destructive" });
+      return;
+    }
+    setIsGeneratingImage(true);
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-cover-image`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ prompt: imagePrompt }),
+        }
+      );
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Image generation failed");
+      setCoverImageUrl(data.image_url);
+      toast({ title: "Cover image generated!" });
+    } catch (e: any) {
+      toast({ title: "Image generation failed", description: e.message, variant: "destructive" });
+    }
+    setIsGeneratingImage(false);
+  };
+
   const handleSave = async (status: "draft" | "published") => {
     if (!title.trim()) {
       toast({ title: "Title required", description: "Please add a title for your article.", variant: "destructive" });
