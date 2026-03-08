@@ -58,7 +58,7 @@ const SocialMedia = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [videoProgress, setVideoProgress] = useState<string | null>(null);
   const [videoProgressPercent, setVideoProgressPercent] = useState(0);
-  const [reelMode, setReelMode] = useState<ReelMode>("sora_video");
+  const [videoMode, setVideoMode] = useState<VideoMode>("text_post");
   const [heygenTemplates, setHeygenTemplates] = useState<Array<{ template_id: string; name: string; thumbnail_image_url?: string }>>([]);
   const [selectedHeygenTemplate, setSelectedHeygenTemplate] = useState<string | null>(null);
   const [loadingHeygenTemplates, setLoadingHeygenTemplates] = useState(false);
