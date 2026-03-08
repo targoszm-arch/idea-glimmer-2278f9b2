@@ -27,6 +27,8 @@ serve(async (req) => {
     if (app_description) contextBlock += `\nApp/Product context: ${app_description}`;
     if (app_audience) contextBlock += `\nTarget audience: ${app_audience}`;
     if (reference_urls.length > 0) contextBlock += `\nReference content to emulate style from: ${reference_urls.join(", ")}`;
+    if (brand_assets.logos?.length > 0) contextBlock += `\n\nBRAND IDENTITY — The brand has logos: ${brand_assets.logos.map((l: any) => l.name).join(", ")}. Incorporate brand identity awareness in the content.`;
+    if (brand_assets.visuals?.length > 0) contextBlock += `\n\nVISUAL LIBRARY — ${brand_assets.visuals.length} brand visuals available: ${brand_assets.visuals.map((v: any) => v.name).join(", ")}. When suggesting imagery, reference these brand assets.`;
 
     const systemPrompt = `You are an expert B2B content marketer and instructional designer writing for Skill Studio AI, an AI‑native learning platform for enterprises in regulated and complex industries.
 
