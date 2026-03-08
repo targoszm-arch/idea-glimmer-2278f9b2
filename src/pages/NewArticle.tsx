@@ -166,11 +166,13 @@ const NewArticle = () => {
                   onChange={(e) => setTone(e.target.value)}
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <option value="professional">Professional</option>
-                  <option value="conversational">Conversational</option>
-                  <option value="educational">Educational</option>
-                  <option value="persuasive">Persuasive</option>
+                  {TONE_PRESETS.map((t) => (
+                    <option key={t.key} value={t.key}>{t.label}</option>
+                  ))}
                 </select>
+                <a href="/settings" className="mt-1 flex items-center gap-1 text-xs text-muted-foreground hover:text-primary">
+                  <Settings className="h-3 w-3" /> Manage in AI Settings
+                </a>
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-foreground">Category</label>
