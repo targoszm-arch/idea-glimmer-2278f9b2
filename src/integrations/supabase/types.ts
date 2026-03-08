@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_settings: {
+        Row: {
+          app_audience: string
+          app_description: string
+          created_at: string
+          id: string
+          reference_urls: string[]
+          tone_description: string
+          tone_key: string
+          tone_label: string
+          updated_at: string
+        }
+        Insert: {
+          app_audience?: string
+          app_description?: string
+          created_at?: string
+          id?: string
+          reference_urls?: string[]
+          tone_description?: string
+          tone_key?: string
+          tone_label?: string
+          updated_at?: string
+        }
+        Update: {
+          app_audience?: string
+          app_description?: string
+          created_at?: string
+          id?: string
+          reference_urls?: string[]
+          tone_description?: string
+          tone_key?: string
+          tone_label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       articles: {
         Row: {
           category: string
