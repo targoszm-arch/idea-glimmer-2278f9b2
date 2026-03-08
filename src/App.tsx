@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import NewArticle from "./pages/NewArticle";
 import EditArticle from "./pages/EditArticle";
 import ContentIdeas from "./pages/ContentIdeas";
+import AISettings from "./pages/AISettings";
 import Article from "./pages/Article";
 import NotFound from "./pages/NotFound";
 
