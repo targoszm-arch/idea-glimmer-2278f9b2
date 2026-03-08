@@ -61,7 +61,7 @@ const SocialMedia = () => {
   const [videoProgressPercent, setVideoProgressPercent] = useState(0);
   const [videoMode, setVideoMode] = useState<VideoMode>("text_post");
   const [heygenTemplates, setHeygenTemplates] = useState<Array<{ template_id: string; name: string; thumbnail_image_url?: string }>>([]);
-  const [selectedHeygenTemplate, setSelectedHeygenTemplate] = useState<string | null>(null);
+  const [selectedHeygenTemplateByIdea, setSelectedHeygenTemplateByIdea] = useState<Record<string, string>>({});
   const [loadingHeygenTemplates, setLoadingHeygenTemplates] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
