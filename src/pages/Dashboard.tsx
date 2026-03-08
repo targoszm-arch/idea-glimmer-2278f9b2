@@ -27,7 +27,7 @@ const Dashboard = () => {
     if (error) {
       toast({ title: "Error loading articles", description: error.message, variant: "destructive" });
     } else {
-      setArticles(data || []);
+      setArticles((data || []) as Article[]);
     }
     setLoading(false);
   };

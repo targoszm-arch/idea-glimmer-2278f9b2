@@ -35,7 +35,7 @@ const ContentIdeas = () => {
     if (error) {
       toast({ title: "Error loading ideas", description: error.message, variant: "destructive" });
     } else {
-      setIdeas(data || []);
+      setIdeas((data || []) as ContentIdea[]);
     }
     setLoading(false);
   };
