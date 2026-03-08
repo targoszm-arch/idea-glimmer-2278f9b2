@@ -19,8 +19,10 @@ export type ContentIdea = {
   id: string;
   topic: string;
   title_suggestion: string;
+  description: string;
   strategy: 'TOFU' | 'MOFU' | 'BOFU';
   category: string;
   status: 'unused' | 'used';
+  scheduled_for: string | null;
   created_at: string;
 };
