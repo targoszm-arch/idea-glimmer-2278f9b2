@@ -66,10 +66,20 @@ const SocialMedia = () => {
     reference_urls: string[];
   } | null>(null);
 
+  const [brandAssets, setBrandAssets] = useState<{ logos: any[]; visuals: any[] }>({ logos: [], visuals: [] });
+
   useEffect(() => {
     fetchData();
     supabase.from("ai_settings").select("*").limit(1).single().then(({ data }) => {
       if (data) setAiSettings(data as any);
+    });
+    supabase.from("brand_assets").select("*").then(({ data }) => {
+      if (data) {
+        setBrandAssets({
+          logos: (data as any[]).filter((a) => a.type === "logo"),
+          visuals: (data as any[]).filter((a) => a.type === "visual"),
+        });
+      }
     });
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
