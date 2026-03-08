@@ -394,14 +394,59 @@ const SocialMedia = () => {
     }
     setGeneratingPostId(idea.id);
     setExpandedPostId(idea.id);
-    setVideoProgress("Starting HeyGen video from template...");
+    setVideoProgress("Fetching template variables...");
     setVideoProgressPercent(5);
 
     try {
+      // 1. Fetch template details to get required variables
+      const templateDetails = await callHeygen({
+        action: "get_template",
+        template_id: selectedHeygenTemplate,
+      });
+
+      const templateVars = templateDetails?.data?.variables || {};
+      const varKeys = Object.keys(templateVars);
+
+      // 2. Auto-fill variables: split idea description into scenes/fields
+      const filledVariables: Record<string, { type: string; properties: { content: string } }> = {};
+      const sentences = idea.description
+        .split(/(?<=[.!?])\s+/)
+        .filter((s) => s.trim().length > 0);
+
+      for (let i = 0; i < varKeys.length; i++) {
+        const key = varKeys[i];
+        const varDef = templateVars[key];
+        let content = "";
+
+        if (varDef.type === "text") {
+          // For script fields, assign sentences; for title fields, use the idea title
+          if (key.toLowerCase().includes("title")) {
+            content = idea.title_suggestion;
+          } else {
+            // Distribute sentences across script variables
+            const scriptKeys = varKeys.filter((k) => !k.toLowerCase().includes("title") && templateVars[k].type === "text");
+            const scriptIdx = scriptKeys.indexOf(key);
+            const chunkSize = Math.max(1, Math.ceil(sentences.length / scriptKeys.length));
+            const chunk = sentences.slice(scriptIdx * chunkSize, (scriptIdx + 1) * chunkSize);
+            content = chunk.join(" ") || idea.title_suggestion;
+          }
+        }
+
+        filledVariables[key] = {
+          type: varDef.type || "text",
+          properties: { content },
+        };
+      }
+
+      setVideoProgress("Starting HeyGen video from template...");
+      setVideoProgressPercent(10);
+
+      // 3. Generate with filled variables
       const result = await callHeygen({
         action: "generate",
         template_id: selectedHeygenTemplate,
         title: idea.title_suggestion,
+        variables: filledVariables,
       });
 
       const videoId = result?.data?.video_id;
