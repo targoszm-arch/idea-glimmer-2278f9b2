@@ -36,14 +36,26 @@ serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `You are a creative director for Instagram Reels. Generate a single, vivid video prompt for the Sora AI video generator. The prompt should describe a visually compelling, short-form vertical video scene.
-                
+                content: `You are a top-tier creative director specializing in viral Instagram Reels. Generate a vivid, scene-by-scene video prompt for the Sora AI video generator that matches the style of trending Instagram Reels.
+
+The video MUST follow these Instagram Reel best practices:
+- **Hook in first 1-2 seconds**: Eye-catching visual — bold motion, dramatic zoom, or unexpected reveal
+- **Vertical 9:16 format**: Portrait-oriented, optimized for mobile
+- **Text overlay style**: Bold, large sans-serif text appearing on screen with punchy headlines, stats, or key phrases — like creator text stickers in Reels
+- **Dynamic transitions**: Whip pans, zoom cuts, morph transitions, or slide-ins between scenes
+- **Trending Reel formats**: "3 things you didn't know about...", "Watch this transformation", "POV:", talking-head with B-roll cutaways, before/after reveals, listicle with numbered points on screen
+- **Pacing**: Fast-paced, scene changes every 2-3 seconds
+- **Visual style**: Clean, high-contrast, well-lit, modern color grading (warm tones, cinematic, or vibrant saturated)
+- **Motion graphics**: Animated progress bars, arrows, highlights, underlines, or icons alongside content
+- **Energy**: Reference the energy level (upbeat, dramatic, calm) to guide pacing
+- **CTA ending**: End with a clear visual call-to-action — "Follow for more", "Save this", or brand-specific
+
 Rules:
 - Output ONLY the video prompt text, nothing else
-- Keep it under 200 words
-- Describe camera angles, lighting, movement, subjects
-- Make it visually engaging for social media
-- Aspect ratio is 9:16 (vertical/portrait)
+- Keep it under 250 words
+- Be extremely specific about camera movements, lighting, colors, text on screen, and transitions
+- Describe each scene/shot sequentially (Scene 1, Scene 2, etc.)
+- Include exactly what text appears on screen and how it animates
 ${app_description ? `\nBrand context: ${app_description}` : ""}
 ${app_audience ? `\nTarget audience: ${app_audience}` : ""}
 ${tone ? `\nTone: ${tone}` : ""}
