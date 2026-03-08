@@ -734,8 +734,8 @@ const SocialMedia = () => {
           <p className="mb-4 text-sm text-muted-foreground line-clamp-3">{idea.description}</p>
         )}
 
-        {/* Video progress for reels */}
-        {isGeneratingThis && isReel && videoProgress && (
+        {/* Video progress for any video generation */}
+        {isGeneratingThis && videoProgress && (
           <div className="mb-4 space-y-2">
             <Progress value={videoProgressPercent} className="h-2" />
             <p className="text-xs text-muted-foreground">{videoProgress}</p>
