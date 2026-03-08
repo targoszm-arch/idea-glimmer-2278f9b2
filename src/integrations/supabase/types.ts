@@ -139,6 +139,30 @@ export type Database = {
           },
         ]
       }
+      social_posts: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          platform: string
+          topic: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          platform: string
+          topic: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          platform?: string
+          topic?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
