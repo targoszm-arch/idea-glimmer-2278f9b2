@@ -10,57 +10,26 @@ serve(async (req) => {
 
   try {
     const { niche } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
+    if (!PERPLEXITY_API_KEY) throw new Error("PERPLEXITY_API_KEY is not configured");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "sonar",
         messages: [
           {
             role: "system",
             content: `You are a content strategist. Generate 8 content ideas using the TOFU/MOFU/BOFU funnel strategy.
-Return ideas as JSON only, no markdown. Format:
+Return ideas as a JSON object only, no markdown, no code fences. Format:
 {"ideas":[{"title":"...","strategy":"TOFU|MOFU|BOFU","category":"...","topic":"..."}]}`
           },
           { role: "user", content: `Generate content ideas for: ${niche}` },
         ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "return_ideas",
-              description: "Return content ideas",
-              parameters: {
-                type: "object",
-                properties: {
-                  ideas: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        title: { type: "string" },
-                        strategy: { type: "string", enum: ["TOFU", "MOFU", "BOFU"] },
-                        category: { type: "string" },
-                        topic: { type: "string" },
-                      },
-                      required: ["title", "strategy", "category", "topic"],
-                      additionalProperties: false,
-                    },
-                  },
-                },
-                required: ["ideas"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "return_ideas" } },
       }),
     });
 
@@ -76,30 +45,33 @@ Return ideas as JSON only, no markdown. Format:
         });
       }
       const t = await response.text();
-      console.error("AI error:", response.status, t);
-      return new Response(JSON.stringify({ error: "AI error" }), {
+      console.error("Perplexity API error:", response.status, t);
+      return new Response(JSON.stringify({ error: "AI service error" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-
-    if (toolCall?.function?.arguments) {
-      const ideas = JSON.parse(toolCall.function.arguments);
-      return new Response(JSON.stringify(ideas), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Fallback: try parsing from content
     const content = data.choices?.[0]?.message?.content || "";
+
     try {
+      // Try to parse the content directly as JSON
       const parsed = JSON.parse(content);
       return new Response(JSON.stringify(parsed), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch {
+      // Try to extract JSON from markdown code fences
+      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[1].trim());
+          return new Response(JSON.stringify(parsed), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        } catch { /* fall through */ }
+      }
+      console.error("Failed to parse ideas from Perplexity:", content);
       return new Response(JSON.stringify({ ideas: [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
