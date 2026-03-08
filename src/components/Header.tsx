@@ -7,6 +7,7 @@ const navItems = [
   { label: "Library", href: "/", icon: Library },
   { label: "New Article", href: "/new", icon: PenSquare },
   { label: "Content Ideas", href: "/ideas", icon: Lightbulb },
+  { label: "Social Media", href: "/social", icon: Share2 },
   { label: "AI Settings", href: "/settings", icon: Settings },
 ];
 
