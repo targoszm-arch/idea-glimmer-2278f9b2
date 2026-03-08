@@ -307,6 +307,7 @@ const SocialMedia = () => {
         app_description: aiSettings?.app_description || "",
         app_audience: aiSettings?.app_audience || "",
         reference_urls: aiSettings?.reference_urls || [],
+        brand_assets: brandAssets,
       },
       onDelta: (text) => {
         accumulated += text;
