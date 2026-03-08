@@ -153,6 +153,7 @@ const NewArticle = () => {
       meta_description: excerpt,
       category,
       status,
+      cover_image_url: coverImageUrl,
     }).select().single();
 
     if (error) {
