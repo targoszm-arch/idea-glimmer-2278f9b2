@@ -9,6 +9,7 @@ import EditArticle from "./pages/EditArticle";
 import ContentIdeas from "./pages/ContentIdeas";
 import AISettings from "./pages/AISettings";
 import Article from "./pages/Article";
+import SocialMedia from "./pages/SocialMedia";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
