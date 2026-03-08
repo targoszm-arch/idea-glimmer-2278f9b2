@@ -899,7 +899,6 @@ const SocialMedia = () => {
                       </div>
                     )}
                   </>
-                )}
               </TabsContent>
             ))}
           </Tabs>
