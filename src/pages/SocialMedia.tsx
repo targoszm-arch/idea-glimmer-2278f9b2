@@ -283,6 +283,67 @@ const SocialMedia = () => {
     }
   }, [aiSettings, generatingPostId, toast]);
 
+  const handleGenerateMultipageReel = useCallback(async (idea: SocialPostIdea) => {
+    if (generatingPostId) return;
+    setGeneratingPostId(idea.id);
+    setExpandedPostId(idea.id);
+    setStreamingContent("");
+
+    let accumulated = "";
+
+    toast({ title: "Generating multipage reel...", description: `"${idea.title_suggestion}" — creating slides...` });
+
+    await streamAI({
+      functionName: "generate-social-post",
+      body: {
+        platform: "instagram_reel_multipage",
+        topic: idea.title_suggestion,
+        tone: aiSettings?.tone_label || "Engaging",
+        tone_description: aiSettings?.tone_description || "",
+        app_description: aiSettings?.app_description || "",
+        app_audience: aiSettings?.app_audience || "",
+        reference_urls: aiSettings?.reference_urls || [],
+        brand_assets: brandAssets,
+      },
+      onDelta: (text) => {
+        accumulated += text;
+        setStreamingContent(accumulated);
+      },
+      onDone: async () => {
+        const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
+          platform: idea.platform,
+          topic: idea.topic,
+          title: idea.title_suggestion,
+          content: accumulated,
+        }).select().single();
+
+        if (saveError) {
+          toast({ title: "Failed to save", description: saveError.message, variant: "destructive" });
+          setGeneratingPostId(null);
+          return;
+        }
+
+        await supabase.from("social_post_ideas").update({
+          status: "used",
+          post_id: postData.id,
+        }).eq("id", idea.id);
+
+        setIdeas((prev) => prev.map((i) =>
+          i.id === idea.id ? { ...i, status: "used", post_id: postData.id } : i
+        ));
+        setPosts((prev) => ({ ...prev, [postData.id]: postData as SocialPost }));
+        setStreamingContent("");
+        setGeneratingPostId(null);
+        toast({ title: "Multipage reel created!", description: `"${idea.title_suggestion}" slides ready.` });
+      },
+      onError: (error) => {
+        setGeneratingPostId(null);
+        setStreamingContent("");
+        toast({ title: "Generation failed", description: error, variant: "destructive" });
+      },
+    });
+  }, [aiSettings, brandAssets, generatingPostId, toast]);
+
   const handleGeneratePost = useCallback(async (idea: SocialPostIdea) => {
     // For IG Reels with video mode, generate video
     if (idea.platform === "instagram_reel" && reelMode === "video") {
