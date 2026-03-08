@@ -453,18 +453,18 @@ const SocialMedia = () => {
       const videoId = result?.data?.video_id;
       if (!videoId) throw new Error("No video_id returned from HeyGen");
 
-      setVideoProgress("HeyGen is rendering your video. This may take 1-5 minutes...");
+      setVideoProgress("HeyGen is rendering your video. This can take up to 15 minutes...");
       setVideoProgressPercent(15);
 
-      // Poll for status
-      const videoUrl = await new Promise<string>((resolve, reject) => {
+      // Poll for status (up to 20 minutes)
+      await new Promise<void>((resolve, reject) => {
         let attempts = 0;
-        const maxAttempts = 120;
+        const maxAttempts = 240; // 20 min at 5s intervals
         pollingRef.current = setInterval(async () => {
           attempts++;
           if (attempts > maxAttempts) {
             if (pollingRef.current) clearInterval(pollingRef.current);
-            reject(new Error("HeyGen video generation timed out"));
+            reject(new Error("HeyGen video generation timed out after 20 minutes"));
             return;
           }
           try {
@@ -472,18 +472,25 @@ const SocialMedia = () => {
             const status = statusResult?.data?.status;
             if (status === "completed") {
               if (pollingRef.current) clearInterval(pollingRef.current);
-              resolve(statusResult?.data?.video_url || "");
+              resolve();
             } else if (status === "failed") {
               if (pollingRef.current) clearInterval(pollingRef.current);
               reject(new Error(statusResult?.data?.error || "HeyGen rendering failed"));
             } else {
-              const pct = Math.min(15 + (attempts / maxAttempts) * 75, 90);
+              const pct = Math.min(15 + (attempts / maxAttempts) * 70, 85);
               setVideoProgressPercent(pct);
-              setVideoProgress(`Rendering... (${status || "processing"})`);
+              setVideoProgress(`Rendering... (${status || "processing"}) — ${Math.floor(attempts * 5 / 60)}m ${(attempts * 5) % 60}s`);
             }
           } catch (e) { console.warn("Poll error:", e); }
         }, 5000);
       });
+
+      // Download video to Supabase storage (HeyGen URLs expire)
+      setVideoProgress("Downloading video to library...");
+      setVideoProgressPercent(92);
+      const dlResult = await callHeygen({ action: "download", video_id: videoId });
+      const storedVideoUrl = dlResult?.video_url;
+      if (!storedVideoUrl) throw new Error("Failed to download and store video");
 
       setVideoProgressPercent(100);
 
@@ -492,7 +499,7 @@ const SocialMedia = () => {
         topic: idea.topic,
         title: idea.title_suggestion,
         content: `HeyGen template video: ${idea.title_suggestion}`,
-        video_url: videoUrl,
+        video_url: storedVideoUrl,
       }).select().single();
       if (saveError) throw new Error(saveError.message);
 
