@@ -20,9 +20,21 @@ const ContentIdeas = () => {
   const [ideas, setIdeas] = useState<ContentIdea[]>([]);
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [aiSettings, setAiSettings] = useState<{
+    app_description: string;
+    app_audience: string;
+    tone_key: string;
+    tone_label: string;
+    tone_description: string;
+    reference_urls: string[];
+  } | null>(null);
 
   useEffect(() => {
     fetchIdeas();
+    (async () => {
+      const { data } = await supabase.from("ai_settings").select("*").limit(1).single();
+      if (data) setAiSettings(data as any);
+    })();
   }, []);
 
   const fetchIdeas = async () => {
@@ -41,8 +53,8 @@ const ContentIdeas = () => {
   };
 
   const handleGenerate = async () => {
-    if (!niche.trim()) {
-      toast({ title: "Enter your niche", description: "Describe your product or niche to generate ideas.", variant: "destructive" });
+    if (!niche.trim() && !aiSettings?.app_description) {
+      toast({ title: "No context available", description: "Enter a niche or configure your AI Settings first.", variant: "destructive" });
       return;
     }
 
@@ -57,7 +69,14 @@ const ContentIdeas = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ niche }),
+          body: JSON.stringify({
+            niche: niche.trim() || undefined,
+            app_description: aiSettings?.app_description || "",
+            app_audience: aiSettings?.app_audience || "",
+            tone: aiSettings?.tone_label || "",
+            tone_description: aiSettings?.tone_description || "",
+            reference_urls: aiSettings?.reference_urls || [],
+          }),
         }
       );
 
@@ -68,10 +87,9 @@ const ContentIdeas = () => {
 
       const result = await resp.json();
       if (result.ideas && Array.isArray(result.ideas)) {
-        // Insert ideas into DB
         const { error } = await supabase.from("content_ideas").insert(
           result.ideas.map((idea: any) => ({
-            topic: idea.topic || niche,
+            topic: idea.topic || niche || aiSettings?.app_description || "",
             title_suggestion: idea.title,
             strategy: idea.strategy || "TOFU",
             category: idea.category || "",
@@ -116,16 +134,22 @@ const ContentIdeas = () => {
 
           {/* Generation Form */}
           <div className="mb-8 rounded-xl border border-border bg-card p-6">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-2">
               <Lightbulb className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-bold text-foreground">Generate Ideas</h2>
             </div>
+            {aiSettings?.app_description && (
+              <p className="mb-3 text-xs text-muted-foreground">
+                Using your AI Settings: <span className="font-medium text-foreground">{aiSettings.app_description.slice(0, 80)}{aiSettings.app_description.length > 80 ? "…" : ""}</span>
+                {aiSettings.app_audience && <> · Audience: <span className="font-medium text-foreground">{aiSettings.app_audience.slice(0, 60)}</span></>}
+              </p>
+            )}
             <div className="flex gap-3">
               <input
                 value={niche}
                 onChange={(e) => setNiche(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
-                placeholder="Describe your product or niche (e.g., B2B SaaS project management tool)"
+                placeholder={aiSettings?.app_description ? "Optional: add extra context or leave empty to use AI Settings" : "Describe your product or niche (e.g., B2B SaaS project management tool)"}
                 className="flex-1 rounded-lg border border-input bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               <button
