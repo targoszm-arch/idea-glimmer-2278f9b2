@@ -351,7 +351,193 @@ const SocialMedia = () => {
     });
   }, [aiSettings, brandAssets, generatingPostId, toast]);
 
-  const handleGeneratePost = useCallback(async (idea: SocialPostIdea) => {
+  const callHeygen = async (body: Record<string, unknown>) => {
+    const resp = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/heygen`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify(body),
+      }
+    );
+    if (!resp.ok) {
+      const t = await resp.text();
+      let errMsg = t;
+      try { errMsg = JSON.parse(t).error || t; } catch {}
+      throw new Error(errMsg);
+    }
+    return resp.json();
+  };
+
+  const fetchHeygenTemplates = async () => {
+    setLoadingHeygenTemplates(true);
+    try {
+      const data = await callHeygen({ action: "list_templates" });
+      const tpls = data?.data?.templates || [];
+      setHeygenTemplates(tpls);
+      if (tpls.length === 0) {
+        toast({ title: "No HeyGen templates found", description: "Create templates in your HeyGen dashboard." });
+      }
+    } catch (e) {
+      toast({ title: "Failed to load HeyGen templates", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    }
+    setLoadingHeygenTemplates(false);
+  };
+
+  const handleGenerateHeygenTemplate = useCallback(async (idea: SocialPostIdea) => {
+    if (generatingPostId) return;
+    if (!selectedHeygenTemplate) {
+      toast({ title: "Select a template", description: "Pick a HeyGen template first.", variant: "destructive" });
+      return;
+    }
+    setGeneratingPostId(idea.id);
+    setExpandedPostId(idea.id);
+    setVideoProgress("Starting HeyGen video from template...");
+    setVideoProgressPercent(5);
+
+    try {
+      const result = await callHeygen({
+        action: "generate",
+        template_id: selectedHeygenTemplate,
+        title: idea.title_suggestion,
+      });
+
+      const videoId = result?.data?.video_id;
+      if (!videoId) throw new Error("No video_id returned from HeyGen");
+
+      setVideoProgress("HeyGen is rendering your video. This may take 1-5 minutes...");
+      setVideoProgressPercent(15);
+
+      // Poll for status
+      const videoUrl = await new Promise<string>((resolve, reject) => {
+        let attempts = 0;
+        const maxAttempts = 120;
+        pollingRef.current = setInterval(async () => {
+          attempts++;
+          if (attempts > maxAttempts) {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            reject(new Error("HeyGen video generation timed out"));
+            return;
+          }
+          try {
+            const statusResult = await callHeygen({ action: "status", video_id: videoId });
+            const status = statusResult?.data?.status;
+            if (status === "completed") {
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              resolve(statusResult?.data?.video_url || "");
+            } else if (status === "failed") {
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              reject(new Error(statusResult?.data?.error || "HeyGen rendering failed"));
+            } else {
+              const pct = Math.min(15 + (attempts / maxAttempts) * 75, 90);
+              setVideoProgressPercent(pct);
+              setVideoProgress(`Rendering... (${status || "processing"})`);
+            }
+          } catch (e) { console.warn("Poll error:", e); }
+        }, 5000);
+      });
+
+      setVideoProgressPercent(100);
+
+      const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
+        platform: idea.platform,
+        topic: idea.topic,
+        title: idea.title_suggestion,
+        content: `HeyGen template video: ${idea.title_suggestion}`,
+        video_url: videoUrl,
+      }).select().single();
+      if (saveError) throw new Error(saveError.message);
+
+      await supabase.from("social_post_ideas").update({ status: "used", post_id: postData.id }).eq("id", idea.id);
+      setIdeas((prev) => prev.map((i) => i.id === idea.id ? { ...i, status: "used", post_id: postData.id } : i));
+      setPosts((prev) => ({ ...prev, [postData.id]: postData as SocialPost }));
+      setVideoProgress(null);
+      setVideoProgressPercent(0);
+      setGeneratingPostId(null);
+      toast({ title: "HeyGen video ready!", description: `"${idea.title_suggestion}" generated from template.` });
+    } catch (e) {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      setGeneratingPostId(null);
+      setVideoProgress(null);
+      setVideoProgressPercent(0);
+      toast({ title: "HeyGen generation failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    }
+  }, [generatingPostId, selectedHeygenTemplate, toast]);
+
+  const handleGenerateHeygenAgent = useCallback(async (idea: SocialPostIdea) => {
+    if (generatingPostId) return;
+    setGeneratingPostId(idea.id);
+    setExpandedPostId(idea.id);
+    setVideoProgress("Sending to HeyGen Video Agent...");
+    setVideoProgressPercent(5);
+
+    try {
+      const prompt = `Create a professional Instagram Reel video about: ${idea.title_suggestion}. ${idea.description || ""}${aiSettings?.app_description ? ` Brand: ${aiSettings.app_description}.` : ""}${aiSettings?.app_audience ? ` Target audience: ${aiSettings.app_audience}.` : ""}`;
+
+      const result = await callHeygen({ action: "agent", prompt });
+      const videoId = result?.data?.video_id;
+      if (!videoId) throw new Error("No video_id returned from HeyGen Agent");
+
+      setVideoProgress("HeyGen Agent is creating your video. This may take 2-5 minutes...");
+      setVideoProgressPercent(15);
+
+      const videoUrl = await new Promise<string>((resolve, reject) => {
+        let attempts = 0;
+        const maxAttempts = 120;
+        pollingRef.current = setInterval(async () => {
+          attempts++;
+          if (attempts > maxAttempts) {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            reject(new Error("HeyGen Agent video timed out"));
+            return;
+          }
+          try {
+            const statusResult = await callHeygen({ action: "status", video_id: videoId });
+            const status = statusResult?.data?.status;
+            if (status === "completed") {
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              resolve(statusResult?.data?.video_url || "");
+            } else if (status === "failed") {
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              reject(new Error(statusResult?.data?.error || "HeyGen Agent failed"));
+            } else {
+              setVideoProgressPercent(Math.min(15 + (attempts / maxAttempts) * 75, 90));
+              setVideoProgress(`Agent working... (${status || "processing"})`);
+            }
+          } catch (e) { console.warn("Poll error:", e); }
+        }, 5000);
+      });
+
+      setVideoProgressPercent(100);
+
+      const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
+        platform: idea.platform,
+        topic: idea.topic,
+        title: idea.title_suggestion,
+        content: `HeyGen Agent video: ${prompt}`,
+        video_url: videoUrl,
+      }).select().single();
+      if (saveError) throw new Error(saveError.message);
+
+      await supabase.from("social_post_ideas").update({ status: "used", post_id: postData.id }).eq("id", idea.id);
+      setIdeas((prev) => prev.map((i) => i.id === idea.id ? { ...i, status: "used", post_id: postData.id } : i));
+      setPosts((prev) => ({ ...prev, [postData.id]: postData as SocialPost }));
+      setVideoProgress(null);
+      setVideoProgressPercent(0);
+      setGeneratingPostId(null);
+      toast({ title: "HeyGen Agent video ready!", description: `"${idea.title_suggestion}" created by AI agent.` });
+    } catch (e) {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      setGeneratingPostId(null);
+      setVideoProgress(null);
+      setVideoProgressPercent(0);
+      toast({ title: "HeyGen Agent failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    }
+  }, [aiSettings, generatingPostId, toast]);
+
     // For IG Reels with Sora video mode
     if (idea.platform === "instagram_reel" && reelMode === "sora_video") {
       return handleGenerateReelVideo(idea);
