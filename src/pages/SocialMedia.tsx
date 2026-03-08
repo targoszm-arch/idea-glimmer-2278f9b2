@@ -591,9 +591,7 @@ const SocialMedia = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredIdeas.map((idea, index) => (
-                      {filteredIdeas.map((idea, index) => renderIdeaCard(idea, index))}
-                    ))}
+                    {filteredIdeas.map((idea, index) => renderIdeaCard(idea, index))}
                   </div>
                 )}
               </TabsContent>
