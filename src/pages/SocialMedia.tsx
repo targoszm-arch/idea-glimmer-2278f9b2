@@ -55,6 +55,7 @@ const SocialMedia = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [videoProgress, setVideoProgress] = useState<string | null>(null);
   const [videoProgressPercent, setVideoProgressPercent] = useState(0);
+  const [reelMode, setReelMode] = useState<"video" | "multipage">("video");
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
 
