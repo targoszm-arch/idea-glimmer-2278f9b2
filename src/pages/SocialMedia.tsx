@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { streamAI } from "@/lib/ai-stream";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
+import CarouselSlidePreview, { parseCarouselContent } from "@/components/CarouselSlidePreview";
 
 const platforms = [
   { key: "linkedin", label: "LinkedIn", icon: Linkedin },
