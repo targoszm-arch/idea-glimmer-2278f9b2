@@ -53,19 +53,31 @@ etc.
 Make it punchy, use data points, and create curiosity gaps between tweets.`,
 
   instagram_carousel: `Generate an Instagram carousel post for Skill Studio AI.
-Structure:
-## Caption
-An engaging caption (under 2,200 chars) with CTA and hashtags
+You MUST output valid JSON (and nothing else) with this exact structure:
+{
+  "caption": "The Instagram caption with CTA and hashtags (under 2200 chars)",
+  "slides": [
+    {
+      "type": "cover|content|cta",
+      "headline": "Bold short headline (3-8 words)",
+      "body": "1-2 supporting sentences (optional for cover/cta)",
+      "accent_text": "A stat, quote, or emphasis phrase (optional)",
+      "bg_style": "gradient_blue|gradient_purple|gradient_orange|gradient_green|gradient_dark|solid_dark|solid_light",
+      "icon_hint": "A lucide icon name suggestion e.g. 'brain', 'shield', 'target', 'zap', 'trending-up' (optional)"
+    }
+  ]
+}
 
-## Slides (generate 7-10 slides)
-For each slide:
-### Slide [number]
-**Headline:** (bold, short text for the slide)
-**Body:** (1-2 supporting sentences)
-**Image prompt:** (a description of what visual/graphic to create for this slide)
-
-Slide 1 should be a cover slide with a hook.
-Last slide should be a CTA slide.`,
+Rules:
+- Generate exactly 8-10 slides
+- Slide 1 MUST be type "cover" with a compelling hook headline
+- Last slide MUST be type "cta" with a clear call to action
+- Middle slides are type "content"
+- Each headline should be punchy, 3-8 words
+- Body text should be concise, 1-2 sentences max
+- Vary bg_style across slides for visual interest
+- accent_text is for stats, numbers, or key phrases to highlight
+- Output ONLY valid JSON, no markdown, no code fences, no explanation`,
 
   instagram_reel: `Generate an Instagram Reel script for Skill Studio AI.
 Structure:
