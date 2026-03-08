@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,117 +24,146 @@ serve(async (req) => {
       Accept: "application/json",
     };
 
-    // ACTION: list_templates - Get all templates from HeyGen account
+    // ACTION: list_templates
     if (action === "list_templates") {
-      const resp = await fetch(`${HEYGEN_BASE}/v2/templates`, {
-        headers: heygenHeaders,
-      });
-
+      const resp = await fetch(`${HEYGEN_BASE}/v2/templates`, { headers: heygenHeaders });
       if (!resp.ok) {
         const t = await resp.text();
         console.error("HeyGen list templates error:", resp.status, t);
         throw new Error(`HeyGen API error (${resp.status}): ${t}`);
       }
-
       const data = await resp.json();
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ACTION: get_template - Get a specific template's details (variables, etc.)
+    // ACTION: get_template
     if (action === "get_template") {
       if (!template_id) throw new Error("template_id is required");
-
-      const resp = await fetch(`${HEYGEN_BASE}/v2/template/${template_id}`, {
-        headers: heygenHeaders,
-      });
-
+      const resp = await fetch(`${HEYGEN_BASE}/v2/template/${template_id}`, { headers: heygenHeaders });
       if (!resp.ok) {
         const t = await resp.text();
-        console.error("HeyGen get template error:", resp.status, t);
         throw new Error(`HeyGen API error (${resp.status}): ${t}`);
       }
-
       const data = await resp.json();
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ACTION: generate - Generate a video from a template
+    // ACTION: generate
     if (action === "generate") {
       if (!template_id) throw new Error("template_id is required");
-
-      const body: Record<string, unknown> = {
-        test: false,
-        caption: false,
-      };
-
+      const body: Record<string, unknown> = { test: false, caption: false };
       if (title) body.title = title;
-      if (variables && Object.keys(variables).length > 0) {
-        body.variables = variables;
-      }
+      if (variables && Object.keys(variables).length > 0) body.variables = variables;
 
       const resp = await fetch(`${HEYGEN_BASE}/v2/template/${template_id}/generate`, {
         method: "POST",
         headers: heygenHeaders,
         body: JSON.stringify(body),
       });
-
       if (!resp.ok) {
         const t = await resp.text();
         console.error("HeyGen generate error:", resp.status, t);
         throw new Error(`HeyGen API error (${resp.status}): ${t}`);
       }
-
       const data = await resp.json();
       console.log("HeyGen video generation started:", JSON.stringify(data));
-
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ACTION: status - Check video generation status
+    // ACTION: status
     if (action === "status") {
       if (!video_id) throw new Error("video_id is required");
-
       const resp = await fetch(`${HEYGEN_BASE}/v1/video_status.get?video_id=${video_id}`, {
         headers: heygenHeaders,
       });
-
       if (!resp.ok) {
         const t = await resp.text();
-        console.error("HeyGen status error:", resp.status, t);
         throw new Error(`HeyGen API error (${resp.status}): ${t}`);
       }
-
       const data = await resp.json();
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ACTION: agent - Generate video using HeyGen Video Agent (prompt-to-video)
+    // ACTION: download - Download video from HeyGen URL and store in Supabase storage
+    if (action === "download") {
+      if (!video_id) throw new Error("video_id is required");
+
+      // 1. Get the video status to find the video_url
+      const statusResp = await fetch(`${HEYGEN_BASE}/v1/video_status.get?video_id=${video_id}`, {
+        headers: heygenHeaders,
+      });
+      if (!statusResp.ok) {
+        const t = await statusResp.text();
+        throw new Error(`HeyGen status error (${statusResp.status}): ${t}`);
+      }
+      const statusData = await statusResp.json();
+      const heygenUrl = statusData?.data?.video_url;
+      if (!heygenUrl) throw new Error("No video_url found - video may not be ready yet");
+
+      console.log("Downloading HeyGen video from:", heygenUrl);
+
+      // 2. Download the video binary
+      const videoResp = await fetch(heygenUrl);
+      if (!videoResp.ok) throw new Error(`Failed to download video: ${videoResp.status}`);
+      const videoBlob = await videoResp.arrayBuffer();
+
+      // 3. Upload to Supabase storage
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const fileName = `heygen-${video_id}-${Date.now()}.mp4`;
+      const filePath = `heygen/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("reel-videos")
+        .upload(filePath, videoBlob, {
+          contentType: "video/mp4",
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error("Storage upload error:", uploadError);
+        throw new Error(`Failed to upload video: ${uploadError.message}`);
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("reel-videos")
+        .getPublicUrl(filePath);
+
+      console.log("Video stored at:", publicUrlData.publicUrl);
+
+      return new Response(JSON.stringify({
+        video_url: publicUrlData.publicUrl,
+        heygen_url: heygenUrl,
+        file_path: filePath,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ACTION: agent
     if (action === "agent") {
       if (!prompt) throw new Error("prompt is required for agent action");
-
       const resp = await fetch(`${HEYGEN_BASE}/v1/video_agent/generate`, {
         method: "POST",
         headers: heygenHeaders,
         body: JSON.stringify({ prompt }),
       });
-
       if (!resp.ok) {
         const t = await resp.text();
-        console.error("HeyGen agent error:", resp.status, t);
         throw new Error(`HeyGen Agent API error (${resp.status}): ${t}`);
       }
-
       const data = await resp.json();
       console.log("HeyGen agent video started:", JSON.stringify(data));
-
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
