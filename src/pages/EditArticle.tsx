@@ -64,7 +64,7 @@ const EditArticle = () => {
     const finalStatus = newStatus || status;
 
     const { error } = await supabase.from("articles").update({
-      title, slug, content, excerpt, meta_description: excerpt, category, status: finalStatus, updated_at: new Date().toISOString(),
+      title, slug, content, excerpt, meta_description: excerpt, category, status: finalStatus, cover_image_url: coverImageUrl, updated_at: new Date().toISOString(),
     }).eq("id", id);
 
     if (error) {
