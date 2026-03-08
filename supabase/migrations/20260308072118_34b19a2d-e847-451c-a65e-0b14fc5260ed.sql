@@ -1,0 +1,1 @@
+ALTER TABLE public.content_ideas ADD COLUMN article_id uuid REFERENCES public.articles(id) ON DELETE SET NULL DEFAULT NULL;
