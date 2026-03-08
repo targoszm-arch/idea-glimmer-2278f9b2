@@ -433,6 +433,7 @@ const SocialMedia = () => {
         }
 
         filledVariables[key] = {
+          name: key,
           type: varDef.type || "text",
           properties: { content },
         };
