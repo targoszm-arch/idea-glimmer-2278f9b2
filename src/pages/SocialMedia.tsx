@@ -440,6 +440,7 @@ const SocialMedia = () => {
     const isCarousel = idea.platform === "instagram_carousel";
     const displayContent = isGeneratingThis ? streamingContent : post?.content;
     const carouselData = isCarousel && displayContent ? parseCarouselContent(displayContent) : null;
+    const hasVideo = !!post?.video_url;
 
     return (
       <motion.div
