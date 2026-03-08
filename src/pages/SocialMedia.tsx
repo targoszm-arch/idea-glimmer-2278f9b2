@@ -20,7 +20,7 @@ const platforms = [
   { key: "instagram_reel", label: "IG Reel", icon: Film },
 ] as const;
 
-type ReelMode = "sora_video" | "heygen_template" | "heygen_agent" | "multipage";
+type VideoMode = "text_post" | "sora_video" | "heygen_template" | "heygen_agent" | "multipage";
 
 type Platform = (typeof platforms)[number]["key"];
 
@@ -58,7 +58,7 @@ const SocialMedia = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [videoProgress, setVideoProgress] = useState<string | null>(null);
   const [videoProgressPercent, setVideoProgressPercent] = useState(0);
-  const [reelMode, setReelMode] = useState<ReelMode>("sora_video");
+  const [videoMode, setVideoMode] = useState<VideoMode>("text_post");
   const [heygenTemplates, setHeygenTemplates] = useState<Array<{ template_id: string; name: string; thumbnail_image_url?: string }>>([]);
   const [selectedHeygenTemplate, setSelectedHeygenTemplate] = useState<string | null>(null);
   const [loadingHeygenTemplates, setLoadingHeygenTemplates] = useState(false);
@@ -538,21 +538,18 @@ const SocialMedia = () => {
   }, [aiSettings, generatingPostId, toast]);
 
   const handleGeneratePost = useCallback(async (idea: SocialPostIdea) => {
-    // For IG Reels with Sora video mode
-    if (idea.platform === "instagram_reel" && reelMode === "sora_video") {
+    // Video generation modes (available for all platforms)
+    if (videoMode === "sora_video") {
       return handleGenerateReelVideo(idea);
     }
-    // For IG Reels with multipage mode
-    if (idea.platform === "instagram_reel" && reelMode === "multipage") {
-      return handleGenerateMultipageReel(idea);
-    }
-    // For IG Reels with HeyGen template mode
-    if (idea.platform === "instagram_reel" && reelMode === "heygen_template") {
+    if (videoMode === "heygen_template") {
       return handleGenerateHeygenTemplate(idea);
     }
-    // For IG Reels with HeyGen agent mode
-    if (idea.platform === "instagram_reel" && reelMode === "heygen_agent") {
+    if (videoMode === "heygen_agent") {
       return handleGenerateHeygenAgent(idea);
+    }
+    if (videoMode === "multipage") {
+      return handleGenerateMultipageReel(idea);
     }
 
     if (generatingPostId) return;
@@ -613,7 +610,7 @@ const SocialMedia = () => {
         toast({ title: "Generation failed", description: error, variant: "destructive" });
       },
     });
-  }, [aiSettings, generatingPostId, toast, handleGenerateReelVideo, handleGenerateMultipageReel, handleGenerateHeygenTemplate, handleGenerateHeygenAgent, reelMode]);
+  }, [aiSettings, generatingPostId, toast, handleGenerateReelVideo, handleGenerateMultipageReel, handleGenerateHeygenTemplate, handleGenerateHeygenAgent, videoMode]);
 
   const handleDeleteIdea = async (id: string) => {
     const { error } = await supabase.from("social_post_ideas").delete().eq("id", id);
@@ -787,9 +784,9 @@ const SocialMedia = () => {
                 className="text-xs gap-1"
               >
                 {isGeneratingThis ? (
-                  <><Loader2 className="h-3 w-3 animate-spin" /> {isReel ? (reelMode === "multipage" ? "Generating Slides..." : "Generating Video...") : "Generating..."}</>
+                  <><Loader2 className="h-3 w-3 animate-spin" /> {videoMode === "multipage" ? "Generating Slides..." : videoMode === "text_post" ? "Generating..." : "Generating Video..."}</>
                 ) : (
-                  <>{isReel ? (reelMode === "multipage" ? <Images className="h-3 w-3" /> : <Video className="h-3 w-3" />) : <Sparkles className="h-3 w-3" />} {isReel ? (reelMode === "sora_video" ? "Sora Video" : reelMode === "heygen_template" ? "HeyGen Template" : reelMode === "heygen_agent" ? "HeyGen Agent" : "Multipage") : "Generate Post"}</>
+                  <>{videoMode === "text_post" ? <Sparkles className="h-3 w-3" /> : videoMode === "multipage" ? <Images className="h-3 w-3" /> : <Video className="h-3 w-3" />} {videoMode === "text_post" ? "Generate Post" : videoMode === "sora_video" ? "Sora Video" : videoMode === "heygen_template" ? "HeyGen Template" : videoMode === "heygen_agent" ? "HeyGen Agent" : "Multipage"}</>
                 )}
               </Button>
             )}
@@ -831,29 +828,30 @@ const SocialMedia = () => {
                         <Lightbulb className="h-5 w-5 text-primary" />
                         <h2 className="text-lg font-bold text-foreground">Generate {p.label} Ideas</h2>
                       </div>
-                      {p.key === "instagram_reel" && (
+                      {p.key !== "instagram_carousel" && (
                         <div className="mb-3 space-y-2">
                           <p className="text-xs text-muted-foreground">Generation method:</p>
                           <div className="flex flex-wrap rounded-lg border border-input overflow-hidden">
                             {([
-                              { key: "sora_video" as ReelMode, label: "Sora Video", icon: Video },
-                              { key: "heygen_template" as ReelMode, label: "HeyGen Template", icon: Clapperboard },
-                              { key: "heygen_agent" as ReelMode, label: "HeyGen Agent", icon: Sparkles },
-                              { key: "multipage" as ReelMode, label: "Multipage Reel", icon: Images },
+                              { key: "text_post" as VideoMode, label: "Text Post", icon: Sparkles },
+                              { key: "sora_video" as VideoMode, label: "Sora Video", icon: Video },
+                              { key: "heygen_template" as VideoMode, label: "HeyGen Template", icon: Clapperboard },
+                              { key: "heygen_agent" as VideoMode, label: "HeyGen Agent", icon: Sparkles },
+                              ...(p.key === "instagram_reel" ? [{ key: "multipage" as VideoMode, label: "Multipage Reel", icon: Images }] : []),
                             ]).map((opt) => {
                               const OptIcon = opt.icon;
                               return (
                                 <button
                                   key={opt.key}
                                   onClick={() => {
-                                    setReelMode(opt.key);
+                                    setVideoMode(opt.key);
                                     if (opt.key === "heygen_template" && heygenTemplates.length === 0) {
                                       fetchHeygenTemplates();
                                     }
                                   }}
                                   className={cn(
                                     "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
-                                    reelMode === opt.key ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
+                                    videoMode === opt.key ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
                                   )}
                                 >
                                   <OptIcon className="h-3 w-3" /> {opt.label}
@@ -863,7 +861,7 @@ const SocialMedia = () => {
                           </div>
 
                           {/* HeyGen template selector */}
-                          {reelMode === "heygen_template" && (
+                          {videoMode === "heygen_template" && (
                             <div className="mt-3 space-y-2">
                               <div className="flex items-center justify-between">
                                 <p className="text-xs font-medium text-foreground">Select HeyGen Template:</p>
