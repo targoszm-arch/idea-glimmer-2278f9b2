@@ -389,10 +389,13 @@ const SocialMedia = () => {
 
   const handleGenerateHeygenTemplate = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
-    if (!selectedHeygenTemplate) {
-      toast({ title: "Select a template", description: "Pick a HeyGen template first.", variant: "destructive" });
+
+    const templateId = selectedHeygenTemplateByIdea[idea.id];
+    if (!templateId) {
+      toast({ title: "Select a template", description: "Pick a HeyGen template for this post first.", variant: "destructive" });
       return;
     }
+
     setGeneratingPostId(idea.id);
     setExpandedPostId(idea.id);
     setVideoProgress("Fetching template variables...");
@@ -402,7 +405,7 @@ const SocialMedia = () => {
       // 1. Fetch template details to get required variables
       const templateDetails = await callHeygen({
         action: "get_template",
-        template_id: selectedHeygenTemplate,
+        template_id: templateId,
       });
 
       const templateVars = templateDetails?.data?.variables || {};
@@ -446,7 +449,7 @@ const SocialMedia = () => {
       // 3. Generate with filled variables
       const result = await callHeygen({
         action: "generate",
-        template_id: selectedHeygenTemplate,
+        template_id: templateId,
         title: idea.title_suggestion,
         variables: filledVariables,
       });
@@ -480,9 +483,11 @@ const SocialMedia = () => {
             } else {
               const pct = Math.min(15 + (attempts / maxAttempts) * 70, 85);
               setVideoProgressPercent(pct);
-              setVideoProgress(`Rendering... (${status || "processing"}) — ${Math.floor(attempts * 5 / 60)}m ${(attempts * 5) % 60}s`);
+              setVideoProgress(`Rendering... (${status || "processing"}) — ${Math.floor((attempts * 5) / 60)}m ${(attempts * 5) % 60}s`);
             }
-          } catch (e) { console.warn("Poll error:", e); }
+          } catch (e) {
+            console.warn("Poll error:", e);
+          }
         }, 5000);
       });
 
@@ -495,17 +500,21 @@ const SocialMedia = () => {
 
       setVideoProgressPercent(100);
 
-      const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
-        platform: idea.platform,
-        topic: idea.topic,
-        title: idea.title_suggestion,
-        content: `HeyGen template video: ${idea.title_suggestion}`,
-        video_url: storedVideoUrl,
-      }).select().single();
+      const { data: postData, error: saveError } = await supabase
+        .from("social_posts")
+        .insert({
+          platform: idea.platform,
+          topic: idea.topic,
+          title: idea.title_suggestion,
+          content: `HeyGen template video: ${idea.title_suggestion}`,
+          video_url: storedVideoUrl,
+        })
+        .select()
+        .single();
       if (saveError) throw new Error(saveError.message);
 
       await supabase.from("social_post_ideas").update({ status: "used", post_id: postData.id }).eq("id", idea.id);
-      setIdeas((prev) => prev.map((i) => i.id === idea.id ? { ...i, status: "used", post_id: postData.id } : i));
+      setIdeas((prev) => prev.map((i) => (i.id === idea.id ? { ...i, status: "used", post_id: postData.id } : i)));
       setPosts((prev) => ({ ...prev, [postData.id]: postData as SocialPost }));
       setVideoProgress(null);
       setVideoProgressPercent(0);
@@ -518,7 +527,7 @@ const SocialMedia = () => {
       setVideoProgressPercent(0);
       toast({ title: "HeyGen generation failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
     }
-  }, [generatingPostId, selectedHeygenTemplate, toast]);
+  }, [generatingPostId, selectedHeygenTemplateByIdea, toast]);
 
   const handleGenerateHeygenAgent = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
