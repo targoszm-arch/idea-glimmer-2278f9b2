@@ -49,7 +49,13 @@ The article should:
 - Read like professional blog content — no disclaimers, no hedging, no meta-commentary
 ${category ? `- Focus on the ${category} category` : ""}
 
-Start with the title as an H1 tag, then write the full article body in HTML. Output ONLY the HTML content, nothing else.`;
+Start with the title as an H1 tag, then write the full article body in HTML.
+
+IMPORTANT: At the very end of your output, after all the article HTML, add these two lines exactly:
+<!-- META_TITLE: [SEO-optimized title under 60 characters with primary keyword] -->
+<!-- META_DESCRIPTION: [Compelling meta description under 160 characters] -->
+
+Output ONLY the HTML content followed by the two meta comment lines, nothing else.`;
 
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
