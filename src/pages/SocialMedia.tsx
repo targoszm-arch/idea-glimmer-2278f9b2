@@ -19,8 +19,9 @@ const platforms = [
   { key: "twitter", label: "Twitter", icon: Twitter },
   { key: "instagram_carousel", label: "IG Carousel", icon: Instagram },
   { key: "instagram_reel", label: "IG Reel", icon: Film },
-  { key: "heygen", label: "HeyGen", icon: Clapperboard },
 ] as const;
+
+type ReelMode = "sora_video" | "heygen_template" | "heygen_agent" | "multipage";
 
 type Platform = (typeof platforms)[number]["key"];
 
