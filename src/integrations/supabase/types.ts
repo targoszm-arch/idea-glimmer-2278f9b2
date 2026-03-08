@@ -94,6 +94,7 @@ export type Database = {
       }
       content_ideas: {
         Row: {
+          article_id: string | null
           category: string
           created_at: string
           description: string
@@ -105,6 +106,7 @@ export type Database = {
           topic: string
         }
         Insert: {
+          article_id?: string | null
           category?: string
           created_at?: string
           description?: string
@@ -116,6 +118,7 @@ export type Database = {
           topic: string
         }
         Update: {
+          article_id?: string | null
           category?: string
           created_at?: string
           description?: string
@@ -126,7 +129,15 @@ export type Database = {
           title_suggestion?: string
           topic?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "content_ideas_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
