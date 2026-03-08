@@ -37,7 +37,7 @@ serve(async (req) => {
     if (app_audience) contextParts.push(`Target audience: ${app_audience}`);
     if (tone) contextParts.push(`Preferred tone: ${tone}`);
     if (tone_description) contextParts.push(`Tone details: ${tone_description}`);
-    if (reference_urls.length > 0) contextParts.push(`Reference content style from: ${reference_urls.join(", ")}`);
+    if (reference_urls.length > 0) contextParts.push(`IMPORTANT — Reference posts/content the user likes (study these for tone, structure, hooks, and style): ${reference_urls.join(", ")}. Analyse these links and generate ideas that match their style, format, and engagement patterns.`);
     if (niche) contextParts.push(`Additional context/niche: ${niche}`);
 
     const contextBlock = contextParts.length > 0 ? `\n\nContext:\n${contextParts.join("\n")}` : "";

@@ -112,7 +112,7 @@ serve(async (req) => {
     let contextBlock = "";
     if (app_description) contextBlock += `\nApp/Product context: ${app_description}`;
     if (app_audience) contextBlock += `\nTarget audience: ${app_audience}`;
-    if (reference_urls.length > 0) contextBlock += `\nReference URLs: ${reference_urls.join(", ")}`;
+    if (reference_urls.length > 0) contextBlock += `\nIMPORTANT — Reference posts/content the user likes (study these for tone, structure, hooks, and style): ${reference_urls.join(", ")}. Analyse these links and generate content that matches their style, format, and engagement patterns.`;
 
     const systemPrompt = `You are an expert B2B social media content strategist writing for Skill Studio AI, an AI‑native learning platform for enterprises in regulated and complex industries.
 
