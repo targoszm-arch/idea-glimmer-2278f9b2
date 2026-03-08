@@ -70,9 +70,19 @@ const NewArticle = () => {
     editor?.commands.clearContent();
     let accumulated = "";
 
+    const tonePreset = TONE_PRESETS.find((t) => t.key === tone);
+
     await streamAI({
       functionName: "generate-article",
-      body: { topic, tone, category },
+      body: {
+        topic,
+        tone: tonePreset?.label || tone,
+        tone_description: tonePreset?.description || "",
+        category,
+        app_description: aiSettings?.app_description || "",
+        app_audience: aiSettings?.app_audience || "",
+        reference_urls: aiSettings?.reference_urls || [],
+      },
       onDelta: (text) => {
         accumulated += text;
         // Parse title from first line if starts with #
