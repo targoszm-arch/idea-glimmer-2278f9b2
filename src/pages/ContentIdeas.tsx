@@ -20,9 +20,21 @@ const ContentIdeas = () => {
   const [ideas, setIdeas] = useState<ContentIdea[]>([]);
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [aiSettings, setAiSettings] = useState<{
+    app_description: string;
+    app_audience: string;
+    tone_key: string;
+    tone_label: string;
+    tone_description: string;
+    reference_urls: string[];
+  } | null>(null);
 
   useEffect(() => {
     fetchIdeas();
+    (async () => {
+      const { data } = await supabase.from("ai_settings").select("*").limit(1).single();
+      if (data) setAiSettings(data as any);
+    })();
   }, []);
 
   const fetchIdeas = async () => {
@@ -41,8 +53,8 @@ const ContentIdeas = () => {
   };
 
   const handleGenerate = async () => {
-    if (!niche.trim()) {
-      toast({ title: "Enter your niche", description: "Describe your product or niche to generate ideas.", variant: "destructive" });
+    if (!niche.trim() && !aiSettings?.app_description) {
+      toast({ title: "No context available", description: "Enter a niche or configure your AI Settings first.", variant: "destructive" });
       return;
     }
 
@@ -57,7 +69,14 @@ const ContentIdeas = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ niche }),
+          body: JSON.stringify({
+            niche: niche.trim() || undefined,
+            app_description: aiSettings?.app_description || "",
+            app_audience: aiSettings?.app_audience || "",
+            tone: aiSettings?.tone_label || "",
+            tone_description: aiSettings?.tone_description || "",
+            reference_urls: aiSettings?.reference_urls || [],
+          }),
         }
       );
 
@@ -68,10 +87,9 @@ const ContentIdeas = () => {
 
       const result = await resp.json();
       if (result.ideas && Array.isArray(result.ideas)) {
-        // Insert ideas into DB
         const { error } = await supabase.from("content_ideas").insert(
           result.ideas.map((idea: any) => ({
-            topic: idea.topic || niche,
+            topic: idea.topic || niche || aiSettings?.app_description || "",
             title_suggestion: idea.title,
             strategy: idea.strategy || "TOFU",
             category: idea.category || "",
