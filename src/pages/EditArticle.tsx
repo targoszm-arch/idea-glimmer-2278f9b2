@@ -47,7 +47,7 @@ const EditArticle = () => {
       }
       setTitle(data.title);
       setCategory(data.category || "");
-      setStatus(data.status);
+      setStatus(data.status as "draft" | "published");
       editor?.commands.setContent(data.content || "");
       setLoading(false);
     })();

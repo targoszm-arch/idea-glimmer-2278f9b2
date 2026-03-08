@@ -23,7 +23,7 @@ const Article = () => {
         navigate("/");
         return;
       }
-      setArticle(data);
+      setArticle(data as ArticleType);
       setLoading(false);
     })();
   }, [id]);
