@@ -788,9 +788,9 @@ const SocialMedia = () => {
                 className="text-xs gap-1"
               >
                 {isGeneratingThis ? (
-                  <><Loader2 className="h-3 w-3 animate-spin" /> {isReel ? (reelMode === "video" ? "Generating Video..." : "Generating Slides...") : "Generating..."}</>
+                  <><Loader2 className="h-3 w-3 animate-spin" /> {isReel ? (reelMode === "multipage" ? "Generating Slides..." : "Generating Video...") : "Generating..."}</>
                 ) : (
-                  <>{isReel ? (reelMode === "video" ? <Video className="h-3 w-3" /> : <Images className="h-3 w-3" />) : <Sparkles className="h-3 w-3" />} {isReel ? (reelMode === "video" ? "Generate Video" : "Generate Multipage") : "Generate Post"}</>
+                  <>{isReel ? (reelMode === "multipage" ? <Images className="h-3 w-3" /> : <Video className="h-3 w-3" />) : <Sparkles className="h-3 w-3" />} {isReel ? (reelMode === "sora_video" ? "Sora Video" : reelMode === "heygen_template" ? "HeyGen Template" : reelMode === "heygen_agent" ? "HeyGen Agent" : "Multipage") : "Generate Post"}</>
                 )}
               </Button>
             )}
