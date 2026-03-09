@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,12 @@ serve(async (req) => {
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
+    // Initialize Supabase client for storage upload
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Generate the image with DALL-E
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
@@ -56,7 +63,35 @@ serve(async (req) => {
       });
     }
 
-    const imageUrl = `data:image/png;base64,${b64}`;
+    // Convert base64 to binary
+    const binaryString = atob(b64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    // Upload to Supabase Storage
+    const fileName = `cover-${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
+    const filePath = `covers/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("article-covers")
+      .upload(filePath, bytes, {
+        contentType: "image/png",
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("Storage upload error:", uploadError);
+      throw new Error(`Failed to upload image: ${uploadError.message}`);
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from("article-covers")
+      .getPublicUrl(filePath);
+
+    const imageUrl = urlData.publicUrl;
 
     return new Response(JSON.stringify({ image_url: imageUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
