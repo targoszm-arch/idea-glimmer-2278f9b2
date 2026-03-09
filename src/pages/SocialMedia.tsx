@@ -845,7 +845,71 @@ const SocialMedia = () => {
                 <Play className="h-3 w-3" /> Download
               </Button>
             )}
-            {!hasPost && (
+            {!hasPost && videoMode === "heygen_template" && (
+              <>
+                {heygenTemplates.length > 0 ? (
+                  <Select
+                    value={selectedHeygenTemplateByIdea[idea.id] ?? ""}
+                    onValueChange={(value) =>
+                      setSelectedHeygenTemplateByIdea((prev) => ({
+                        ...prev,
+                        [idea.id]: value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-[150px] text-xs">
+                      <SelectValue placeholder={loadingHeygenTemplates ? "Loading…" : "Template"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {heygenTemplates.map((tpl) => (
+                        <SelectItem key={tpl.template_id} value={tpl.template_id}>
+                          {tpl.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={fetchHeygenTemplates}
+                    disabled={loadingHeygenTemplates}
+                    className="text-xs h-8 px-2 gap-1"
+                  >
+                    {loadingHeygenTemplates ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Clapperboard className="h-3 w-3" />
+                    )}
+                    {loadingHeygenTemplates ? "Loading" : "Load"}
+                  </Button>
+                )}
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleGeneratePost(idea)}
+                  disabled={
+                    isGeneratingThis ||
+                    !!generatingPostId ||
+                    !selectedHeygenTemplateByIdea[idea.id]
+                  }
+                  className="text-xs gap-1"
+                >
+                  {isGeneratingThis ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" /> Generating Video...
+                    </>
+                  ) : (
+                    <>
+                      <Video className="h-3 w-3" /> Generate Video
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
+
+            {!hasPost && videoMode !== "heygen_template" && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -854,9 +918,31 @@ const SocialMedia = () => {
                 className="text-xs gap-1"
               >
                 {isGeneratingThis ? (
-                  <><Loader2 className="h-3 w-3 animate-spin" /> {videoMode === "multipage" ? "Generating Slides..." : videoMode === "text_post" ? "Generating..." : "Generating Video..."}</>
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />{" "}
+                    {videoMode === "multipage"
+                      ? "Generating Slides..."
+                      : videoMode === "text_post"
+                        ? "Generating..."
+                        : "Generating Video..."}
+                  </>
                 ) : (
-                  <>{videoMode === "text_post" ? <Sparkles className="h-3 w-3" /> : videoMode === "multipage" ? <Images className="h-3 w-3" /> : <Video className="h-3 w-3" />} {videoMode === "text_post" ? "Generate Post" : videoMode === "sora_video" ? "Sora Video" : videoMode === "heygen_template" ? "HeyGen Template" : videoMode === "heygen_agent" ? "HeyGen Agent" : "Multipage"}</>
+                  <>
+                    {videoMode === "text_post" ? (
+                      <Sparkles className="h-3 w-3" />
+                    ) : videoMode === "multipage" ? (
+                      <Images className="h-3 w-3" />
+                    ) : (
+                      <Video className="h-3 w-3" />
+                    )}{" "}
+                    {videoMode === "text_post"
+                      ? "Generate Post"
+                      : videoMode === "sora_video"
+                        ? "Sora Video"
+                        : videoMode === "heygen_agent"
+                          ? "HeyGen Agent"
+                          : "Multipage"}
+                  </>
                 )}
               </Button>
             )}
