@@ -1,0 +1,5 @@
+{
+  "id": "skill-studio-cms-sync",
+  "name": "Skill Studio Blog Sync",
+  "modes": ["configureManagedCollection", "syncManagedCollection"]
+}
