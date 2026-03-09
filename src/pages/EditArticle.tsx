@@ -60,6 +60,11 @@ const EditArticle = () => {
     setIsSaving(true);
 
     try {
+      if (!id) {
+        toast({ title: "Missing article id", variant: "destructive" });
+        return;
+      }
+
       const content = editor?.getHTML() || "";
       const excerpt = editor?.getText().slice(0, 200) || "";
       const slug = title
