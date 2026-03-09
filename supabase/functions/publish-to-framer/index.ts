@@ -169,16 +169,14 @@ serve(async (req) => {
     const framerApiUrl = `https://api.framer.com/v1/sites/${FRAMER_SITE_ID}/collections/${FRAMER_COLLECTION_ID}/items`;
 
     const framerPayload = {
+      slug,
       fieldData: {
-        slug,
         title,
         content,
         excerpt: excerpt || meta_description,
         meta_description,
         category,
         cover_image: validCoverImageUrl,
-        created_at,
-        updated_at,
       },
     };
 
