@@ -1,5 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// Since we cannot use the official framer-api library easily here, we will just use the REST API.
+// Note: Framer Server API currently uses a WebSocket channel internally or specific auth.
+// But they have released a `framer-api` NPM package that does this.
+// For now, let's just make the REST request like we did, but the 404 means the endpoint is wrong.
+
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
