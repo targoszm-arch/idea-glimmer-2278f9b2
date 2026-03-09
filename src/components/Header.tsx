@@ -21,7 +21,7 @@ const Header = () => {
       <div className="container flex h-16 items-center justify-between py-0">
         <div className="flex items-center gap-8">
           <Link to="/" className="text-xl font-bold tracking-tight text-foreground">
-            Content<span className="text-primary">Lab</span>
+            Skill Studio AI <span className="text-primary">ContentLab</span>
           </Link>
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => {
