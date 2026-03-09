@@ -40,13 +40,15 @@ if (NativeWebSocket) {
 
       if (Array.isArray(protocols)) {
         const cleaned = protocols.map((p) => sanitize(p)).filter(Boolean) as string[];
-        super(url, cleaned.length ? cleaned : undefined);
+        if (cleaned.length) super(url, cleaned);
+        else super(url);
         return;
       }
 
       if (typeof protocols === "string") {
         const cleaned = sanitize(protocols);
-        super(url, cleaned ?? undefined);
+        if (cleaned) super(url, cleaned);
+        else super(url);
         return;
       }
 
