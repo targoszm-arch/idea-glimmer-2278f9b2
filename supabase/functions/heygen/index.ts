@@ -153,10 +153,31 @@ serve(async (req) => {
     // ACTION: agent
     if (action === "agent") {
       if (!prompt) throw new Error("prompt is required for agent action");
+      
+      // Get brand logo from Supabase
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
+      const { data: brandAssets } = await supabase
+        .from("brand_assets")
+        .select("*")
+        .eq("type", "visual")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      
+      const brandLogoUrl = brandAssets && brandAssets.length > 0 ? brandAssets[0].file_url : undefined;
+      
+      const body: Record<string, unknown> = { prompt };
+      if (brandLogoUrl) {
+        body.brand_logo = brandLogoUrl;
+        console.log("Including brand logo in HeyGen agent request:", brandLogoUrl);
+      }
+      
       const resp = await fetch(`${HEYGEN_BASE}/v1/video_agent/generate`, {
         method: "POST",
         headers: heygenHeaders,
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify(body),
       });
       if (!resp.ok) {
         const t = await resp.text();
