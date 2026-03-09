@@ -1,11 +1,9 @@
 /**
  * This page shows instructions for connecting the Framer plugin.
- * The actual plugin is served as static files under /framer-plugin/
+ * The actual plugin is served via a Supabase Edge Function.
  */
 const FramerPlugin = () => {
-  // IMPORTANT: Framer validates the plugin by fetching `${url}/framer.json`,
-  // so the URL you paste must be the folder root (not index.html).
-  const pluginRootUrl = `${window.location.origin}/framer-plugin/`;
+  const pluginUrl = "https://rnshobvpqegttrpaowxe.supabase.co/functions/v1/framer-plugin";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-6">
@@ -19,13 +17,13 @@ const FramerPlugin = () => {
             <strong> Open Development Plugin</strong>
           </li>
           <li>
-            Paste this URL (note the trailing slash):
-            <code className="block mt-1 p-2 bg-muted rounded text-xs font-mono break-all select-all">{pluginRootUrl}</code>
+            Paste this URL:
+            <code className="block mt-1 p-2 bg-muted rounded text-xs font-mono break-all select-all">{pluginUrl}</code>
           </li>
           <li>Click <strong>Open</strong>, then use the Sync button inside Framer</li>
         </ol>
         <p className="text-xs text-muted-foreground/60">
-          The plugin runs inside Framer’s iframe — it won’t work standalone in a browser.
+          The plugin runs inside Framer's iframe — it won't work standalone in a browser.
         </p>
       </div>
     </div>
