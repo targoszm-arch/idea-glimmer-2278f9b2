@@ -11,6 +11,77 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Lightweight diagnostics to confirm Framer IDs/token and endpoint availability.
+  // Call: GET /functions/v1/publish-to-framer?debug=1
+  const url = new URL(req.url);
+  if (req.method === "GET" || url.searchParams.get("debug") === "1") {
+    try {
+      const FRAMER_API_TOKEN = Deno.env.get("FRAMER_API_TOKEN");
+      const FRAMER_SITE_ID = Deno.env.get("FRAMER_SITE_ID");
+      const FRAMER_COLLECTION_ID = Deno.env.get("FRAMER_COLLECTION_ID");
+
+      if (!FRAMER_API_TOKEN || !FRAMER_SITE_ID || !FRAMER_COLLECTION_ID) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            error:
+              "Missing FRAMER_API_TOKEN / FRAMER_SITE_ID / FRAMER_COLLECTION_ID secret(s)",
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
+
+      const headers = { Authorization: `Bearer ${FRAMER_API_TOKEN}` };
+
+      const probe = async (name: string, targetUrl: string) => {
+        try {
+          const res = await fetch(targetUrl, { headers });
+          const text = await res.text();
+          return {
+            name,
+            url: targetUrl,
+            status: res.status,
+            bodySnippet: text?.slice(0, 300) || "",
+          };
+        } catch (e) {
+          return {
+            name,
+            url: targetUrl,
+            status: null,
+            error: e instanceof Error ? e.message : String(e),
+          };
+        }
+      };
+
+      const base = `https://api.framer.com/v1/sites/${FRAMER_SITE_ID}`;
+      const results = await Promise.all([
+        probe("site", base),
+        probe("collections", `${base}/collections`),
+        probe("collection", `${base}/collections/${FRAMER_COLLECTION_ID}`),
+        probe("items", `${base}/collections/${FRAMER_COLLECTION_ID}/items`),
+      ]);
+
+      return new Response(
+        JSON.stringify(
+          {
+            ok: true,
+            note:
+              "If all endpoints are 404, Framer likely doesn't expose this REST API for your account/project (or the SITE/COLLECTION IDs are not the right type).",
+            results,
+          },
+          null,
+          2
+        ),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (e) {
+      return new Response(
+        JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
+  }
+
   try {
     const FRAMER_API_TOKEN = Deno.env.get("FRAMER_API_TOKEN");
     const FRAMER_SITE_ID = Deno.env.get("FRAMER_SITE_ID");
@@ -18,6 +89,51 @@ serve(async (req) => {
     
     if (!FRAMER_API_TOKEN || !FRAMER_SITE_ID || !FRAMER_COLLECTION_ID) {
       throw new Error("FRAMER_API_TOKEN, FRAMER_SITE_ID, and FRAMER_COLLECTION_ID must be configured");
+    }
+
+
+    let payload: any = {};
+    try {
+      payload = await req.json();
+    } catch {
+      payload = {};
+    }
+
+    // POST { action: "debug" } to get endpoint probes without attempting a publish.
+    if (payload?.action === "debug") {
+      const headers = { Authorization: `Bearer ${FRAMER_API_TOKEN}` };
+
+      const probe = async (name: string, targetUrl: string) => {
+        try {
+          const res = await fetch(targetUrl, { headers });
+          const text = await res.text();
+          return {
+            name,
+            url: targetUrl,
+            status: res.status,
+            bodySnippet: text?.slice(0, 300) || "",
+          };
+        } catch (e) {
+          return {
+            name,
+            url: targetUrl,
+            status: null,
+            error: e instanceof Error ? e.message : String(e),
+          };
+        }
+      };
+
+      const base = `https://api.framer.com/v1/sites/${FRAMER_SITE_ID}`;
+      const results = await Promise.all([
+        probe("site", base),
+        probe("collections", `${base}/collections`),
+        probe("collection", `${base}/collections/${FRAMER_COLLECTION_ID}`),
+        probe("items", `${base}/collections/${FRAMER_COLLECTION_ID}/items`),
+      ]);
+
+      return new Response(JSON.stringify({ ok: true, results }, null, 2), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const {
@@ -30,7 +146,7 @@ serve(async (req) => {
       cover_image_url,
       created_at,
       updated_at,
-    } = await req.json();
+    } = payload;
 
     if (!title || !slug) {
       throw new Error("title and slug are required");
@@ -74,7 +190,9 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Framer API error:", response.status, errorText);
-      throw new Error(`Framer API error (${response.status}): ${errorText}`);
+      throw new Error(
+        `Framer API error (${response.status}) for ${framerApiUrl}: ${errorText || "<empty body>"}`
+      );
     }
 
     const data = await response.json();
