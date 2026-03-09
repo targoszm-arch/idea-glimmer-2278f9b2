@@ -58,68 +58,55 @@ const EditArticle = () => {
 
   const handleSave = async (newStatus?: "draft" | "published") => {
     setIsSaving(true);
-    const content = editor?.getHTML() || "";
-    const excerpt = editor?.getText().slice(0, 200) || "";
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-    const finalStatus = newStatus || status;
 
-    const { error } = await supabase.from("articles").update({
-      title, slug, content, excerpt, meta_description: excerpt, category, status: finalStatus, cover_image_url: coverImageUrl, updated_at: new Date().toISOString(),
-    }).eq("id", id);
+    try {
+      if (!id) {
+        toast({ title: "Missing article id", variant: "destructive" });
+        return;
+      }
 
-    if (error) {
-      toast({ title: "Save failed", description: error.message, variant: "destructive" });
-      setIsSaving(false);
-      return;
-    }
-    
-    setStatus(finalStatus);
-    toast({ title: "Article saved!" });
+      const content = editor?.getHTML() || "";
+      const excerpt = editor?.getText().slice(0, 200) || "";
+      const slug = title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+      const finalStatus = newStatus || status;
 
-    // If publishing, also publish to Framer CMS
-    if (finalStatus === "published") {
-      try {
-        const framerResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/publish-to-framer`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title,
-              slug,
-              content,
-              excerpt,
-              meta_description: excerpt,
-              category,
-              cover_image_url: coverImageUrl,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            }),
-          }
-        );
+      const { error } = await supabase
+        .from("articles")
+        .update({
+          title,
+          slug,
+          content,
+          excerpt,
+          meta_description: excerpt,
+          category,
+          status: finalStatus,
+          cover_image_url: coverImageUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
 
-        if (!framerResponse.ok) {
-          const errorData = await framerResponse.json();
-          console.error("Framer publish error:", errorData);
-          toast({
-            title: "Framer publish failed",
-            description: errorData.error || "Failed to publish to Framer CMS",
-            variant: "destructive",
-          });
-        } else {
-          toast({ title: "Published to Framer CMS! ✨" });
-        }
-      } catch (framerError) {
-        console.error("Framer publish error:", framerError);
+      if (error) {
+        toast({ title: "Save failed", description: error.message, variant: "destructive" });
+        return;
+      }
+
+      setStatus(finalStatus);
+      toast({ title: "Article saved!" });
+
+      // Framer publishing is handled via the Framer Server API (local script), not an Edge Function REST call.
+      if (finalStatus === "published") {
         toast({
-          title: "Framer publish failed",
-          description: "Could not connect to Framer CMS",
-          variant: "destructive",
+          title: "Ready for Framer sync",
+          description:
+            "To publish to Framer CMS, run the local script in /scripts (see scripts/README.md).",
         });
       }
+    } finally {
+      setIsSaving(false);
     }
-    
-    setIsSaving(false);
   };
 
   const handleDelete = async () => {
