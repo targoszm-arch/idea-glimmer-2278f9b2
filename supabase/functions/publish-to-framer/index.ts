@@ -145,7 +145,9 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Framer API error:", response.status, errorText);
-      throw new Error(`Framer API error (${response.status}): ${errorText}`);
+      throw new Error(
+        `Framer API error (${response.status}) for ${framerApiUrl}: ${errorText || "<empty body>"}`
+      );
     }
 
     const data = await response.json();
