@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.publish-to-framer]
 verify_jwt = false
+
+[functions.upload-brand-asset]
+verify_jwt = false
