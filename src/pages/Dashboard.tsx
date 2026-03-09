@@ -37,7 +37,7 @@ const Dashboard = () => {
   articles.filter((a) => a.status === statusFilter);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background py-[5px] px-[5px]">
       <Header />
       <main className="flex-1 container py-8">
         <motion.div
