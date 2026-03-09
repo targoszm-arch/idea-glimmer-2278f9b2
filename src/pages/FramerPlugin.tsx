@@ -116,7 +116,7 @@ const FramerPlugin = () => {
       }
 
       const fields = await collection.getFields();
-      const fieldMap = new Map(fields.map((f: any) => [f.name, f.id]));
+      const fieldMap = new Map<string, string>(fields.map((f: any) => [f.name, f.id]));
 
       const titleId = fieldMap.get("Title");
       const bodyId = fieldMap.get("Body");
