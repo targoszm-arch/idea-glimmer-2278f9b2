@@ -1,5 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// Since we cannot use the official framer-api library easily here, we will just use the REST API.
+// Note: Framer Server API currently uses a WebSocket channel internally or specific auth.
+// But they have released a `framer-api` NPM package that does this.
+// For now, let's just make the REST request like we did, but the 404 means the endpoint is wrong.
+
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -163,16 +169,14 @@ serve(async (req) => {
     const framerApiUrl = `https://api.framer.com/v1/sites/${FRAMER_SITE_ID}/collections/${FRAMER_COLLECTION_ID}/items`;
 
     const framerPayload = {
+      slug,
       fieldData: {
-        slug,
         title,
         content,
         excerpt: excerpt || meta_description,
         meta_description,
         category,
         cover_image: validCoverImageUrl,
-        created_at,
-        updated_at,
       },
     };
 
