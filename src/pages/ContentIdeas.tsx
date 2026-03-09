@@ -372,9 +372,9 @@ const ContentIdeas = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="container py-8">
+      <main className="flex-1 container py-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground">Content Ideas</h1>
