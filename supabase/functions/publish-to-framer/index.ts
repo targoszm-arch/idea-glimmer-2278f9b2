@@ -54,7 +54,7 @@ serve(async (req) => {
         excerpt: excerpt || meta_description,
         meta_description,
         category,
-        cover_image: cover_image_url,
+        cover_image: validCoverImageUrl,
         created_at,
         updated_at,
       },
