@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -60,7 +61,7 @@ const SocialMedia = () => {
   const [videoProgressPercent, setVideoProgressPercent] = useState(0);
   const [videoMode, setVideoMode] = useState<VideoMode>("text_post");
   const [heygenTemplates, setHeygenTemplates] = useState<Array<{ template_id: string; name: string; thumbnail_image_url?: string }>>([]);
-  const [selectedHeygenTemplate, setSelectedHeygenTemplate] = useState<string | null>(null);
+  const [selectedHeygenTemplateByIdea, setSelectedHeygenTemplateByIdea] = useState<Record<string, string>>({});
   const [loadingHeygenTemplates, setLoadingHeygenTemplates] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
@@ -388,10 +389,13 @@ const SocialMedia = () => {
 
   const handleGenerateHeygenTemplate = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
-    if (!selectedHeygenTemplate) {
-      toast({ title: "Select a template", description: "Pick a HeyGen template first.", variant: "destructive" });
+
+    const templateId = selectedHeygenTemplateByIdea[idea.id];
+    if (!templateId) {
+      toast({ title: "Select a template", description: "Pick a HeyGen template for this post first.", variant: "destructive" });
       return;
     }
+
     setGeneratingPostId(idea.id);
     setExpandedPostId(idea.id);
     setVideoProgress("Fetching template variables...");
@@ -401,7 +405,7 @@ const SocialMedia = () => {
       // 1. Fetch template details to get required variables
       const templateDetails = await callHeygen({
         action: "get_template",
-        template_id: selectedHeygenTemplate,
+        template_id: templateId,
       });
 
       const templateVars = templateDetails?.data?.variables || {};
@@ -445,7 +449,7 @@ const SocialMedia = () => {
       // 3. Generate with filled variables
       const result = await callHeygen({
         action: "generate",
-        template_id: selectedHeygenTemplate,
+        template_id: templateId,
         title: idea.title_suggestion,
         variables: filledVariables,
       });
@@ -479,9 +483,11 @@ const SocialMedia = () => {
             } else {
               const pct = Math.min(15 + (attempts / maxAttempts) * 70, 85);
               setVideoProgressPercent(pct);
-              setVideoProgress(`Rendering... (${status || "processing"}) — ${Math.floor(attempts * 5 / 60)}m ${(attempts * 5) % 60}s`);
+              setVideoProgress(`Rendering... (${status || "processing"}) — ${Math.floor((attempts * 5) / 60)}m ${(attempts * 5) % 60}s`);
             }
-          } catch (e) { console.warn("Poll error:", e); }
+          } catch (e) {
+            console.warn("Poll error:", e);
+          }
         }, 5000);
       });
 
@@ -494,17 +500,21 @@ const SocialMedia = () => {
 
       setVideoProgressPercent(100);
 
-      const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
-        platform: idea.platform,
-        topic: idea.topic,
-        title: idea.title_suggestion,
-        content: `HeyGen template video: ${idea.title_suggestion}`,
-        video_url: storedVideoUrl,
-      }).select().single();
+      const { data: postData, error: saveError } = await supabase
+        .from("social_posts")
+        .insert({
+          platform: idea.platform,
+          topic: idea.topic,
+          title: idea.title_suggestion,
+          content: `HeyGen template video: ${idea.title_suggestion}`,
+          video_url: storedVideoUrl,
+        })
+        .select()
+        .single();
       if (saveError) throw new Error(saveError.message);
 
       await supabase.from("social_post_ideas").update({ status: "used", post_id: postData.id }).eq("id", idea.id);
-      setIdeas((prev) => prev.map((i) => i.id === idea.id ? { ...i, status: "used", post_id: postData.id } : i));
+      setIdeas((prev) => prev.map((i) => (i.id === idea.id ? { ...i, status: "used", post_id: postData.id } : i)));
       setPosts((prev) => ({ ...prev, [postData.id]: postData as SocialPost }));
       setVideoProgress(null);
       setVideoProgressPercent(0);
@@ -517,7 +527,7 @@ const SocialMedia = () => {
       setVideoProgressPercent(0);
       toast({ title: "HeyGen generation failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
     }
-  }, [generatingPostId, selectedHeygenTemplate, toast]);
+  }, [generatingPostId, selectedHeygenTemplateByIdea, toast]);
 
   const handleGenerateHeygenAgent = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
@@ -835,7 +845,71 @@ const SocialMedia = () => {
                 <Play className="h-3 w-3" /> Download
               </Button>
             )}
-            {!hasPost && (
+            {!hasPost && videoMode === "heygen_template" && (
+              <>
+                {heygenTemplates.length > 0 ? (
+                  <Select
+                    value={selectedHeygenTemplateByIdea[idea.id] ?? ""}
+                    onValueChange={(value) =>
+                      setSelectedHeygenTemplateByIdea((prev) => ({
+                        ...prev,
+                        [idea.id]: value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-[150px] text-xs">
+                      <SelectValue placeholder={loadingHeygenTemplates ? "Loading…" : "Template"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {heygenTemplates.map((tpl) => (
+                        <SelectItem key={tpl.template_id} value={tpl.template_id}>
+                          {tpl.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={fetchHeygenTemplates}
+                    disabled={loadingHeygenTemplates}
+                    className="text-xs h-8 px-2 gap-1"
+                  >
+                    {loadingHeygenTemplates ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Clapperboard className="h-3 w-3" />
+                    )}
+                    {loadingHeygenTemplates ? "Loading" : "Load"}
+                  </Button>
+                )}
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleGeneratePost(idea)}
+                  disabled={
+                    isGeneratingThis ||
+                    !!generatingPostId ||
+                    !selectedHeygenTemplateByIdea[idea.id]
+                  }
+                  className="text-xs gap-1"
+                >
+                  {isGeneratingThis ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" /> Generating Video...
+                    </>
+                  ) : (
+                    <>
+                      <Video className="h-3 w-3" /> Generate Video
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
+
+            {!hasPost && videoMode !== "heygen_template" && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -844,9 +918,31 @@ const SocialMedia = () => {
                 className="text-xs gap-1"
               >
                 {isGeneratingThis ? (
-                  <><Loader2 className="h-3 w-3 animate-spin" /> {videoMode === "multipage" ? "Generating Slides..." : videoMode === "text_post" ? "Generating..." : "Generating Video..."}</>
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />{" "}
+                    {videoMode === "multipage"
+                      ? "Generating Slides..."
+                      : videoMode === "text_post"
+                        ? "Generating..."
+                        : "Generating Video..."}
+                  </>
                 ) : (
-                  <>{videoMode === "text_post" ? <Sparkles className="h-3 w-3" /> : videoMode === "multipage" ? <Images className="h-3 w-3" /> : <Video className="h-3 w-3" />} {videoMode === "text_post" ? "Generate Post" : videoMode === "sora_video" ? "Sora Video" : videoMode === "heygen_template" ? "HeyGen Template" : videoMode === "heygen_agent" ? "HeyGen Agent" : "Multipage"}</>
+                  <>
+                    {videoMode === "text_post" ? (
+                      <Sparkles className="h-3 w-3" />
+                    ) : videoMode === "multipage" ? (
+                      <Images className="h-3 w-3" />
+                    ) : (
+                      <Video className="h-3 w-3" />
+                    )}{" "}
+                    {videoMode === "text_post"
+                      ? "Generate Post"
+                      : videoMode === "sora_video"
+                        ? "Sora Video"
+                        : videoMode === "heygen_agent"
+                          ? "HeyGen Agent"
+                          : "Multipage"}
+                  </>
                 )}
               </Button>
             )}
@@ -854,7 +950,23 @@ const SocialMedia = () => {
         </div>
       </motion.div>
     );
-  }, [generatingPostId, posts, expandedPostId, streamingContent, videoProgress, videoProgressPercent, copiedId, handleGeneratePost, handleCopy, handleDeleteIdea]);
+  }, [
+    generatingPostId,
+    posts,
+    expandedPostId,
+    streamingContent,
+    videoProgress,
+    videoProgressPercent,
+    copiedId,
+    videoMode,
+    heygenTemplates,
+    loadingHeygenTemplates,
+    selectedHeygenTemplateByIdea,
+    fetchHeygenTemplates,
+    handleGeneratePost,
+    handleCopy,
+    handleDeleteIdea,
+  ]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -920,49 +1032,28 @@ const SocialMedia = () => {
                             })}
                           </div>
 
-                          {/* HeyGen template selector */}
+                          {/* HeyGen templates */}
                           {videoMode === "heygen_template" && (
-                            <div className="mt-3 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <p className="text-xs font-medium text-foreground">Select HeyGen Template:</p>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={fetchHeygenTemplates}
-                                  disabled={loadingHeygenTemplates}
-                                  className="text-xs h-7 gap-1"
-                                >
-                                  {loadingHeygenTemplates ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clapperboard className="h-3 w-3" />}
-                                  Refresh
-                                </Button>
-                              </div>
-                              {loadingHeygenTemplates ? (
-                                <div className="flex items-center gap-2 py-3 justify-center text-muted-foreground text-xs">
-                                  <Loader2 className="h-4 w-4 animate-spin" /> Loading templates...
-                                </div>
-                              ) : heygenTemplates.length > 0 ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-                                  {heygenTemplates.map((tpl) => (
-                                    <button
-                                      key={tpl.template_id}
-                                      onClick={() => setSelectedHeygenTemplate(tpl.template_id === selectedHeygenTemplate ? null : tpl.template_id)}
-                                      className={cn(
-                                        "rounded-lg border p-2 text-left transition-all text-xs",
-                                        selectedHeygenTemplate === tpl.template_id
-                                          ? "border-primary ring-2 ring-primary/20 bg-primary/5"
-                                          : "border-border hover:border-primary/30"
-                                      )}
-                                    >
-                                      {tpl.thumbnail_image_url && (
-                                        <img src={tpl.thumbnail_image_url} alt={tpl.name} className="w-full aspect-video rounded object-cover mb-1" />
-                                      )}
-                                      <p className="font-medium truncate text-foreground">{tpl.name}</p>
-                                    </button>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-xs text-muted-foreground py-2">No templates loaded. Click Refresh to load from HeyGen.</p>
-                              )}
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2">
+                              <p className="text-xs text-muted-foreground">
+                                {loadingHeygenTemplates
+                                  ? "Loading HeyGen templates…"
+                                  : `${heygenTemplates.length} HeyGen templates loaded — select one per idea below.`}
+                              </p>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={fetchHeygenTemplates}
+                                disabled={loadingHeygenTemplates}
+                                className="text-xs h-7 gap-1"
+                              >
+                                {loadingHeygenTemplates ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Clapperboard className="h-3 w-3" />
+                                )}
+                                Refresh
+                              </Button>
                             </div>
                           )}
                         </div>
