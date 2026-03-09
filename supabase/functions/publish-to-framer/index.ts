@@ -91,17 +91,6 @@ serve(async (req) => {
       throw new Error("FRAMER_API_TOKEN, FRAMER_SITE_ID, and FRAMER_COLLECTION_ID must be configured");
     }
 
-    const {
-      title,
-      slug,
-      content,
-      excerpt,
-      meta_description,
-      category,
-      cover_image_url,
-      created_at,
-      updated_at,
-    } = await req.json();
 
     if (!title || !slug) {
       throw new Error("title and slug are required");
