@@ -92,6 +92,62 @@ serve(async (req) => {
     }
 
 
+    let payload: any = {};
+    try {
+      payload = await req.json();
+    } catch {
+      payload = {};
+    }
+
+    // POST { action: "debug" } to get endpoint probes without attempting a publish.
+    if (payload?.action === "debug") {
+      const headers = { Authorization: `Bearer ${FRAMER_API_TOKEN}` };
+
+      const probe = async (name: string, targetUrl: string) => {
+        try {
+          const res = await fetch(targetUrl, { headers });
+          const text = await res.text();
+          return {
+            name,
+            url: targetUrl,
+            status: res.status,
+            bodySnippet: text?.slice(0, 300) || "",
+          };
+        } catch (e) {
+          return {
+            name,
+            url: targetUrl,
+            status: null,
+            error: e instanceof Error ? e.message : String(e),
+          };
+        }
+      };
+
+      const base = `https://api.framer.com/v1/sites/${FRAMER_SITE_ID}`;
+      const results = await Promise.all([
+        probe("site", base),
+        probe("collections", `${base}/collections`),
+        probe("collection", `${base}/collections/${FRAMER_COLLECTION_ID}`),
+        probe("items", `${base}/collections/${FRAMER_COLLECTION_ID}/items`),
+      ]);
+
+      return new Response(JSON.stringify({ ok: true, results }, null, 2), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const {
+      title,
+      slug,
+      content,
+      excerpt,
+      meta_description,
+      category,
+      cover_image_url,
+      created_at,
+      updated_at,
+    } = payload;
+
     if (!title || !slug) {
       throw new Error("title and slug are required");
     }
