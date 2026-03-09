@@ -41,8 +41,9 @@ const FramerPlugin = () => {
   const handleConfigure = async () => {
     setStatus("configuring");
     try {
-      // @ts-ignore - framer is injected by the Framer plugin environment
-      const framer = window.framer || (await import("framer-plugin")).framer;
+      // framer is injected by the Framer plugin environment as window.framer
+      // @ts-ignore
+      const framer = (window as any).framer;
       const collection = await framer.getManagedCollection();
       if (!collection) {
         setStatus("error");
@@ -105,8 +106,8 @@ const FramerPlugin = () => {
 
       setMessage(`Found ${articles.length} articles. Pushing to Framer...`);
 
-      // @ts-ignore - framer is injected by the Framer plugin environment
-      const framer = window.framer || (await import("framer-plugin")).framer;
+      // framer is injected by the Framer plugin environment as window.framer
+      const framer = (window as any).framer;
       const collection = await framer.getManagedCollection();
 
       if (!collection) {
