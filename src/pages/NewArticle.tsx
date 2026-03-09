@@ -50,16 +50,16 @@ const NewArticle = () => {
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
-      Link.configure({ openOnClick: false }),
-      Placeholder.configure({ placeholder: "Start writing or generate with AI..." }),
-    ],
+    StarterKit,
+    Link.configure({ openOnClick: false }),
+    Placeholder.configure({ placeholder: "Start writing or generate with AI..." })],
+
     content: "",
     editorProps: {
       attributes: {
-        class: "prose prose-sm sm:prose max-w-none focus:outline-none min-h-[400px] px-6 py-4",
-      },
-    },
+        class: "prose prose-sm sm:prose max-w-none focus:outline-none min-h-[400px] px-6 py-4"
+      }
+    }
   });
 
   const handleGenerate = useCallback(async () => {
@@ -83,7 +83,7 @@ const NewArticle = () => {
         category,
         app_description: aiSettings?.app_description || "",
         app_audience: aiSettings?.app_audience || "",
-        reference_urls: aiSettings?.reference_urls || [],
+        reference_urls: aiSettings?.reference_urls || []
       },
       onDelta: (text) => {
         accumulated += text;
@@ -101,7 +101,7 @@ const NewArticle = () => {
       onError: (error) => {
         setIsGenerating(false);
         toast({ title: "Generation failed", description: error, variant: "destructive" });
-      },
+      }
     });
   }, [topic, tone, category, editor, title]);
 
@@ -119,9 +119,9 @@ const NewArticle = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
           },
-          body: JSON.stringify({ prompt: imagePrompt }),
+          body: JSON.stringify({ prompt: imagePrompt })
         }
       );
       const data = await resp.json();
@@ -145,20 +145,20 @@ const NewArticle = () => {
     const excerpt = editor?.getText().slice(0, 200) || "";
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-    const { data, error } = await supabase
-      .from("articles")
-      .insert({
-        title,
-        slug,
-        content,
-        excerpt,
-        meta_description: excerpt,
-        category,
-        status,
-        cover_image_url: coverImageUrl,
-      })
-      .select()
-      .single();
+    const { data, error } = await supabase.
+    from("articles").
+    insert({
+      title,
+      slug,
+      content,
+      excerpt,
+      meta_description: excerpt,
+      category,
+      status,
+      cover_image_url: coverImageUrl
+    }).
+    select().
+    single();
 
     if (error) {
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
@@ -166,7 +166,7 @@ const NewArticle = () => {
       if (status === "published") {
         toast({
           title: "Article published!",
-          description: "Open your Framer plugin and click 'Sync' to push it to Framer CMS.",
+          description: "Open your Framer plugin and click 'Sync' to push it to Framer CMS."
         });
       } else {
         toast({ title: "Saved as draft!" });
@@ -177,7 +177,7 @@ const NewArticle = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background py-[5px] px-[5px]">
       <Header />
       <main className="container py-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
@@ -199,19 +199,19 @@ const NewArticle = () => {
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
                   placeholder="e.g., How to build a SaaS content strategy"
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                />
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-foreground">Tone</label>
                 <select
                   value={tone}
                   onChange={(e) => setTone(e.target.value)}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {TONE_PRESETS.map((t) => (
-                    <option key={t.key} value={t.key}>{t.label}</option>
-                  ))}
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  
+                  {TONE_PRESETS.map((t) =>
+                  <option key={t.key} value={t.key}>{t.label}</option>
+                  )}
                 </select>
                 <a href="/settings" className="mt-1 flex items-center gap-1 text-xs text-muted-foreground hover:text-primary">
                   <Settings className="h-3 w-3" /> Manage in AI Settings
@@ -223,15 +223,15 @@ const NewArticle = () => {
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   placeholder="e.g., Marketing"
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                />
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                
               </div>
             </div>
             <button
               onClick={handleGenerate}
               disabled={isGenerating}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50"
-            >
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50">
+              
               {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {isGenerating ? "Generating..." : "Generate Article"}
             </button>
@@ -242,37 +242,37 @@ const NewArticle = () => {
             <div className="flex-1">
               {/* Cover Image */}
               <div className="mb-4">
-                {coverImageUrl ? (
-                  <div className="relative overflow-hidden rounded-xl border border-border">
+                {coverImageUrl ?
+                <div className="relative overflow-hidden rounded-xl border border-border">
                     <img src={coverImageUrl} alt="Cover" className="h-48 w-full object-cover" />
                     <button
-                      onClick={() => setCoverImageUrl(null)}
-                      className="absolute right-2 top-2 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm hover:bg-background"
-                    >
+                    onClick={() => setCoverImageUrl(null)}
+                    className="absolute right-2 top-2 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm hover:bg-background">
+                    
                       <X className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={handleGenerateCoverImage}
-                      disabled={isGeneratingImage}
-                      className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50"
-                    >
+                    onClick={handleGenerateCoverImage}
+                    disabled={isGeneratingImage}
+                    className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50">
+                    
                       {isGeneratingImage ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImagePlus className="h-3 w-3" />}
                       Regenerate
                     </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleGenerateCoverImage}
-                    disabled={isGeneratingImage}
-                    className="flex h-32 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
-                  >
-                    {isGeneratingImage ? (
-                      <><Loader2 className="h-5 w-5 animate-spin" /> Generating cover image...</>
-                    ) : (
-                      <><ImagePlus className="h-5 w-5" /> Generate AI Cover Image</>
-                    )}
+                  </div> :
+
+                <button
+                  onClick={handleGenerateCoverImage}
+                  disabled={isGeneratingImage}
+                  className="flex h-32 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50">
+                  
+                    {isGeneratingImage ?
+                  <><Loader2 className="h-5 w-5 animate-spin" /> Generating cover image...</> :
+
+                  <><ImagePlus className="h-5 w-5" /> Generate AI Cover Image</>
+                  }
                   </button>
-                )}
+                }
               </div>
 
               <div className="mb-4">
@@ -280,8 +280,8 @@ const NewArticle = () => {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Article Title"
-                  className="w-full border-none bg-transparent text-3xl font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
-                />
+                  className="w-full border-none bg-transparent text-3xl font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none" />
+                
               </div>
 
               <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -293,25 +293,25 @@ const NewArticle = () => {
                 <button
                   onClick={() => handleSave("draft")}
                   disabled={isSaving}
-                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50"
-                >
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
+                  
                   <Save className="h-4 w-4" />
                   Save Draft
                 </button>
                 <button
                   onClick={() => handleSave("published")}
                   disabled={isSaving}
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50"
-                >
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50">
+                  
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Publish
                 </button>
                 <button
                   onClick={() => setShowAssistant(!showAssistant)}
                   className={`ml-auto inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                    showAssistant ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary"
-                  }`}
-                >
+                  showAssistant ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary"}`
+                  }>
+                  
                   <Sparkles className="h-4 w-4" />
                   AI Assistant
                 </button>
@@ -319,23 +319,23 @@ const NewArticle = () => {
             </div>
 
             {/* AI Assistant Panel */}
-            {showAssistant && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="w-full lg:w-80"
-              >
+            {showAssistant &&
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="w-full lg:w-80">
+              
                 <AIAssistantPanel
-                  currentContent={editor?.getHTML() || ""}
-                  onApplyContent={(content) => editor?.commands.setContent(content)}
-                />
+                currentContent={editor?.getHTML() || ""}
+                onApplyContent={(content) => editor?.commands.setContent(content)} />
+              
               </motion.div>
-            )}
+            }
           </div>
         </motion.div>
       </main>
-    </div>
-  );
+    </div>);
+
 };
 
 export default NewArticle;
