@@ -1,0 +1,27 @@
+node_modules/
+.env.local
+*.log
+
+This directory contains automation scripts for the project.
+
+## Scripts
+
+### `publish-to-framer.js`
+Publishes articles from Supabase to Framer CMS using the Framer Server API.
+
+See the [README](./README.md) for full documentation.
+
+## Setup
+
+```bash
+cd scripts
+npm install
+cp .env.local.example .env.local
+# Edit .env.local with your credentials
+```
+
+## Quick Start
+
+```bash
+npm run publish:framer
+```
