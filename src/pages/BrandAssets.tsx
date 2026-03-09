@@ -25,6 +25,14 @@ const assetTypes = [
 
 type AssetType = (typeof assetTypes)[number]["key"];
 
+const fileToDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+
 const BrandAssets = () => {
   const [assets, setAssets] = useState<BrandAsset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,32 +64,38 @@ const BrandAssets = () => {
     const newAssets: BrandAsset[] = [];
 
     for (const file of Array.from(files)) {
-      const ext = file.name.split(".").pop();
-      const path = `${activeTab}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      try {
+        const fileDataUrl = await fileToDataUrl(file);
 
-      const { error: uploadError } = await supabase.storage
-        .from("brand-assets")
-        .upload(path, file, { contentType: file.type, upsert: false });
+        const resp = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-brand-asset`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              action: "upload",
+              name: file.name.replace(/\.[^.]+$/, ""),
+              type: activeTab,
+              fileDataUrl,
+              fileName: file.name,
+              contentType: file.type,
+            }),
+          }
+        );
 
-      if (uploadError) {
-        toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
-        continue;
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data?.error || "Upload failed");
+
+        newAssets.push(data as BrandAsset);
+      } catch (err: any) {
+        toast({
+          title: "Upload failed",
+          description: err?.message || "Unknown error",
+          variant: "destructive",
+        });
       }
-
-      const { data: urlData } = supabase.storage.from("brand-assets").getPublicUrl(path);
-
-      const { data: row, error: insertError } = await supabase
-        .from("brand_assets")
-        .insert({
-          name: file.name.replace(/\.[^.]+$/, ""),
-          type: activeTab,
-          file_url: urlData.publicUrl,
-          file_name: path,
-        })
-        .select()
-        .single();
-
-      if (row && !insertError) newAssets.push(row as BrandAsset);
     }
 
     if (newAssets.length > 0) {
@@ -94,20 +108,31 @@ const BrandAssets = () => {
   };
 
   const handleDelete = async (asset: BrandAsset) => {
-    const { error: storageError } = await supabase.storage
-      .from("brand-assets")
-      .remove([asset.file_name]);
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-brand-asset`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "delete",
+            id: asset.id,
+            file_name: asset.file_name,
+          }),
+        }
+      );
 
-    const { error: dbError } = await supabase
-      .from("brand_assets")
-      .delete()
-      .eq("id", asset.id);
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data?.error || "Delete failed");
 
-    if (!storageError && !dbError) {
       setAssets((prev) => prev.filter((a) => a.id !== asset.id));
       toast({ title: "Asset deleted" });
-    } else {
-      toast({ title: "Delete failed", variant: "destructive" });
+    } catch (err: any) {
+      toast({
+        title: "Delete failed",
+        description: err?.message || "Unknown error",
+        variant: "destructive",
+      });
     }
   };
 
