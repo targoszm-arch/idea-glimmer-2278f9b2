@@ -93,9 +93,9 @@ const AISettings = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="container max-w-3xl py-8">
+      <main className="flex-1 container max-w-3xl py-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="mb-8 flex items-center gap-3">
             <Settings className="h-6 w-6 text-primary" />
