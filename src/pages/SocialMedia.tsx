@@ -950,7 +950,23 @@ const SocialMedia = () => {
         </div>
       </motion.div>
     );
-  }, [generatingPostId, posts, expandedPostId, streamingContent, videoProgress, videoProgressPercent, copiedId, handleGeneratePost, handleCopy, handleDeleteIdea]);
+  }, [
+    generatingPostId,
+    posts,
+    expandedPostId,
+    streamingContent,
+    videoProgress,
+    videoProgressPercent,
+    copiedId,
+    videoMode,
+    heygenTemplates,
+    loadingHeygenTemplates,
+    selectedHeygenTemplateByIdea,
+    fetchHeygenTemplates,
+    handleGeneratePost,
+    handleCopy,
+    handleDeleteIdea,
+  ]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
