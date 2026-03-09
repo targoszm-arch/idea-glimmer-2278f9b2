@@ -1,0 +1,7 @@
+# Serve Framer plugin static files directly (do not apply SPA fallback)
+/framer-plugin/framer.json /framer-plugin/framer.json 200
+/framer-plugin/index.html /framer-plugin/index.html 200
+/framer-plugin/ /framer-plugin/index.html 200
+
+# SPA fallback for everything else
+/* /index.html 200
