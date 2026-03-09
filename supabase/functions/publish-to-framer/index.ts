@@ -30,6 +30,34 @@ function normalize(s: string) {
   return s.toLowerCase().trim();
 }
 
+// framer-api passes a subprotocol value that Deno's WebSocket rejects; sanitize it.
+const WS_PROTOCOL_TOKEN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+const NativeWebSocket = globalThis.WebSocket;
+if (NativeWebSocket) {
+  class PatchedWebSocket extends NativeWebSocket {
+    constructor(url: string | URL, protocols?: string | string[]) {
+      const sanitize = (p: string) => (WS_PROTOCOL_TOKEN.test(p) ? p : null);
+
+      if (Array.isArray(protocols)) {
+        const cleaned = protocols.map((p) => sanitize(p)).filter(Boolean) as string[];
+        super(url, cleaned.length ? cleaned : undefined);
+        return;
+      }
+
+      if (typeof protocols === "string") {
+        const cleaned = sanitize(protocols);
+        super(url, cleaned ?? undefined);
+        return;
+      }
+
+      super(url);
+    }
+  }
+
+  // @ts-expect-error override global
+  globalThis.WebSocket = PatchedWebSocket;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
