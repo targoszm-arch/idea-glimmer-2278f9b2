@@ -31,7 +31,7 @@ const App = () => (
           <Route path="/article/:id" element={<Article />} />
           <Route path="/social" element={<SocialMedia />} />
           <Route path="/brand" element={<BrandAssets />} />
-          <Route path="/framer-plugin" element={<FramerPlugin />} />
+          <Route path="/framer-plugin-setup" element={<FramerPlugin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
