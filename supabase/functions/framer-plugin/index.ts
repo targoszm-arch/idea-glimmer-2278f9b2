@@ -9,6 +9,8 @@ const corsHeaders = {
 const MANIFEST = JSON.stringify({
   id: "skill-studio-cms-sync",
   name: "Skill Studio Blog Sync",
+  version: "1.0.0",
+  description: "Sync published Skill Studio AI articles into a Framer managed collection.",
   modes: ["configureManagedCollection", "syncManagedCollection"],
 });
 
