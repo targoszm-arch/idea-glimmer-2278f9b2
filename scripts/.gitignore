@@ -1,4 +1,6 @@
-# Scripts Directory
+node_modules/
+.env.local
+*.log
 
 This directory contains automation scripts for the project.
 
