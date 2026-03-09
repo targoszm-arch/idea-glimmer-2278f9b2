@@ -14,9 +14,10 @@ serve(async (req) => {
   try {
     const FRAMER_API_TOKEN = Deno.env.get("FRAMER_API_TOKEN");
     const FRAMER_SITE_ID = Deno.env.get("FRAMER_SITE_ID");
+    const FRAMER_COLLECTION_ID = Deno.env.get("FRAMER_COLLECTION_ID");
     
-    if (!FRAMER_API_TOKEN || !FRAMER_SITE_ID) {
-      throw new Error("FRAMER_API_TOKEN and FRAMER_SITE_ID must be configured");
+    if (!FRAMER_API_TOKEN || !FRAMER_SITE_ID || !FRAMER_COLLECTION_ID) {
+      throw new Error("FRAMER_API_TOKEN, FRAMER_SITE_ID, and FRAMER_COLLECTION_ID must be configured");
     }
 
     const {
@@ -35,8 +36,15 @@ serve(async (req) => {
       throw new Error("title and slug are required");
     }
 
-    // Framer CMS API endpoint
-    const framerApiUrl = `https://api.framer.com/v1/sites/${FRAMER_SITE_ID}/collections/blog/items`;
+    // Validate that cover_image_url is a valid URL, not a base64 string
+    let validCoverImageUrl = cover_image_url;
+    if (cover_image_url && cover_image_url.startsWith("data:")) {
+      console.warn("Cover image is a base64 data URI, which Framer API does not accept. Omitting cover_image field.");
+      validCoverImageUrl = null;
+    }
+
+    // Framer CMS API endpoint using collection ID
+    const framerApiUrl = `https://api.framer.com/v1/sites/${FRAMER_SITE_ID}/collections/${FRAMER_COLLECTION_ID}/items`;
 
     const framerPayload = {
       fieldData: {
@@ -46,7 +54,7 @@ serve(async (req) => {
         excerpt: excerpt || meta_description,
         meta_description,
         category,
-        cover_image: cover_image_url,
+        cover_image: validCoverImageUrl,
         created_at,
         updated_at,
       },
