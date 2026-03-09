@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.heygen]
 verify_jwt = false
+
+[functions.publish-to-framer]
+verify_jwt = false

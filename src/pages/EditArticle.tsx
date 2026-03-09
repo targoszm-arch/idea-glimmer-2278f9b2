@@ -69,10 +69,56 @@ const EditArticle = () => {
 
     if (error) {
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
-    } else {
-      setStatus(finalStatus);
-      toast({ title: "Article saved!" });
+      setIsSaving(false);
+      return;
     }
+    
+    setStatus(finalStatus);
+    toast({ title: "Article saved!" });
+
+    // If publishing, also publish to Framer CMS
+    if (finalStatus === "published") {
+      try {
+        const framerResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/publish-to-framer`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title,
+              slug,
+              content,
+              excerpt,
+              meta_description: excerpt,
+              category,
+              cover_image_url: coverImageUrl,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }),
+          }
+        );
+
+        if (!framerResponse.ok) {
+          const errorData = await framerResponse.json();
+          console.error("Framer publish error:", errorData);
+          toast({
+            title: "Framer publish failed",
+            description: errorData.error || "Failed to publish to Framer CMS",
+            variant: "destructive",
+          });
+        } else {
+          toast({ title: "Published to Framer CMS! ✨" });
+        }
+      } catch (framerError) {
+        console.error("Framer publish error:", framerError);
+        toast({
+          title: "Framer publish failed",
+          description: "Could not connect to Framer CMS",
+          variant: "destructive",
+        });
+      }
+    }
+    
     setIsSaving(false);
   };
 
