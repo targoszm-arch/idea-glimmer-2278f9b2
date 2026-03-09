@@ -145,20 +145,57 @@ const NewArticle = () => {
     const excerpt = editor?.getText().slice(0, 200) || "";
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-    const { data, error } = await supabase.from("articles").insert({
-      title,
-      slug,
-      content,
-      excerpt,
-      meta_description: excerpt,
-      category,
-      status,
-      cover_image_url: coverImageUrl,
-    }).select().single();
+    const { data, error } = await supabase
+      .from("articles")
+      .insert({
+        title,
+        slug,
+        content,
+        excerpt,
+        meta_description: excerpt,
+        category,
+        status,
+        cover_image_url: coverImageUrl,
+      })
+      .select()
+      .single();
 
     if (error) {
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
     } else {
+      if (status === "published") {
+        const { data: framerData, error: framerError } = await supabase.functions.invoke(
+          "publish-to-framer",
+          {
+            body: {
+              article_id: data.id,
+              framer_item_id: (data as any).framer_item_id || null,
+              title,
+              slug,
+              content,
+              excerpt,
+              meta_description: excerpt,
+              category,
+              cover_image_url: coverImageUrl,
+            },
+          }
+        );
+
+        if (framerError) {
+          toast({
+            title: "Framer publish failed",
+            description: framerError.message,
+            variant: "destructive",
+          });
+        } else {
+          const nextId = (framerData as any)?.framer_item_id as string | null | undefined;
+          if (nextId) {
+            await supabase.from("articles").update({ framer_item_id: nextId }).eq("id", data.id);
+          }
+          toast({ title: "Published to Framer" });
+        }
+      }
+
       toast({ title: `Article ${status === "published" ? "published" : "saved as draft"}!` });
       navigate(status === "published" ? `/article/${data.id}` : "/");
     }

@@ -98,13 +98,38 @@ const EditArticle = () => {
       setStatus(finalStatus);
       toast({ title: "Article saved!" });
 
-      // Framer publishing is handled via the Framer Server API (local script), not an Edge Function REST call.
       if (finalStatus === "published") {
-        toast({
-          title: "Ready for Framer sync",
-          description:
-            "To publish to Framer CMS, run the local script in /scripts (see scripts/README.md).",
-        });
+        const { data: framerData, error: framerError } = await supabase.functions.invoke(
+          "publish-to-framer",
+          {
+            body: {
+              article_id: id,
+              framer_item_id: framerItemId,
+              title,
+              slug,
+              content,
+              excerpt,
+              meta_description: excerpt,
+              category,
+              cover_image_url: coverImageUrl,
+            },
+          }
+        );
+
+        if (framerError) {
+          toast({
+            title: "Framer publish failed",
+            description: framerError.message,
+            variant: "destructive",
+          });
+        } else {
+          const nextId = (framerData as any)?.framer_item_id as string | null | undefined;
+          if (nextId && nextId !== framerItemId) {
+            setFramerItemId(nextId);
+            await supabase.from("articles").update({ framer_item_id: nextId }).eq("id", id);
+          }
+          toast({ title: "Published to Framer" });
+        }
       }
     } finally {
       setIsSaving(false);
