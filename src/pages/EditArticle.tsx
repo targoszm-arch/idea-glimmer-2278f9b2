@@ -22,6 +22,7 @@ const EditArticle = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [showAssistant, setShowAssistant] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const [framerItemId, setFramerItemId] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   const editor = useEditor({
