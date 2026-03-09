@@ -12,6 +12,7 @@ import Article from "./pages/Article";
 import SocialMedia from "./pages/SocialMedia";
 import BrandAssets from "./pages/BrandAssets";
 import NotFound from "./pages/NotFound";
+import FramerPlugin from "./pages/FramerPlugin";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/article/:id" element={<Article />} />
           <Route path="/social" element={<SocialMedia />} />
           <Route path="/brand" element={<BrandAssets />} />
+          <Route path="/framer-plugin" element={<FramerPlugin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
