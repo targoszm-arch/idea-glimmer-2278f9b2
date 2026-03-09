@@ -930,49 +930,28 @@ const SocialMedia = () => {
                             })}
                           </div>
 
-                          {/* HeyGen template selector */}
+                          {/* HeyGen templates */}
                           {videoMode === "heygen_template" && (
-                            <div className="mt-3 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <p className="text-xs font-medium text-foreground">Select HeyGen Template:</p>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={fetchHeygenTemplates}
-                                  disabled={loadingHeygenTemplates}
-                                  className="text-xs h-7 gap-1"
-                                >
-                                  {loadingHeygenTemplates ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clapperboard className="h-3 w-3" />}
-                                  Refresh
-                                </Button>
-                              </div>
-                              {loadingHeygenTemplates ? (
-                                <div className="flex items-center gap-2 py-3 justify-center text-muted-foreground text-xs">
-                                  <Loader2 className="h-4 w-4 animate-spin" /> Loading templates...
-                                </div>
-                              ) : heygenTemplates.length > 0 ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-                                  {heygenTemplates.map((tpl) => (
-                                    <button
-                                      key={tpl.template_id}
-                                      onClick={() => setSelectedHeygenTemplate(tpl.template_id === selectedHeygenTemplate ? null : tpl.template_id)}
-                                      className={cn(
-                                        "rounded-lg border p-2 text-left transition-all text-xs",
-                                        selectedHeygenTemplate === tpl.template_id
-                                          ? "border-primary ring-2 ring-primary/20 bg-primary/5"
-                                          : "border-border hover:border-primary/30"
-                                      )}
-                                    >
-                                      {tpl.thumbnail_image_url && (
-                                        <img src={tpl.thumbnail_image_url} alt={tpl.name} className="w-full aspect-video rounded object-cover mb-1" />
-                                      )}
-                                      <p className="font-medium truncate text-foreground">{tpl.name}</p>
-                                    </button>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-xs text-muted-foreground py-2">No templates loaded. Click Refresh to load from HeyGen.</p>
-                              )}
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2">
+                              <p className="text-xs text-muted-foreground">
+                                {loadingHeygenTemplates
+                                  ? "Loading HeyGen templates…"
+                                  : `${heygenTemplates.length} HeyGen templates loaded — select one per idea below.`}
+                              </p>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={fetchHeygenTemplates}
+                                disabled={loadingHeygenTemplates}
+                                className="text-xs h-7 gap-1"
+                              >
+                                {loadingHeygenTemplates ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Clapperboard className="h-3 w-3" />
+                                )}
+                                Refresh
+                              </Button>
                             </div>
                           )}
                         </div>
