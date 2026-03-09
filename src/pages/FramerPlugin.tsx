@@ -189,8 +189,7 @@ const FramerPlugin = () => {
   const [downloaded, setDownloaded] = useState(false);
 
   const downloadPluginZip = async () => {
-    // Dynamic import JSZip
-    const JSZip = (await import("https://esm.sh/jszip@3.10.1")).default;
+    const JSZip = (await import("jszip")).default;
     const zip = new JSZip();
     
     zip.file("framer.json", JSON.stringify(FRAMER_JSON, null, 2));
