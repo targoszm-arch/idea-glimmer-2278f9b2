@@ -164,39 +164,13 @@ const NewArticle = () => {
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
     } else {
       if (status === "published") {
-        const { data: framerData, error: framerError } = await supabase.functions.invoke(
-          "publish-to-framer",
-          {
-            body: {
-              article_id: data.id,
-              framer_item_id: (data as any).framer_item_id || null,
-              title,
-              slug,
-              content,
-              excerpt,
-              meta_description: excerpt,
-              category,
-              cover_image_url: coverImageUrl,
-            },
-          }
-        );
-
-        if (framerError) {
-          toast({
-            title: "Framer publish failed",
-            description: framerError.message,
-            variant: "destructive",
-          });
-        } else {
-          const nextId = (framerData as any)?.framer_item_id as string | null | undefined;
-          if (nextId) {
-            await supabase.from("articles").update({ framer_item_id: nextId }).eq("id", data.id);
-          }
-          toast({ title: "Published to Framer" });
-        }
+        toast({
+          title: "Article published!",
+          description: "Open your Framer plugin and click 'Sync' to push it to Framer CMS.",
+        });
+      } else {
+        toast({ title: "Saved as draft!" });
       }
-
-      toast({ title: `Article ${status === "published" ? "published" : "saved as draft"}!` });
       navigate(status === "published" ? `/article/${data.id}` : "/");
     }
     setIsSaving(false);
