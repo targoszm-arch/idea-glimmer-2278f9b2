@@ -57,6 +57,7 @@ export type Database = {
           cover_image_url: string | null
           created_at: string
           excerpt: string
+          framer_item_id: string | null
           id: string
           meta_description: string
           slug: string
@@ -70,6 +71,7 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string
           excerpt?: string
+          framer_item_id?: string | null
           id?: string
           meta_description?: string
           slug: string
@@ -83,6 +85,7 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string
           excerpt?: string
+          framer_item_id?: string | null
           id?: string
           meta_description?: string
           slug?: string

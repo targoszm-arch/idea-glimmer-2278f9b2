@@ -11,6 +11,7 @@ export type Article = {
   category: string;
   status: 'draft' | 'published';
   cover_image_url: string | null;
+  framer_item_id?: string | null;
   created_at: string;
   updated_at: string;
 };
