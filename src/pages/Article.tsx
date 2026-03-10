@@ -81,13 +81,22 @@ const Article = () => {
               <ArrowLeft className="h-4 w-4" />
               Back to Library
             </button>
-            <Link
-              to={`/edit/${article.id}`}
-              className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
-            >
-              <Edit3 className="h-4 w-4" />
-              Edit
-            </Link>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleCopyForFramer}
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                {copied ? "Copied!" : "Copy for Framer"}
+              </button>
+              <Link
+                to={`/edit/${article.id}`}
+                className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
+              >
+                <Edit3 className="h-4 w-4" />
+                Edit
+              </Link>
+            </div>
           </div>
 
           <div className="mb-4 flex items-center gap-3">
