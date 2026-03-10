@@ -5,6 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const PLAIN_TEXT_RULE = `\n\nIMPORTANT: Output plain text only. Do NOT use any markdown formatting whatsoever — no #, ##, ###, **, *, -, bullet dashes, or any other markdown syntax. Use line breaks, spacing, and numbered lists (1. 2. 3.) for structure instead.`;
+
 const platformPrompts: Record<string, string> = {
   linkedin: `Generate a professional LinkedIn post for Skill Studio AI.
 Structure:
@@ -15,42 +17,43 @@ Structure:
 - Clear CTA (e.g. "Comment below", "DM me", "Check the link in comments")
 - 3-5 relevant hashtags
 
-Keep it under 1,300 characters. Use line breaks for readability. Write in first person as a thought leader.`,
+Keep it under 1,300 characters. Use line breaks for readability. Write in first person as a thought leader.${PLAIN_TEXT_RULE}`,
 
   youtube: `Generate YouTube video content for Skill Studio AI.
 Structure:
-## Title
+
+TITLE
 An SEO-optimized, click-worthy title (under 70 chars)
 
-## Description
+DESCRIPTION
 A 200-word description with keywords, timestamps placeholder, and CTA
 
-## Tags
+TAGS
 10-15 relevant tags, comma-separated
 
-## Script Outline
+SCRIPT OUTLINE
 A detailed script outline with:
-- Hook (first 30 seconds)
-- Problem setup (1-2 min)
-- 3-5 key points with talking points
-- Product demo walkthrough suggestions
-- CTA and outro
+1. Hook (first 30 seconds)
+2. Problem setup (1-2 min)
+3. 3-5 key points with talking points
+4. Product demo walkthrough suggestions
+5. CTA and outro
 
-## Thumbnail Concept
-A brief description of an engaging thumbnail idea`,
+THUMBNAIL CONCEPT
+A brief description of an engaging thumbnail idea${PLAIN_TEXT_RULE}`,
 
   twitter: `Generate a Twitter/X thread for Skill Studio AI.
 Structure:
-- Tweet 1: Hook tweet that stops the scroll (under 280 chars)
-- Tweets 2-8: Each tweet covers one key point (each under 280 chars)
-- Final tweet: CTA + relevant hashtags
+Tweet 1: Hook tweet that stops the scroll (under 280 chars)
+Tweets 2-8: Each tweet covers one key point (each under 280 chars)
+Final tweet: CTA + relevant hashtags
 
 Format each tweet clearly as:
 🧵 1/
 🧵 2/
 etc.
 
-Make it punchy, use data points, and create curiosity gaps between tweets.`,
+Make it punchy, use data points, and create curiosity gaps between tweets.${PLAIN_TEXT_RULE}`,
 
   instagram_carousel: `Generate an Instagram carousel post for Skill Studio AI.
 You MUST output valid JSON (and nothing else) with this exact structure:
@@ -81,60 +84,64 @@ Rules:
 
   instagram_reel: `Generate an Instagram Reel script for Skill Studio AI.
 Structure:
-## Hook (first 3 seconds)
+
+HOOK (first 3 seconds)
 What to say/show to stop the scroll
 
-## Scenes
+SCENES
 For each scene (aim for 5-8 scenes, total 30-60 seconds):
-### Scene [number] ([duration])
-**Visual:** What's on screen
-**Script/Voiceover:** What to say
-**Text overlay:** On-screen text
 
-## Caption
+Scene [number] ([duration])
+Visual: What's on screen
+Script/Voiceover: What to say
+Text overlay: On-screen text
+
+CAPTION
 Engaging caption with CTA and hashtags
 
-## Audio suggestion
+AUDIO SUGGESTION
 Recommended trending audio style or original audio approach
 
-## CTA
-Specific call to action (save, share, comment, link in bio)`,
+CTA
+Specific call to action (save, share, comment, link in bio)${PLAIN_TEXT_RULE}`,
 
   instagram_reel_multipage: `Generate a multipage Instagram Reel (swipeable image carousel designed as a Reel) for Skill Studio AI.
 This is NOT a video — it's a series of static slides designed to be posted as a carousel Reel.
 
 Structure:
-## Hook Slide (Slide 1)
-**Headline:** Bold, scroll-stopping text (5-8 words max)
-**Subtext:** 1 line of supporting context
-**Visual direction:** Background color/gradient, typography style, imagery suggestions
-**Brand logo placement:** Where to place the logo
 
-## Content Slides (Slides 2-7)
+HOOK SLIDE (Slide 1)
+Headline: Bold, scroll-stopping text (5-8 words max)
+Subtext: 1 line of supporting context
+Visual direction: Background color/gradient, typography style, imagery suggestions
+Brand logo placement: Where to place the logo
+
+CONTENT SLIDES (Slides 2-7)
 For each slide:
-### Slide [number]
-**Headline:** Large bold text (the key point — 3-8 words)
-**Body text:** 1-2 short sentences expanding on the headline
-**Visual direction:** Background style, icons/illustrations to include, color palette
-**Text overlay style:** Font size hierarchy, alignment, any animated text suggestions
+
+Slide [number]
+Headline: Large bold text (the key point — 3-8 words)
+Body text: 1-2 short sentences expanding on the headline
+Visual direction: Background style, icons/illustrations to include, color palette
+Text overlay style: Font size hierarchy, alignment, any animated text suggestions
 
 Follow formats like:
-- "5 things you need to know about..."
-- "Stop doing X, start doing Y"
-- Myth vs Reality
-- Step-by-step guides
-- Before → After comparisons
+"5 things you need to know about..."
+"Stop doing X, start doing Y"
+Myth vs Reality
+Step-by-step guides
+Before → After comparisons
 
-## CTA Slide (Final Slide)
-**Headline:** Clear call to action
-**Body:** What the viewer should do next
-**Visual direction:** Brand-consistent design with logo prominent
+CTA SLIDE (Final Slide)
+Headline: Clear call to action
+Body: What the viewer should do next
+Visual direction: Brand-consistent design with logo prominent
 
-## Caption
+CAPTION
 Engaging caption (under 2,200 chars) with hook, value proposition, CTA, and 20-30 hashtags
 
-## Design Notes
-Overall color palette, font recommendations, and visual consistency guidelines for the entire reel`,
+DESIGN NOTES
+Overall color palette, font recommendations, and visual consistency guidelines for the entire reel${PLAIN_TEXT_RULE}`,
 };
 
 serve(async (req) => {
