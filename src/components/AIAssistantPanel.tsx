@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Sparkles, Send, Loader2 } from "lucide-react";
 import { streamAI } from "@/lib/ai-stream";
 import { toast } from "@/hooks/use-toast";
+import DOMPurify from "dompurify";
 
 interface AIAssistantPanelProps {
   currentContent: string;
