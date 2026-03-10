@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { connect } from "npm:framer-api@0.1.2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,6 +74,21 @@ serve(async (req) => {
   }
 
   try {
+    const _ah = req.headers.get("Authorization");
+    if (!_ah?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const _ac = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: _ah } },
+    });
+    const { error: _ae } = await _ac.auth.getClaims(_ah.replace("Bearer ", ""));
+    if (_ae) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const FRAMER_PROJECT_URL = env("FRAMER_PROJECT_URL");
     const FRAMER_API_KEY = env("FRAMER_API_KEY") ?? env("FRAMER_API_TOKEN");
     const FRAMER_COLLECTION_ID = env("FRAMER_COLLECTION_ID");
