@@ -1,3 +1,5 @@
+import { supabase } from '@/integrations/supabase/client';
+
 const getStreamUrl = (functionName: string) =>
   `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${functionName}`;
 
