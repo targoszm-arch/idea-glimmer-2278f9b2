@@ -13,6 +13,30 @@ const Article = () => {
   const navigate = useNavigate();
   const [article, setArticle] = useState<ArticleType | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyForFramer = async () => {
+    if (!article) return;
+    const imageHtml = article.cover_image_url
+      ? `<img src="${article.cover_image_url}" alt="${article.title}" style="width:100%;max-height:400px;object-fit:cover;border-radius:8px;margin-bottom:16px;" />`
+      : "";
+    const html = `<h1>${article.title}</h1>${imageHtml}${article.content}`;
+    const plainText = article.title + "\n\n" + article.content.replace(/<[^>]*>/g, "");
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([plainText], { type: "text/plain" }),
+        }),
+      ]);
+      setCopied(true);
+      toast({ title: "Copied! Ready to paste into Framer." });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      await navigator.clipboard.writeText(plainText);
+      toast({ title: "Copied as plain text." });
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
