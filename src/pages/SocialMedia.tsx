@@ -1007,7 +1007,7 @@ const SocialMedia = () => {
                             {([
                               { key: "text_post" as VideoMode, label: "Text Post", icon: Sparkles },
                               { key: "sora_video" as VideoMode, label: "Sora Video", icon: Video },
-                              { key: "heygen_template" as VideoMode, label: "Video Template", icon: Clapperboard },
+                              { key: "heygen_template" as VideoMode, label: "Generate videos from template", icon: Clapperboard },
                               { key: "heygen_agent" as VideoMode, label: "Generate Video with A agent", icon: Sparkles },
                               ...(p.key === "instagram_reel" ? [{ key: "multipage" as VideoMode, label: "Multipage Reel", icon: Images }] : []),
                             ]).map((opt) => {
