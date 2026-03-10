@@ -88,7 +88,7 @@ const AIAssistantPanel = ({ currentContent, onApplyContent }: AIAssistantPanelPr
       {preview && (
         <div className="space-y-3">
           <div className="max-h-60 overflow-y-auto rounded-lg border border-border bg-secondary/30 p-3 text-sm text-foreground">
-            <div dangerouslySetInnerHTML={{ __html: preview }} />
+            <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(preview) }} />
           </div>
           <button
             onClick={() => {
