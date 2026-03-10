@@ -82,6 +82,14 @@ const Article = () => {
             {date}
           </div>
 
+          {article.cover_image_url && (
+            <img
+              src={article.cover_image_url}
+              alt={article.title}
+              className="w-full rounded-lg mb-8 object-cover max-h-96"
+            />
+          )}
+
           <article
             className="prose prose-sm sm:prose max-w-none text-foreground prose-headings:text-foreground prose-a:text-primary prose-strong:text-foreground"
             dangerouslySetInnerHTML={{ __html: article.content }}
