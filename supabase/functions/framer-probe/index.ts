@@ -13,21 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const _ah = req.headers.get("Authorization");
-    if (!_ah?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const _ac = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: _ah } },
-    });
-    const { error: _ae } = await _ac.auth.getClaims(_ah.replace("Bearer ", ""));
-    if (_ae) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    
     const FRAMER_API_TOKEN = Deno.env.get("FRAMER_API_TOKEN");
     const FRAMER_SITE_ID = Deno.env.get("FRAMER_SITE_ID");
     const FRAMER_COLLECTION_ID = Deno.env.get("FRAMER_COLLECTION_ID");
