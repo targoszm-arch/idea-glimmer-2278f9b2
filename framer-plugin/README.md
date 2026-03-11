@@ -1,6 +1,6 @@
 # Skill Studio AI — Framer CMS Plugin
 
-This plugin syncs published articles from your Supabase backend into a **Managed Collection** in Framer.
+This plugin syncs published articles from our Supabase backend into a **Managed Collection** in Framer.
 
 ## Setup
 
@@ -11,7 +11,7 @@ This plugin syncs published articles from your Supabase backend into a **Managed
 
 ## Configuration
 
-Edit `framer-plugin/src/config.ts` and set your Supabase project URL:
+Edit `framer-plugin/src/config.ts` and set your own Supabase project URL:
 
 ```ts
 export const SUPABASE_URL = "https://rnshobvpqegttrpaowxe.supabase.co";
