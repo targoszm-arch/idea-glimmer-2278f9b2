@@ -968,9 +968,7 @@ const SocialMedia = () => {
   ]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Header />
-      <main className="flex-1 container py-8">
+    <PageLayout>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-3xl font-bold text-foreground mb-2">Social Media Generator</h1>
           <p className="text-muted-foreground mb-8">
