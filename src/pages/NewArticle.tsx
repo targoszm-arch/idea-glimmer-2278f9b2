@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Save, Sparkles, Loader2, ArrowLeft, Settings, ImagePlus, X } from "lucide-react";
+import CategoryPicker from "@/components/CategoryPicker";
 import { motion } from "framer-motion";
 import Header from "@/components/Header";
 import EditorToolbar from "@/components/EditorToolbar";
@@ -293,15 +294,7 @@ const NewArticle = () => {
                   <Settings className="h-3 w-3" /> Manage in AI Settings
                 </a>
               </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">Category</label>
-                <input
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  placeholder="e.g., Marketing"
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-                
-              </div>
+              <CategoryPicker value={category} onChange={setCategory} />
             </div>
             <button
               onClick={handleGenerate}
