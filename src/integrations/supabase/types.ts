@@ -52,42 +52,51 @@ export type Database = {
       }
       articles: {
         Row: {
+          author_name: string
           category: string
           content: string
           cover_image_url: string | null
           created_at: string
           excerpt: string
+          faq_html: string
           framer_item_id: string | null
           id: string
           meta_description: string
+          reading_time_minutes: number
           slug: string
           status: string
           title: string
           updated_at: string
         }
         Insert: {
+          author_name?: string
           category?: string
           content?: string
           cover_image_url?: string | null
           created_at?: string
           excerpt?: string
+          faq_html?: string
           framer_item_id?: string | null
           id?: string
           meta_description?: string
+          reading_time_minutes?: number
           slug: string
           status?: string
           title: string
           updated_at?: string
         }
         Update: {
+          author_name?: string
           category?: string
           content?: string
           cover_image_url?: string | null
           created_at?: string
           excerpt?: string
+          faq_html?: string
           framer_item_id?: string | null
           id?: string
           meta_description?: string
+          reading_time_minutes?: number
           slug?: string
           status?: string
           title?: string
