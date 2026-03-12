@@ -24,6 +24,7 @@ const EditArticle = () => {
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [framerItemId, setFramerItemId] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [authorName, setAuthorName] = useState("");
 
   const editor = useEditor({
     extensions: [
