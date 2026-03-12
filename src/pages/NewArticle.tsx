@@ -28,6 +28,7 @@ const NewArticle = () => {
   const [showAssistant, setShowAssistant] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [generatedMetaDescription, setGeneratedMetaDescription] = useState("");
 
   // AI Settings from knowledge base
   const [aiSettings, setAiSettings] = useState<{
