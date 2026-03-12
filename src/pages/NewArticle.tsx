@@ -362,33 +362,6 @@ const NewArticle = () => {
                 <EditorContent editor={editor} />
               </div>
 
-              <div className="mt-4 flex items-center gap-3">
-                <button
-                  onClick={() => handleSave("draft")}
-                  disabled={isSaving}
-                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
-                  
-                  <Save className="h-4 w-4" />
-                  Save Draft
-                </button>
-                <button
-                  onClick={() => handleSave("published")}
-                  disabled={isSaving}
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50">
-                  
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Publish
-                </button>
-                <button
-                  onClick={() => setShowAssistant(!showAssistant)}
-                  className={`ml-auto inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                  showAssistant ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary"}`
-                  }>
-                  
-                  <Sparkles className="h-4 w-4" />
-                  AI Assistant
-                </button>
-              </div>
             </div>
 
             {/* AI Assistant Panel */}
