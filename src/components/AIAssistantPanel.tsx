@@ -48,7 +48,7 @@ const AIAssistantPanel = ({ currentContent, onApplyContent }: AIAssistantPanelPr
   };
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
+    <div className="sticky top-24 flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
       <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
         <Sparkles className="h-4 w-4 text-primary" />
         AI Assistant
