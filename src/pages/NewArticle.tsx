@@ -114,6 +114,9 @@ const NewArticle = () => {
           .replace(/<!--\s*META_DESCRIPTION:.*?-->/gi, "")
           .replace(/\/\/\s*META_TITLE:.*$/gim, "")
           .replace(/\/\/\s*META_DESCRIPTION:.*$/gim, "")
+          .replace(/_?Disclaimer:.*$/gis, "")
+          .replace(/<p>\s*<em>Disclaimer:.*?<\/em>\s*<\/p>/gis, "")
+          .replace(/<p>\s*_?Disclaimer:.*?<\/p>/gis, "")
           .trim();
 
         if (cleanContent) {
