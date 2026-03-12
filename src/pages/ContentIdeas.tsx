@@ -162,9 +162,11 @@ const ContentIdeas = () => {
           return;
         }
 
-        // Parse meta title and description from comments
-        const metaTitleMatch = accumulated.match(/<!--\s*META_TITLE:\s*(.*?)\s*-->/i);
-        const metaDescMatch = accumulated.match(/<!--\s*META_DESCRIPTION:\s*(.*?)\s*-->/i);
+        // Parse meta title and description from comments (supports both // and <!-- --> formats)
+        const metaTitleMatch = accumulated.match(/<!--\s*META_TITLE:\s*(.*?)\s*-->/i)
+          || accumulated.match(/\/\/\s*META_TITLE:\s*(.+)/i);
+        const metaDescMatch = accumulated.match(/<!--\s*META_DESCRIPTION:\s*(.*?)\s*-->/i)
+          || accumulated.match(/\/\/\s*META_DESCRIPTION:\s*(.+)/i);
         const metaTitle = metaTitleMatch ? metaTitleMatch[1].trim() : "";
         const metaDescription = metaDescMatch ? metaDescMatch[1].trim() : "";
 
@@ -172,6 +174,8 @@ const ContentIdeas = () => {
         const cleanContent = accumulated
           .replace(/<!--\s*META_TITLE:.*?-->/gi, "")
           .replace(/<!--\s*META_DESCRIPTION:.*?-->/gi, "")
+          .replace(/\/\/\s*META_TITLE:.*$/gim, "")
+          .replace(/\/\/\s*META_DESCRIPTION:.*$/gim, "")
           .trim();
 
         // Generate cover image
