@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { PenSquare, Filter, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import PageLayout from "@/components/PageLayout";
 import ArticleCard from "@/components/ArticleCard";
 import { supabase, type Article } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
@@ -37,9 +36,7 @@ const Dashboard = () => {
   articles.filter((a) => a.status === statusFilter);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background py-[5px] px-[5px]">
-      <Header />
-      <main className="flex-1 container py-8">
+    <PageLayout>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -119,10 +116,8 @@ const Dashboard = () => {
           )}
           </motion.div>
         }
-      </main>
-      <Footer />
-    </div>);
-
+    </PageLayout>
+  );
 };
 
 export default Dashboard;

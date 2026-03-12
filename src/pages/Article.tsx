@@ -3,8 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Calendar, Edit3, Loader2, Copy, Check, User, Clock } from "lucide-react";
 import DOMPurify from "dompurify";
 import { motion } from "framer-motion";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import PageLayout from "@/components/PageLayout";
 import { Badge } from "@/components/ui/badge";
 import { supabase, type Article as ArticleType } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
@@ -55,12 +54,11 @@ const Article = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
+      <PageLayout>
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
@@ -73,9 +71,7 @@ const Article = () => {
   });
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Header />
-      <main className="flex-1 container max-w-3xl py-8">
+    <PageLayout className="max-w-3xl">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="mb-6 flex items-center justify-between">
             <button onClick={() => navigate("/")} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
@@ -149,9 +145,7 @@ const Article = () => {
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content) }}
           />
         </motion.div>
-      </main>
-      <Footer />
-    </div>
+    </PageLayout>
   );
 };
 
