@@ -184,8 +184,17 @@ const NewArticle = () => {
       }
 
       const content = editor?.getHTML() || "";
-      const excerpt = editor?.getText().slice(0, 200) || "";
+      const plainText = editor?.getText() || "";
+      const excerpt = plainText.slice(0, 200);
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
+      // Compute reading time
+      const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
+      const reading_time_minutes = Math.max(1, Math.ceil(wordCount / 200));
+
+      // Extract FAQ section
+      const faqMatch = content.match(/(<h2[^>]*>(?:[^<]*FAQ[^<]*)<\/h2>[\s\S]*)/i);
+      const faq_html = faqMatch ? faqMatch[1] : "";
 
       const { data, error } = await supabase
         .from("articles")
@@ -197,7 +206,10 @@ const NewArticle = () => {
           meta_description: generatedMetaDescription.trim() || excerpt,
           category,
           status,
-          cover_image_url: coverImageUrl
+          cover_image_url: coverImageUrl,
+          author_name: authorName.trim(),
+          reading_time_minutes,
+          faq_html
         })
         .select()
         .single();
