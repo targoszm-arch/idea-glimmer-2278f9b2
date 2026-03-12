@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Save, Sparkles, Loader2, ArrowLeft, Settings, ImagePlus, X } from "lucide-react";
+import CategoryPicker from "@/components/CategoryPicker";
 import { motion } from "framer-motion";
 import Header from "@/components/Header";
 import EditorToolbar from "@/components/EditorToolbar";
