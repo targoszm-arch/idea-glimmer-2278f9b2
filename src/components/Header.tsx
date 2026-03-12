@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette } from "lucide-react";
+import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
 { label: "Library", href: "/", icon: Library },
@@ -15,6 +16,7 @@ const navItems = [
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const { signOut } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -53,6 +55,13 @@ const Header = () => {
             <PenSquare className="h-4 w-4" />
             Create
           </Link>
+          <button
+            onClick={() => signOut()}
+            className="hidden sm:inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
           <button
             className="md:hidden rounded-lg p-2 text-muted-foreground hover:bg-secondary"
             onClick={() => setMobileOpen(!mobileOpen)}>
