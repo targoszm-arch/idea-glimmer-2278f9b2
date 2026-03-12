@@ -30,6 +30,7 @@ const NewArticle = () => {
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [generatedMetaDescription, setGeneratedMetaDescription] = useState("");
+  const [authorName, setAuthorName] = useState("");
 
   // AI Settings from knowledge base
   const [aiSettings, setAiSettings] = useState<{
