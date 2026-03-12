@@ -54,6 +54,7 @@ const EditArticle = () => {
       setStatus(data.status as "draft" | "published");
       setCoverImageUrl(data.cover_image_url || null);
       setFramerItemId((data as any).framer_item_id || null);
+      setAuthorName((data as any).author_name || "");
       editor?.commands.setContent(data.content || "");
       setLoading(false);
     })();
