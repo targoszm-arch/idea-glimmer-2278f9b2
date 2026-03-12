@@ -30,6 +30,7 @@ const NewArticle = () => {
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [generatedMetaDescription, setGeneratedMetaDescription] = useState("");
+  const [authorName, setAuthorName] = useState("");
 
   // AI Settings from knowledge base
   const [aiSettings, setAiSettings] = useState<{
@@ -183,8 +184,17 @@ const NewArticle = () => {
       }
 
       const content = editor?.getHTML() || "";
-      const excerpt = editor?.getText().slice(0, 200) || "";
+      const plainText = editor?.getText() || "";
+      const excerpt = plainText.slice(0, 200);
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
+      // Compute reading time
+      const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
+      const reading_time_minutes = Math.max(1, Math.ceil(wordCount / 200));
+
+      // Extract FAQ section
+      const faqMatch = content.match(/(<h2[^>]*>(?:[^<]*FAQ[^<]*)<\/h2>[\s\S]*)/i);
+      const faq_html = faqMatch ? faqMatch[1] : "";
 
       const { data, error } = await supabase
         .from("articles")
@@ -196,7 +206,10 @@ const NewArticle = () => {
           meta_description: generatedMetaDescription.trim() || excerpt,
           category,
           status,
-          cover_image_url: coverImageUrl
+          cover_image_url: coverImageUrl,
+          author_name: authorName.trim(),
+          reading_time_minutes,
+          faq_html
         })
         .select()
         .single();
@@ -295,6 +308,14 @@ const NewArticle = () => {
                 </a>
               </div>
               <CategoryPicker value={category} onChange={setCategory} />
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">Author Name</label>
+                <input
+                  value={authorName}
+                  onChange={(e) => setAuthorName(e.target.value)}
+                  placeholder="e.g., John Doe"
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              </div>
             </div>
             <button
               onClick={handleGenerate}

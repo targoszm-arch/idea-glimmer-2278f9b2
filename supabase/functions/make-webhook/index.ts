@@ -20,7 +20,7 @@ serve(async (req) => {
 
     const { data, error } = await supabase
       .from("articles")
-      .select("title, slug, content, excerpt, meta_description, category, cover_image_url, created_at")
+      .select("title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, author_name, reading_time_minutes, faq_html")
       .eq("status", "published")
       .order("created_at", { ascending: false })
       .limit(500);
@@ -36,6 +36,9 @@ serve(async (req) => {
       category: a.category,
       cover_image: a.cover_image_url ?? "",
       published_date: a.created_at,
+      author_name: a.author_name ?? "",
+      reading_time_minutes: a.reading_time_minutes ?? 0,
+      faq: a.faq_html ?? "",
     }));
 
     return new Response(JSON.stringify(articles), {

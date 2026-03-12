@@ -24,6 +24,7 @@ const EditArticle = () => {
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [framerItemId, setFramerItemId] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [authorName, setAuthorName] = useState("");
 
   const editor = useEditor({
     extensions: [
@@ -53,6 +54,7 @@ const EditArticle = () => {
       setStatus(data.status as "draft" | "published");
       setCoverImageUrl(data.cover_image_url || null);
       setFramerItemId((data as any).framer_item_id || null);
+      setAuthorName((data as any).author_name || "");
       editor?.commands.setContent(data.content || "");
       setLoading(false);
     })();
@@ -68,12 +70,21 @@ const EditArticle = () => {
       }
 
       const content = editor?.getHTML() || "";
-      const excerpt = editor?.getText().slice(0, 200) || "";
+      const plainText = editor?.getText() || "";
+      const excerpt = plainText.slice(0, 200);
       const slug = title
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
       const finalStatus = newStatus || status;
+
+      // Compute reading time
+      const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
+      const reading_time_minutes = Math.max(1, Math.ceil(wordCount / 200));
+
+      // Extract FAQ section
+      const faqMatch = content.match(/(<h2[^>]*>(?:[^<]*FAQ[^<]*)<\/h2>[\s\S]*)/i);
+      const faq_html = faqMatch ? faqMatch[1] : "";
 
       const { error } = await supabase
         .from("articles")
@@ -86,6 +97,9 @@ const EditArticle = () => {
           category,
           status: finalStatus,
           cover_image_url: coverImageUrl,
+          author_name: authorName.trim(),
+          reading_time_minutes,
+          faq_html,
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);
@@ -217,7 +231,7 @@ const EditArticle = () => {
                 )}
               </div>
 
-              <div className="mb-4 flex gap-4">
+              <div className="mb-4 flex flex-wrap gap-4">
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -229,6 +243,12 @@ const EditArticle = () => {
                   onChange={(e) => setCategory(e.target.value)}
                   placeholder="Category"
                   className="w-32 rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                />
+                <input
+                  value={authorName}
+                  onChange={(e) => setAuthorName(e.target.value)}
+                  placeholder="Author Name"
+                  className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm"
                 />
               </div>
 
