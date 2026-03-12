@@ -12,6 +12,9 @@ export type Article = {
   status: 'draft' | 'published';
   cover_image_url: string | null;
   framer_item_id?: string | null;
+  author_name: string;
+  reading_time_minutes: number;
+  faq_html: string;
   created_at: string;
   updated_at: string;
 };

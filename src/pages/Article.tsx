@@ -117,9 +117,23 @@ const Article = () => {
             </p>
           )}
 
-          <div className="mb-8 flex items-center gap-2 text-sm text-muted-foreground">
-            <Calendar className="h-4 w-4" />
-            {date}
+          <div className="mb-8 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+            {article.author_name && (
+              <span className="flex items-center gap-1.5">
+                <User className="h-4 w-4" />
+                {article.author_name}
+              </span>
+            )}
+            <span className="flex items-center gap-1.5">
+              <Calendar className="h-4 w-4" />
+              {date}
+            </span>
+            {article.reading_time_minutes > 0 && (
+              <span className="flex items-center gap-1.5">
+                <Clock className="h-4 w-4" />
+                {article.reading_time_minutes} min read
+              </span>
+            )}
           </div>
 
           {article.cover_image_url && (

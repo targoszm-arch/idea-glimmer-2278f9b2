@@ -231,7 +231,7 @@ const EditArticle = () => {
                 )}
               </div>
 
-              <div className="mb-4 flex gap-4">
+              <div className="mb-4 flex flex-wrap gap-4">
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -243,6 +243,12 @@ const EditArticle = () => {
                   onChange={(e) => setCategory(e.target.value)}
                   placeholder="Category"
                   className="w-32 rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                />
+                <input
+                  value={authorName}
+                  onChange={(e) => setAuthorName(e.target.value)}
+                  placeholder="Author Name"
+                  className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm"
                 />
               </div>
 
