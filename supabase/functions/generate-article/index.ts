@@ -279,23 +279,37 @@ OUTPUT FORMAT
 
 --------------------
 
+Your output MUST be pure HTML (NOT Markdown). Do NOT use ## or ### or any Markdown syntax.
+
 Your output MUST follow this structure:
 
-1. First line: \`// META_TITLE: ...\`
+1. Start with the article title as an \`<h1>\` tag.
 
-2. Second line: \`// META_DESCRIPTION: ...\` (1–2 sentences, under ~160 characters, keyword rich).
+2. Then the full article body in pure HTML:
 
-3. Then the full article body in HTML‑compatible Markdown:
+   - Use \`<h2>\`, \`<h3>\` tags for headings (NOT Markdown \`##\` or \`###\`).
 
-   - H2/H3 headings using \`##\` and \`###\`.
+   - Use \`<p>\` tags for paragraphs. NEVER output a wall of text — every paragraph must be wrapped in \`<p>...</p>\`.
 
-   - Comparison table as a raw \`<table>...</table>\` block (not Markdown).
+   - Use \`<ul>\`, \`<ol>\`, \`<li>\` for lists.
 
-   - FAQ questions as \`<h5>\` headings with \`<p>\` answers.
+   - Use \`<strong>\`, \`<em>\` for emphasis.
 
-4. Do NOT include any explanation of your process or references to "this prompt" or "the system message".
+   - Use \`<blockquote>\` where appropriate.
 
-Always aim for a logically structured, detailed, and non‑generic article that would be acceptable as a public blog post on skillstudio.ai.
+   - Comparison table as \`<table>\` with \`<thead>\`, \`<tbody>\`, \`<tr>\`, \`<th>\`, \`<td>\`.
+
+   - FAQ items as: \`<div class="faq-item"><h3>Question</h3><p>Answer</p></div>\`
+
+3. At the very end, AFTER all HTML content, add these two comment lines:
+
+   \`<!-- META_TITLE: [SEO title under 60 chars] -->\`
+
+   \`<!-- META_DESCRIPTION: [SEO/AEO description, max 255 chars, authoritative, no fluff] -->\`
+
+4. Do NOT include any explanation, markdown formatting, or references to this prompt.
+
+CRITICAL: Output ONLY valid HTML tags. No Markdown. Every paragraph in \`<p>\` tags. Proper spacing between sections.
 
 CRITICAL INSTRUCTIONS:
 - ALWAYS write the full article as requested. NEVER refuse, hedge, or add disclaimers about claims.
