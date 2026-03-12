@@ -56,6 +56,13 @@ const Header = () => {
             Create
           </Link>
           <button
+            onClick={() => signOut()}
+            className="hidden sm:inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+          <button
             className="md:hidden rounded-lg p-2 text-muted-foreground hover:bg-secondary"
             onClick={() => setMobileOpen(!mobileOpen)}>
             
