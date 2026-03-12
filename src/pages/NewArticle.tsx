@@ -228,10 +228,36 @@ const NewArticle = () => {
       <Header />
       <main className="container py-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <button onClick={() => navigate("/")} className="mb-6 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Library
-          </button>
+          <div className="mb-6 flex items-center justify-between">
+            <button onClick={() => navigate("/")} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Library
+            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleSave("draft")}
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
+                <Save className="h-4 w-4" />
+                Save Draft
+              </button>
+              <button
+                onClick={() => handleSave("published")}
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50">
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Publish
+              </button>
+              <button
+                onClick={() => setShowAssistant(!showAssistant)}
+                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                showAssistant ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary"}`
+                }>
+                <Sparkles className="h-4 w-4" />
+                AI Assistant
+              </button>
+            </div>
+          </div>
 
           {/* Generation Form */}
           <div className="mb-6 rounded-xl border border-border bg-card p-6">
