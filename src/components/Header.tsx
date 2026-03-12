@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette } from "lucide-react";
+import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
 { label: "Library", href: "/", icon: Library },
