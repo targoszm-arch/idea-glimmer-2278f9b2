@@ -98,9 +98,15 @@ Format: Include proper HTML tags (h2, h3, p, ul, ol, blockquote, strong, em) wit
 
 Start with the title as an H1 tag, then write the full article body in HTML.
 
-IMPORTANT: At the very end of your output, after all the article HTML, add these two lines exactly:
+After the article body, add a dedicated FAQ section with this exact structure:
+- <h2>Frequently Asked Questions</h2>
+- Exactly 8 FAQ items
+- Each item must be wrapped as: <div class="faq-item"><h3>Question here</h3><p>Answer here</p></div>
+- Questions and answers must be grounded in the article body and provided brand/context inputs.
+
+IMPORTANT: At the very end of your output, after all the article HTML (including FAQs), add these two lines exactly:
 <!-- META_TITLE: [SEO-optimized title under 60 characters with primary keyword] -->
-<!-- META_DESCRIPTION: [Compelling meta description under 160 characters] -->
+<!-- META_DESCRIPTION: [Compelling meta description under 160 characters tied to the article's intent] -->
 
 Output ONLY the HTML content followed by the two meta comment lines, nothing else.`;
 
