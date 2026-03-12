@@ -106,7 +106,7 @@ After the article body, add a dedicated FAQ section with this exact structure:
 
 IMPORTANT: At the very end of your output, after all the article HTML (including FAQs), add these two lines exactly:
 <!-- META_TITLE: [SEO-optimized title under 60 characters with primary keyword] -->
-<!-- META_DESCRIPTION: [Compelling meta description under 160 characters tied to the article's intent] -->
+<!-- META_DESCRIPTION: [SEO and AEO optimised meta description, maximum 255 characters. It must directly answer the searcher's intent, include the primary keyword naturally, and be written as a concise, authoritative statement that AI answer engines can extract as a featured snippet. Avoid fluff — lead with value.] -->
 
 Output ONLY the HTML content followed by the two meta comment lines, nothing else.`;
 

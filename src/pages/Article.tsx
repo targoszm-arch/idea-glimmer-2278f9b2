@@ -109,7 +109,13 @@ const Article = () => {
             )}
           </div>
 
-          <h1 className="mb-4 text-4xl font-bold text-foreground leading-tight">{article.title}</h1>
+          <h1 className="mb-2 text-4xl font-bold text-foreground leading-tight">{article.title}</h1>
+
+          {article.meta_description && (
+            <p className="mb-4 text-base text-muted-foreground leading-relaxed">
+              {article.meta_description}
+            </p>
+          )}
 
           <div className="mb-8 flex items-center gap-2 text-sm text-muted-foreground">
             <Calendar className="h-4 w-4" />
