@@ -566,9 +566,7 @@ const ContentIdeas = () => {
             </TabsContent>
           </Tabs>
         </motion.div>
-      </main>
-      <Footer />
-    </div>
+    </PageLayout>
   );
 };
 

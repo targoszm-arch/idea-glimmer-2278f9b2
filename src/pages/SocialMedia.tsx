@@ -1101,9 +1101,7 @@ const SocialMedia = () => {
             ))}
           </Tabs>
         </motion.div>
-      </main>
-      <Footer />
-    </div>
+    </PageLayout>
   );
 };
 
