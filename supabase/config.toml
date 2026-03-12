@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.framer-sync-articles]
 verify_jwt = false
+
+[functions.make-webhook]
+verify_jwt = false
