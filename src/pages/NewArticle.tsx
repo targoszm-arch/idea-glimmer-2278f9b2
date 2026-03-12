@@ -103,7 +103,8 @@ const NewArticle = () => {
         editor?.commands.setContent(accumulated);
       },
       onDone: () => {
-        const metaDescMatch = accumulated.match(/<!--\s*META_DESCRIPTION:\s*(.*?)\s*-->/i);
+        const metaDescMatch = accumulated.match(/<!--\s*META_DESCRIPTION:\s*(.*?)\s*-->/i)
+          || accumulated.match(/\/\/\s*META_DESCRIPTION:\s*(.+)/i);
         if (metaDescMatch?.[1]) {
           setGeneratedMetaDescription(metaDescMatch[1].trim());
         }
@@ -111,6 +112,8 @@ const NewArticle = () => {
         const cleanContent = accumulated
           .replace(/<!--\s*META_TITLE:.*?-->/gi, "")
           .replace(/<!--\s*META_DESCRIPTION:.*?-->/gi, "")
+          .replace(/\/\/\s*META_TITLE:.*$/gim, "")
+          .replace(/\/\/\s*META_DESCRIPTION:.*$/gim, "")
           .trim();
 
         if (cleanContent) {
