@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Upload, Trash2, Image, Star, FileImage, Loader2, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import { Button } from "@/components/ui/button";
+import PageLayout from "@/components/PageLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -139,9 +137,7 @@ const BrandAssets = () => {
   const filtered = assets.filter((a) => a.type === activeTab);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Header />
-      <main className="flex-1 container py-10">
+    <PageLayout>
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Brand Assets</h1>
@@ -282,9 +278,7 @@ const BrandAssets = () => {
             </motion.div>
           )}
         </AnimatePresence>
-      </main>
-      <Footer />
-    </div>
+    </PageLayout>
   );
 };
 

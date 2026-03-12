@@ -6,7 +6,7 @@ import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X } from "lucide-react";
 import { motion } from "framer-motion";
-import Header from "@/components/Header";
+import PageLayout from "@/components/PageLayout";
 import EditorToolbar from "@/components/EditorToolbar";
 import AIAssistantPanel from "@/components/AIAssistantPanel";
 import { supabase } from "@/lib/supabase";
@@ -78,11 +78,9 @@ const EditArticle = () => {
         .replace(/(^-|-$)/g, "");
       const finalStatus = newStatus || status;
 
-      // Compute reading time
       const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
       const reading_time_minutes = Math.max(1, Math.ceil(wordCount / 200));
 
-      // Extract FAQ section
       const faqMatch = content.match(/(<h2[^>]*>(?:[^<]*FAQ[^<]*)<\/h2>[\s\S]*)/i);
       const faq_html = faqMatch ? faqMatch[1] : "";
 
@@ -169,29 +167,41 @@ const EditArticle = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
+      <PageLayout hideFooter>
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main className="container py-8">
+    <PageLayout hideFooter>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="mb-6 flex items-center justify-between">
             <button onClick={() => navigate("/")} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
               <ArrowLeft className="h-4 w-4" />
               Back to Library
             </button>
-            <button onClick={handleDelete} className="flex items-center gap-2 text-sm text-destructive hover:text-destructive/80">
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </button>
+            <div className="flex items-center gap-3">
+              <button onClick={() => handleSave("draft")} disabled={isSaving}
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
+                <Save className="h-4 w-4" /> Save Draft
+              </button>
+              <button onClick={() => handleSave("published")} disabled={isSaving}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50">
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Publish
+              </button>
+              <button onClick={() => setShowAssistant(!showAssistant)}
+                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${showAssistant ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary"}`}>
+                <Sparkles className="h-4 w-4" /> AI Assistant
+              </button>
+              <button onClick={handleDelete} className="flex items-center gap-2 text-sm text-destructive hover:text-destructive/80">
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col gap-6 lg:flex-row">
@@ -256,22 +266,6 @@ const EditArticle = () => {
                 <EditorToolbar editor={editor} />
                 <EditorContent editor={editor} />
               </div>
-
-              <div className="mt-4 flex items-center gap-3">
-                <button onClick={() => handleSave("draft")} disabled={isSaving}
-                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground disabled:opacity-50">
-                  <Save className="h-4 w-4" /> Save Draft
-                </button>
-                <button onClick={() => handleSave("published")} disabled={isSaving}
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Publish
-                </button>
-                <button onClick={() => setShowAssistant(!showAssistant)}
-                  className={`ml-auto inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${showAssistant ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary"}`}>
-                  <Sparkles className="h-4 w-4" /> AI Assistant
-                </button>
-              </div>
             </div>
 
             {showAssistant && (
@@ -284,8 +278,7 @@ const EditArticle = () => {
             )}
           </div>
         </motion.div>
-      </main>
-    </div>
+    </PageLayout>
   );
 };
 

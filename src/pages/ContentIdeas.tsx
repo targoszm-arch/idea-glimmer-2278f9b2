@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Lightbulb, Sparkles, Loader2, ArrowRight, Trash2, CalendarIcon, List, CalendarPlus, Eye } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay } from "date-fns";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import PageLayout from "@/components/PageLayout";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -395,9 +394,7 @@ const ContentIdeas = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Header />
-      <main className="flex-1 container py-8">
+    <PageLayout>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground">Content Ideas</h1>
@@ -569,9 +566,7 @@ const ContentIdeas = () => {
             </TabsContent>
           </Tabs>
         </motion.div>
-      </main>
-      <Footer />
-    </div>
+    </PageLayout>
   );
 };
 

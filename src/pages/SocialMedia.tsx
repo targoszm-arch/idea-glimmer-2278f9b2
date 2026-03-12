@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Linkedin, Youtube, Twitter, Instagram, Film, Loader2, Sparkles, Trash2, Copy, Check, ChevronDown, ChevronUp, Lightbulb, Video, Play, Images, Clapperboard } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import PageLayout from "@/components/PageLayout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -969,9 +968,7 @@ const SocialMedia = () => {
   ]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Header />
-      <main className="flex-1 container py-8">
+    <PageLayout>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-3xl font-bold text-foreground mb-2">Social Media Generator</h1>
           <p className="text-muted-foreground mb-8">
@@ -1104,9 +1101,7 @@ const SocialMedia = () => {
             ))}
           </Tabs>
         </motion.div>
-      </main>
-      <Footer />
-    </div>
+    </PageLayout>
   );
 };
 

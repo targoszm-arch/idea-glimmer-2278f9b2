@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { Settings, Save, Loader2, Plus, X, Check } from "lucide-react";
 import { motion } from "framer-motion";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import PageLayout from "@/components/PageLayout";
 import { supabase } from "@/lib/supabase";
 import { TONE_PRESETS } from "@/lib/tones";
 import { toast } from "@/hooks/use-toast";
@@ -70,7 +69,6 @@ const AISettings = () => {
   const addUrl = () => {
     const input = newUrl.trim();
     if (!input) return;
-    // Support pasting multiple URLs (comma, space, or newline separated)
     const urls = input
       .split(/[\s,\n]+/)
       .map((u) => u.trim())
@@ -83,19 +81,16 @@ const AISettings = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
+      <PageLayout className="max-w-3xl">
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Header />
-      <main className="flex-1 container max-w-3xl py-8">
+    <PageLayout className="max-w-3xl">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="mb-8 flex items-center gap-3">
             <Settings className="h-6 w-6 text-primary" />
@@ -235,9 +230,7 @@ const AISettings = () => {
             Save Changes
           </button>
         </motion.div>
-      </main>
-      <Footer />
-    </div>
+    </PageLayout>
   );
 };
 
