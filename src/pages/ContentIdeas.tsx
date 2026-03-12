@@ -77,13 +77,16 @@ const ContentIdeas = () => {
     setIsGenerating(true);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-ideas`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             niche: niche.trim() || undefined,
@@ -151,6 +154,14 @@ const ContentIdeas = () => {
         if (h1Match) articleTitle = h1Match[1].replace(/<[^>]*>/g, "");
       },
       onDone: async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast({ title: "Session expired", description: "Please sign in again to save the generated article.", variant: "destructive" });
+          setGeneratingArticleId(null);
+          navigate("/login");
+          return;
+        }
+
         // Parse meta title and description from comments
         const metaTitleMatch = accumulated.match(/<!--\s*META_TITLE:\s*(.*?)\s*-->/i);
         const metaDescMatch = accumulated.match(/<!--\s*META_DESCRIPTION:\s*(.*?)\s*-->/i);
@@ -166,13 +177,16 @@ const ContentIdeas = () => {
         // Generate cover image
         let coverImageUrl: string | null = null;
         try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
           const imgResp = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-cover-image`,
             {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                Authorization: `Bearer ${token}`,
               },
               body: JSON.stringify({ prompt: idea.title_suggestion }),
             }
@@ -204,7 +218,12 @@ const ContentIdeas = () => {
         }).select().single();
 
         if (saveError) {
-          toast({ title: "Failed to save article", description: saveError.message, variant: "destructive" });
+          if (saveError.code === "42501") {
+            toast({ title: "Permission error", description: "Please sign in again, then retry.", variant: "destructive" });
+            navigate("/login");
+          } else {
+            toast({ title: "Failed to save article", description: saveError.message, variant: "destructive" });
+          }
           setGeneratingArticleId(null);
           return;
         }
@@ -227,7 +246,7 @@ const ContentIdeas = () => {
         toast({ title: "Article generation failed", description: error, variant: "destructive" });
       },
     });
-  }, [aiSettings, generatingArticleId]);
+  }, [aiSettings, generatingArticleId, navigate]);
 
   const handleDeleteIdea = async (id: string) => {
     const { error } = await supabase.from("content_ideas").delete().eq("id", id);

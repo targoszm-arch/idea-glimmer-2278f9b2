@@ -28,6 +28,7 @@ const NewArticle = () => {
   const [showAssistant, setShowAssistant] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [generatedMetaDescription, setGeneratedMetaDescription] = useState("");
 
   // AI Settings from knowledge base
   const [aiSettings, setAiSettings] = useState<{
@@ -69,6 +70,7 @@ const NewArticle = () => {
     }
 
     setIsGenerating(true);
+    setGeneratedMetaDescription("");
     editor?.commands.clearContent();
     let accumulated = "";
 
@@ -87,14 +89,34 @@ const NewArticle = () => {
       },
       onDelta: (text) => {
         accumulated += text;
-        // Parse title from first line if starts with #
-        const lines = accumulated.split("\n");
-        if (lines[0]?.startsWith("# ") && !title) {
-          setTitle(lines[0].replace("# ", ""));
+
+        const h1Match = accumulated.match(/<h1[^>]*>(.*?)<\/h1>/i);
+        if (h1Match && !title) {
+          setTitle(h1Match[1].replace(/<[^>]*>/g, "").trim());
+        } else {
+          const lines = accumulated.split("\n");
+          if (lines[0]?.startsWith("# ") && !title) {
+            setTitle(lines[0].replace("# ", "").trim());
+          }
         }
+
         editor?.commands.setContent(accumulated);
       },
       onDone: () => {
+        const metaDescMatch = accumulated.match(/<!--\s*META_DESCRIPTION:\s*(.*?)\s*-->/i);
+        if (metaDescMatch?.[1]) {
+          setGeneratedMetaDescription(metaDescMatch[1].trim());
+        }
+
+        const cleanContent = accumulated
+          .replace(/<!--\s*META_TITLE:.*?-->/gi, "")
+          .replace(/<!--\s*META_DESCRIPTION:.*?-->/gi, "")
+          .trim();
+
+        if (cleanContent) {
+          editor?.commands.setContent(cleanContent);
+        }
+
         setIsGenerating(false);
         toast({ title: "Article generated!", description: "Review and edit the content, then save." });
       },
@@ -103,7 +125,7 @@ const NewArticle = () => {
         toast({ title: "Generation failed", description: error, variant: "destructive" });
       }
     });
-  }, [topic, tone, category, editor, title]);
+  }, [aiSettings, category, editor, title, topic, tone]);
 
   const handleGenerateCoverImage = async () => {
     const imagePrompt = topic.trim() || title.trim();
@@ -113,13 +135,16 @@ const NewArticle = () => {
     }
     setIsGeneratingImage(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-cover-image`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+            Authorization: `Bearer ${token}`
           },
           body: JSON.stringify({ prompt: imagePrompt })
         }
@@ -141,28 +166,45 @@ const NewArticle = () => {
     }
 
     setIsSaving(true);
-    const content = editor?.getHTML() || "";
-    const excerpt = editor?.getText().slice(0, 200) || "";
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-    const { data, error } = await supabase.
-    from("articles").
-    insert({
-      title,
-      slug,
-      content,
-      excerpt,
-      meta_description: excerpt,
-      category,
-      status,
-      cover_image_url: coverImageUrl
-    }).
-    select().
-    single();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: "Session expired", description: "Please sign in again to save articles.", variant: "destructive" });
+        navigate("/login");
+        return;
+      }
 
-    if (error) {
-      toast({ title: "Save failed", description: error.message, variant: "destructive" });
-    } else {
+      const content = editor?.getHTML() || "";
+      const excerpt = editor?.getText().slice(0, 200) || "";
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
+      const { data, error } = await supabase
+        .from("articles")
+        .insert({
+          title,
+          slug,
+          content,
+          excerpt,
+          meta_description: generatedMetaDescription.trim() || excerpt,
+          category,
+          status,
+          cover_image_url: coverImageUrl
+        })
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === "42501") {
+          toast({ title: "Permission error", description: "Please sign in again, then retry saving.", variant: "destructive" });
+          navigate("/login");
+          return;
+        }
+
+        toast({ title: "Save failed", description: error.message, variant: "destructive" });
+        return;
+      }
+
       if (status === "published") {
         toast({
           title: "Article published!",
@@ -171,9 +213,11 @@ const NewArticle = () => {
       } else {
         toast({ title: "Saved as draft!" });
       }
+
       navigate(status === "published" ? `/article/${data.id}` : "/");
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   };
 
   return (
