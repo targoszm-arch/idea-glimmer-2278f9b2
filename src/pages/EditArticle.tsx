@@ -37,6 +37,8 @@ const EditArticle = () => {
       StarterKit,
       Link.configure({ openOnClick: false }),
       Placeholder.configure({ placeholder: "Start writing..." }),
+      Image.configure({ inline: false, allowBase64: false }),
+      Youtube.configure({ width: 840, height: 480 }),
     ],
     content: "",
     editorProps: {
