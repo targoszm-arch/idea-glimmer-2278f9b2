@@ -11,10 +11,20 @@ serve(async (req) => {
 
   try {
     const INTERCOM_API_TOKEN = Deno.env.get("INTERCOM_API_TOKEN");
-    const INTERCOM_AUTHOR_ID = Deno.env.get("INTERCOM_AUTHOR_ID");
-
     if (!INTERCOM_API_TOKEN) throw new Error("INTERCOM_API_TOKEN is not configured");
-    if (!INTERCOM_AUTHOR_ID) throw new Error("INTERCOM_AUTHOR_ID is not configured");
+
+    // Auto-fetch the first admin's ID from Intercom
+    const adminsRes = await fetch("https://api.intercom.io/admins", {
+      headers: {
+        Authorization: `Bearer ${INTERCOM_API_TOKEN}`,
+        "Intercom-Version": "2.11",
+      },
+    });
+    const adminsData = await adminsRes.json();
+    if (!adminsRes.ok || !adminsData.admins?.length) {
+      throw new Error("Failed to fetch Intercom admins: " + JSON.stringify(adminsData));
+    }
+    const authorId = parseInt(adminsData.admins[0].id);
 
     const { article_id } = await req.json();
     if (!article_id) {
@@ -44,7 +54,7 @@ serve(async (req) => {
       description: article.excerpt || "",
       body: article.content || "",
       state: article.status === "published" ? "published" : "draft",
-      author_id: parseInt(INTERCOM_AUTHOR_ID),
+      author_id: authorId,
     };
 
     const existingIntercomId = article.intercom_article_id;
