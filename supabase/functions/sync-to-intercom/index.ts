@@ -13,7 +13,7 @@ serve(async (req) => {
     const INTERCOM_API_TOKEN = Deno.env.get("INTERCOM_API_TOKEN");
     if (!INTERCOM_API_TOKEN) throw new Error("INTERCOM_API_TOKEN is not configured");
 
-    // Auto-fetch the first admin's ID from Intercom
+    // Fetch the first admin's ID from Intercom automatically
     const adminsRes = await fetch("https://api.intercom.io/admins", {
       headers: {
         Authorization: `Bearer ${INTERCOM_API_TOKEN}`,
