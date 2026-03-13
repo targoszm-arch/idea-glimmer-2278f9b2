@@ -144,17 +144,33 @@ const InfographicDialog = ({ open, onOpenChange, editor }: InfographicDialogProp
 
           <TabsContent value="template" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label>Template Type</Label>
-              <Select value={templateType} onValueChange={(v) => setTemplateType(v as TemplateType)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {templateTypes.map(t => (
-                    <SelectItem key={t.key} value={t.key}>{t.label} — {t.description}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Choose a Template</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {templateTypes.map(t => (
+                  <button
+                    key={t.key}
+                    onClick={() => setTemplateType(t.key)}
+                    className={`relative text-left border rounded-lg p-3 transition-all hover:shadow-md ${
+                      templateType === t.key
+                        ? "border-primary ring-2 ring-primary/20 bg-primary/5"
+                        : "border-border bg-card hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    {templateType === t.key && (
+                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                        <Check className="h-3 w-3 text-primary-foreground" />
+                      </div>
+                    )}
+                    <div className="text-sm font-semibold text-foreground mb-1">{t.label}</div>
+                    <div className="text-xs text-muted-foreground mb-2">{t.description}</div>
+                    <div
+                      className="rounded border border-border bg-background p-2 overflow-hidden max-h-[120px] pointer-events-none"
+                      style={{ transform: "scale(0.65)", transformOrigin: "top left", width: "154%", marginBottom: "-45px" }}
+                      dangerouslySetInnerHTML={{ __html: generateTemplate(t.key, sampleData[t.key]) }}
+                    />
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-3">
