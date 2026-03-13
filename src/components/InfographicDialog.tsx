@@ -7,10 +7,35 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Trash2, Sparkles } from "lucide-react";
+import { Loader2, Plus, Trash2, Sparkles, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { generateTemplate, templateTypes, type TemplateItem, type TemplateType } from "@/lib/infographic-templates";
+
+const sampleData: Record<TemplateType, TemplateItem[]> = {
+  stats: [
+    { label: "Revenue", value: "$2.4M" },
+    { label: "Users", value: "12,500" },
+    { label: "Growth", value: "+34%" },
+    { label: "NPS Score", value: "72" },
+  ],
+  comparison: [
+    { label: "Option A", value: "Enterprise", description: "Full-featured solution" },
+    { label: "Option B", value: "Startup", description: "Lightweight alternative" },
+  ],
+  timeline: [
+    { label: "Research", value: "Identify the problem" },
+    { label: "Design", value: "Create the solution" },
+    { label: "Build", value: "Implement & test" },
+    { label: "Launch", value: "Ship to production" },
+  ],
+  process: [
+    { label: "Input", value: "Gather data" },
+    { label: "Process", value: "Analyze" },
+    { label: "Output", value: "Report" },
+    { label: "Review", value: "Iterate" },
+  ],
+};
 
 interface InfographicDialogProps {
   open: boolean;
@@ -75,7 +100,7 @@ const InfographicDialog = ({ open, onOpenChange, editor }: InfographicDialogProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Insert Infographic</DialogTitle>
         </DialogHeader>
@@ -119,17 +144,33 @@ const InfographicDialog = ({ open, onOpenChange, editor }: InfographicDialogProp
 
           <TabsContent value="template" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label>Template Type</Label>
-              <Select value={templateType} onValueChange={(v) => setTemplateType(v as TemplateType)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {templateTypes.map(t => (
-                    <SelectItem key={t.key} value={t.key}>{t.label} — {t.description}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Choose a Template</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {templateTypes.map(t => (
+                  <button
+                    key={t.key}
+                    onClick={() => setTemplateType(t.key)}
+                    className={`relative text-left border rounded-lg p-3 transition-all hover:shadow-md ${
+                      templateType === t.key
+                        ? "border-primary ring-2 ring-primary/20 bg-primary/5"
+                        : "border-border bg-card hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    {templateType === t.key && (
+                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                        <Check className="h-3 w-3 text-primary-foreground" />
+                      </div>
+                    )}
+                    <div className="text-sm font-semibold text-foreground mb-1">{t.label}</div>
+                    <div className="text-xs text-muted-foreground mb-2">{t.description}</div>
+                    <div
+                      className="rounded border border-border bg-background p-2 overflow-hidden max-h-[120px] pointer-events-none"
+                      style={{ transform: "scale(0.65)", transformOrigin: "top left", width: "154%", marginBottom: "-45px" }}
+                      dangerouslySetInnerHTML={{ __html: generateTemplate(t.key, sampleData[t.key]) }}
+                    />
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-3">
