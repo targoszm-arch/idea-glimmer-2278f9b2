@@ -100,7 +100,7 @@ const InfographicDialog = ({ open, onOpenChange, editor }: InfographicDialogProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Insert Infographic</DialogTitle>
         </DialogHeader>
