@@ -32,6 +32,7 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [infographicOpen, setInfographicOpen] = useState(false);
 
   if (!editor) return null;
 
