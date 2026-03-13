@@ -240,7 +240,7 @@ const NewArticle = () => {
           slug,
           content,
           excerpt,
-          meta_description: generatedMetaDescription.trim() || excerpt,
+          meta_description: (generatedMetaDescription.trim() || excerpt).slice(0, 255),
           category,
           status,
           cover_image_url: coverImageUrl,

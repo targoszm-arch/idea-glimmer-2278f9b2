@@ -96,7 +96,7 @@ const EditArticle = () => {
           slug,
           content,
           excerpt,
-          meta_description: excerpt,
+          meta_description: excerpt.slice(0, 255),
           category,
           status: finalStatus,
           cover_image_url: coverImageUrl,

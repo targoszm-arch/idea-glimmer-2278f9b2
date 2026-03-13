@@ -214,7 +214,7 @@ const ContentIdeas = () => {
           slug,
           content: cleanContent,
           excerpt,
-          meta_description: metaDescription || excerpt,
+          meta_description: (metaDescription || excerpt).slice(0, 255),
           category: idea.category,
           status: "draft",
           cover_image_url: coverImageUrl,
