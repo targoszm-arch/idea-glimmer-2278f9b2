@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { Editor } from "@tiptap/react";
 import {
   Bold,
@@ -15,40 +16,92 @@ import {
   Minus,
   ImagePlus,
   Video,
+  Loader2,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { toast } from "@/hooks/use-toast";
 
 interface EditorToolbarProps {
   editor: Editor | null;
 }
 
 const EditorToolbar = ({ editor }: EditorToolbarProps) => {
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+
   if (!editor) return null;
 
-  const btnClass = (active: boolean) =>
+  const btnClass = (active: boolean, disabled = false) =>
     `rounded-md p-2 transition-colors ${
+      disabled ? "opacity-50 cursor-not-allowed" :
       active
         ? "bg-primary/15 text-primary"
         : "text-muted-foreground hover:bg-secondary hover:text-foreground"
     }`;
 
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(",")[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const uploadFile = async (file: File): Promise<string | null> => {
+    try {
+      const base64 = await fileToBase64(file);
+      const { data, error } = await supabase.functions.invoke("upload-article-media", {
+        body: {
+          file_base64: base64,
+          file_name: file.name,
+          content_type: file.type,
+        },
+      });
+      if (error) throw error;
+      return data.url;
+    } catch (e) {
+      console.error("Upload failed:", e);
+      toast({ title: "Upload failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+      return null;
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingImage(true);
+    const url = await uploadFile(file);
+    if (url) {
+      editor.chain().focus().setImage({ src: url }).run();
+    }
+    setIsUploadingImage(false);
+    if (imageInputRef.current) imageInputRef.current.value = "";
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingVideo(true);
+    const url = await uploadFile(file);
+    if (url) {
+      // Insert as HTML5 video tag so it renders in Intercom/Framer as standard HTML
+      editor.chain().focus().insertContent(
+        `<p><video controls src="${url}" style="max-width:100%;height:auto;"></video></p>`
+      ).run();
+    }
+    setIsUploadingVideo(false);
+    if (videoInputRef.current) videoInputRef.current.value = "";
+  };
+
   const setLink = () => {
     const url = window.prompt("Enter URL:");
     if (url) {
       editor.chain().focus().setLink({ href: url }).run();
-    }
-  };
-
-  const insertImage = () => {
-    const url = window.prompt("Enter image URL:");
-    if (url) {
-      editor.chain().focus().setImage({ src: url }).run();
-    }
-  };
-
-  const insertVideo = () => {
-    const url = window.prompt("Enter YouTube video URL:");
-    if (url) {
-      editor.commands.setYoutubeVideo({ src: url });
     }
   };
 
@@ -90,12 +143,41 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
       <button onClick={setLink} className={btnClass(editor.isActive("link"))}>
         <LinkIcon className="h-4 w-4" />
       </button>
-      <button onClick={insertImage} className={btnClass(editor.isActive("image"))} title="Insert Image">
-        <ImagePlus className="h-4 w-4" />
+
+      {/* Image upload */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImageUpload}
+      />
+      <button
+        onClick={() => imageInputRef.current?.click()}
+        className={btnClass(false, isUploadingImage)}
+        disabled={isUploadingImage}
+        title="Upload Image"
+      >
+        {isUploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
       </button>
-      <button onClick={insertVideo} className={btnClass(editor.isActive("youtube"))} title="Insert YouTube Video">
-        <Video className="h-4 w-4" />
+
+      {/* Video upload */}
+      <input
+        ref={videoInputRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={handleVideoUpload}
+      />
+      <button
+        onClick={() => videoInputRef.current?.click()}
+        className={btnClass(false, isUploadingVideo)}
+        disabled={isUploadingVideo}
+        title="Upload Video"
+      >
+        {isUploadingVideo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
       </button>
+
       <div className="mx-1 h-6 w-px bg-border" />
       <button onClick={() => editor.chain().focus().undo().run()} className={btnClass(false)} disabled={!editor.can().undo()}>
         <Undo className="h-4 w-4" />

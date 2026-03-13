@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.sync-to-intercom]
 verify_jwt = false
+
+[functions.upload-article-media]
+verify_jwt = false
