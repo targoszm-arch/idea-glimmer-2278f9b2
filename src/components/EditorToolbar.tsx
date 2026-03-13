@@ -17,9 +17,11 @@ import {
   ImagePlus,
   Video,
   Loader2,
+  BarChart3,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
+import InfographicDialog from "./InfographicDialog";
 
 interface EditorToolbarProps {
   editor: Editor | null;
