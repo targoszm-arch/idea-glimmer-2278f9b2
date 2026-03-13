@@ -7,10 +7,35 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Trash2, Sparkles } from "lucide-react";
+import { Loader2, Plus, Trash2, Sparkles, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { generateTemplate, templateTypes, type TemplateItem, type TemplateType } from "@/lib/infographic-templates";
+
+const sampleData: Record<TemplateType, TemplateItem[]> = {
+  stats: [
+    { label: "Revenue", value: "$2.4M" },
+    { label: "Users", value: "12,500" },
+    { label: "Growth", value: "+34%" },
+    { label: "NPS Score", value: "72" },
+  ],
+  comparison: [
+    { label: "Option A", value: "Enterprise", description: "Full-featured solution" },
+    { label: "Option B", value: "Startup", description: "Lightweight alternative" },
+  ],
+  timeline: [
+    { label: "Research", value: "Identify the problem" },
+    { label: "Design", value: "Create the solution" },
+    { label: "Build", value: "Implement & test" },
+    { label: "Launch", value: "Ship to production" },
+  ],
+  process: [
+    { label: "Input", value: "Gather data" },
+    { label: "Process", value: "Analyze" },
+    { label: "Output", value: "Report" },
+    { label: "Review", value: "Iterate" },
+  ],
+};
 
 interface InfographicDialogProps {
   open: boolean;
