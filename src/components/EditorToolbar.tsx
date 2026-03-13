@@ -13,6 +13,8 @@ import {
   Quote,
   Code,
   Minus,
+  ImagePlus,
+  Video,
 } from "lucide-react";
 
 interface EditorToolbarProps {
@@ -33,6 +35,20 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
     const url = window.prompt("Enter URL:");
     if (url) {
       editor.chain().focus().setLink({ href: url }).run();
+    }
+  };
+
+  const insertImage = () => {
+    const url = window.prompt("Enter image URL:");
+    if (url) {
+      editor.chain().focus().setImage({ src: url }).run();
+    }
+  };
+
+  const insertVideo = () => {
+    const url = window.prompt("Enter YouTube video URL:");
+    if (url) {
+      editor.commands.setYoutubeVideo({ src: url });
     }
   };
 
@@ -73,6 +89,12 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
       <div className="mx-1 h-6 w-px bg-border" />
       <button onClick={setLink} className={btnClass(editor.isActive("link"))}>
         <LinkIcon className="h-4 w-4" />
+      </button>
+      <button onClick={insertImage} className={btnClass(editor.isActive("image"))} title="Insert Image">
+        <ImagePlus className="h-4 w-4" />
+      </button>
+      <button onClick={insertVideo} className={btnClass(editor.isActive("youtube"))} title="Insert YouTube Video">
+        <Video className="h-4 w-4" />
       </button>
       <div className="mx-1 h-6 w-px bg-border" />
       <button onClick={() => editor.chain().focus().undo().run()} className={btnClass(false)} disabled={!editor.can().undo()}>

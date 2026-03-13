@@ -4,6 +4,8 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
+import Image from "@tiptap/extension-image";
+import Youtube from "@tiptap/extension-youtube";
 import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X, Upload, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
@@ -35,6 +37,8 @@ const EditArticle = () => {
       StarterKit,
       Link.configure({ openOnClick: false }),
       Placeholder.configure({ placeholder: "Start writing..." }),
+      Image.configure({ inline: false, allowBase64: false }),
+      Youtube.configure({ width: 840, height: 480 }),
     ],
     content: "",
     editorProps: {
