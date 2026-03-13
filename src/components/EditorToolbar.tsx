@@ -17,9 +17,11 @@ import {
   ImagePlus,
   Video,
   Loader2,
+  BarChart3,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
+import InfographicDialog from "./InfographicDialog";
 
 interface EditorToolbarProps {
   editor: Editor | null;
@@ -30,6 +32,7 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [infographicOpen, setInfographicOpen] = useState(false);
 
   if (!editor) return null;
 
@@ -178,6 +181,15 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
         {isUploadingVideo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
       </button>
 
+      {/* Infographic */}
+      <button
+        onClick={() => setInfographicOpen(true)}
+        className={btnClass(false)}
+        title="Insert Infographic"
+      >
+        <BarChart3 className="h-4 w-4" />
+      </button>
+
       <div className="mx-1 h-6 w-px bg-border" />
       <button onClick={() => editor.chain().focus().undo().run()} className={btnClass(false)} disabled={!editor.can().undo()}>
         <Undo className="h-4 w-4" />
@@ -185,6 +197,8 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
       <button onClick={() => editor.chain().focus().redo().run()} className={btnClass(false)} disabled={!editor.can().redo()}>
         <Redo className="h-4 w-4" />
       </button>
+
+      <InfographicDialog open={infographicOpen} onOpenChange={setInfographicOpen} editor={editor} />
     </div>
   );
 };
