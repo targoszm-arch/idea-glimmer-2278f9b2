@@ -6,6 +6,10 @@ import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import Youtube from "@tiptap/extension-youtube";
+import { Table } from "@tiptap/extension-table";
+import TableRow from "@tiptap/extension-table-row";
+import TableCell from "@tiptap/extension-table-cell";
+import TableHeader from "@tiptap/extension-table-header";
 import { Save, Sparkles, Loader2, ArrowLeft, Settings, ImagePlus, X, Upload, MessageSquare } from "lucide-react";
 import CategoryPicker from "@/components/CategoryPicker";
 import { motion } from "framer-motion";
@@ -60,7 +64,12 @@ const NewArticle = () => {
     Link.configure({ openOnClick: false }),
     Placeholder.configure({ placeholder: "Start writing or generate with AI..." }),
     Image.configure({ inline: false, allowBase64: false }),
-    Youtube.configure({ width: 840, height: 480 })],
+    Youtube.configure({ width: 840, height: 480 }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableCell,
+      TableHeader,
+    ],
     content: "",
     editorProps: {
       attributes: {

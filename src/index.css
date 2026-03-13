@@ -128,6 +128,9 @@
 .tiptap pre code { @apply bg-transparent p-0; }
 .tiptap a { @apply text-primary underline; }
 .tiptap hr { @apply my-6 border-border; }
+.tiptap table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+.tiptap th, .tiptap td { border: 1px solid hsl(var(--border)); padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; }
+.tiptap th { background: hsl(var(--muted)); font-weight: 600; }
 
 @layer utilities {
   .text-balance {
