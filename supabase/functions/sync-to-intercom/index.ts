@@ -54,7 +54,7 @@ serve(async (req) => {
       description: article.excerpt || "",
       body: article.content || "",
       state: article.status === "published" ? "published" : "draft",
-      author_id: parseInt(INTERCOM_AUTHOR_ID),
+      author_id: authorId,
     };
 
     const existingIntercomId = article.intercom_article_id;
