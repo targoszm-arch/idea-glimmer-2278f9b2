@@ -61,6 +61,7 @@ export type Database = {
           faq_html: string
           framer_item_id: string | null
           id: string
+          intercom_article_id: string | null
           meta_description: string
           reading_time_minutes: number
           slug: string
@@ -78,6 +79,7 @@ export type Database = {
           faq_html?: string
           framer_item_id?: string | null
           id?: string
+          intercom_article_id?: string | null
           meta_description?: string
           reading_time_minutes?: number
           slug: string
@@ -95,6 +97,7 @@ export type Database = {
           faq_html?: string
           framer_item_id?: string | null
           id?: string
+          intercom_article_id?: string | null
           meta_description?: string
           reading_time_minutes?: number
           slug?: string

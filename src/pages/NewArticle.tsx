@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Save, Sparkles, Loader2, ArrowLeft, Settings, ImagePlus, X } from "lucide-react";
+import { Save, Sparkles, Loader2, ArrowLeft, Settings, ImagePlus, X, Upload, MessageSquare } from "lucide-react";
 import CategoryPicker from "@/components/CategoryPicker";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
@@ -29,8 +29,10 @@ const NewArticle = () => {
   const [showAssistant, setShowAssistant] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [generatedMetaDescription, setGeneratedMetaDescription] = useState("");
   const [authorName, setAuthorName] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [aiSettings, setAiSettings] = useState<{
     tone_key: string;
@@ -161,6 +163,47 @@ const NewArticle = () => {
       toast({ title: "Image generation failed", description: e.message, variant: "destructive" });
     }
     setIsGeneratingImage(false);
+  };
+
+  const handleUploadCoverImage = async (file: File) => {
+    setIsUploadingImage(true);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(",")[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-article-cover`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            file_base64: base64,
+            file_name: file.name,
+            content_type: file.type,
+          }),
+        }
+      );
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Upload failed");
+      setCoverImageUrl(data.image_url);
+      toast({ title: "Cover image uploaded!" });
+    } catch (e: any) {
+      toast({ title: "Upload failed", description: e.message, variant: "destructive" });
+    }
+    setIsUploadingImage(false);
   };
 
   const handleSave = async (status: "draft" | "published") => {
@@ -320,6 +363,17 @@ const NewArticle = () => {
             <div className="flex-1">
               {/* Cover Image */}
               <div className="mb-4">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleUploadCoverImage(file);
+                    e.target.value = "";
+                  }}
+                />
                 {coverImageUrl ?
                 <div className="relative overflow-hidden rounded-xl border border-border">
                     <img src={coverImageUrl} alt="Cover" className="h-48 w-full object-cover" />
@@ -328,23 +382,39 @@ const NewArticle = () => {
                     className="absolute right-2 top-2 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm hover:bg-background">
                       <X className="h-4 w-4" />
                     </button>
-                    <button
-                    onClick={handleGenerateCoverImage}
-                    disabled={isGeneratingImage}
-                    className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50">
-                      {isGeneratingImage ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImagePlus className="h-3 w-3" />}
-                      Regenerate
-                    </button>
+                    <div className="absolute bottom-2 right-2 flex gap-2">
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingImage}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50">
+                        <Upload className="h-3 w-3" />
+                        Replace
+                      </button>
+                      <button
+                        onClick={handleGenerateCoverImage}
+                        disabled={isGeneratingImage}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50">
+                        {isGeneratingImage ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImagePlus className="h-3 w-3" />}
+                        Regenerate
+                      </button>
+                    </div>
                   </div> :
-                <button
-                  onClick={handleGenerateCoverImage}
-                  disabled={isGeneratingImage}
-                  className="flex h-32 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50">
-                    {isGeneratingImage ?
-                  <><Loader2 className="h-5 w-5 animate-spin" /> Generating cover image...</> :
-                  <><ImagePlus className="h-5 w-5" /> Generate AI Cover Image</>
-                  }
-                  </button>
+                <div className="flex h-32 w-full gap-3 items-center justify-center rounded-xl border-2 border-dashed border-border">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingImage}
+                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50">
+                      {isUploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      Upload Image
+                    </button>
+                    <button
+                      onClick={handleGenerateCoverImage}
+                      disabled={isGeneratingImage}
+                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50">
+                      {isGeneratingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                      Generate AI Cover
+                    </button>
+                  </div>
                 }
               </div>
 

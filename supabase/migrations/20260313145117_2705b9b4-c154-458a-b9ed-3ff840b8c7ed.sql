@@ -1,0 +1,1 @@
+ALTER TABLE public.articles ADD COLUMN intercom_article_id text;
