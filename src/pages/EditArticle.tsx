@@ -43,6 +43,10 @@ const EditArticle = () => {
       Placeholder.configure({ placeholder: "Start writing..." }),
       Image.configure({ inline: false, allowBase64: false }),
       Youtube.configure({ width: 840, height: 480 }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableCell,
+      TableHeader,
     ],
     content: "",
     editorProps: {
