@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X } from "lucide-react";
+import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X, Upload, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import EditorToolbar from "@/components/EditorToolbar";
@@ -23,8 +23,12 @@ const EditArticle = () => {
   const [showAssistant, setShowAssistant] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [framerItemId, setFramerItemId] = useState<string | null>(null);
+  const [intercomArticleId, setIntercomArticleId] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isSyncingIntercom, setIsSyncingIntercom] = useState(false);
   const [authorName, setAuthorName] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
     extensions: [
@@ -54,6 +58,7 @@ const EditArticle = () => {
       setStatus(data.status as "draft" | "published");
       setCoverImageUrl(data.cover_image_url || null);
       setFramerItemId((data as any).framer_item_id || null);
+      setIntercomArticleId((data as any).intercom_article_id || null);
       setAuthorName((data as any).author_name || "");
       editor?.commands.setContent(data.content || "");
       setLoading(false);
@@ -165,6 +170,83 @@ const EditArticle = () => {
     setIsGeneratingImage(false);
   };
 
+  const handleUploadCoverImage = async (file: File) => {
+    setIsUploadingImage(true);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(",")[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-article-cover`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            file_base64: base64,
+            file_name: file.name,
+            content_type: file.type,
+          }),
+        }
+      );
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Upload failed");
+      setCoverImageUrl(data.image_url);
+      toast({ title: "Cover image uploaded!" });
+    } catch (e: any) {
+      toast({ title: "Upload failed", description: e.message, variant: "destructive" });
+    }
+    setIsUploadingImage(false);
+  };
+
+  const handleSyncToIntercom = async () => {
+    if (!id) return;
+
+    // Save first to ensure latest content is in DB
+    await handleSave();
+
+    setIsSyncingIntercom(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-intercom`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ article_id: id }),
+        }
+      );
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Intercom sync failed");
+
+      setIntercomArticleId(String(data.intercom_article_id));
+      toast({
+        title: `Article ${data.action} in Intercom!`,
+        description: `Intercom article ID: ${data.intercom_article_id}`,
+      });
+    } catch (e: any) {
+      toast({ title: "Intercom sync failed", description: e.message, variant: "destructive" });
+    }
+    setIsSyncingIntercom(false);
+  };
+
   if (loading) {
     return (
       <PageLayout hideFooter>
@@ -193,6 +275,11 @@ const EditArticle = () => {
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Publish
               </button>
+              <button onClick={handleSyncToIntercom} disabled={isSyncingIntercom}
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
+                {isSyncingIntercom ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+                {intercomArticleId ? "Update in Intercom" : "Sync to Intercom"}
+              </button>
               <button onClick={() => setShowAssistant(!showAssistant)}
                 className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${showAssistant ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary"}`}>
                 <Sparkles className="h-4 w-4" /> AI Assistant
@@ -208,6 +295,17 @@ const EditArticle = () => {
             <div className="flex-1">
               {/* Cover Image */}
               <div className="mb-4">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleUploadCoverImage(file);
+                    e.target.value = "";
+                  }}
+                />
                 {coverImageUrl ? (
                   <div className="relative overflow-hidden rounded-xl border border-border">
                     <img src={coverImageUrl} alt="Cover" className="h-48 w-full object-cover" />
@@ -217,27 +315,41 @@ const EditArticle = () => {
                     >
                       <X className="h-4 w-4" />
                     </button>
+                    <div className="absolute bottom-2 right-2 flex gap-2">
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingImage}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50">
+                        <Upload className="h-3 w-3" />
+                        Replace
+                      </button>
+                      <button
+                        onClick={handleGenerateCoverImage}
+                        disabled={isGeneratingImage}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50"
+                      >
+                        {isGeneratingImage ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImagePlus className="h-3 w-3" />}
+                        Regenerate
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex h-32 w-full gap-3 items-center justify-center rounded-xl border-2 border-dashed border-border">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingImage}
+                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50">
+                      {isUploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      Upload Image
+                    </button>
                     <button
                       onClick={handleGenerateCoverImage}
                       disabled={isGeneratingImage}
-                      className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50"
-                    >
-                      {isGeneratingImage ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImagePlus className="h-3 w-3" />}
-                      Regenerate
+                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50">
+                      {isGeneratingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                      Generate AI Cover
                     </button>
                   </div>
-                ) : (
-                  <button
-                    onClick={handleGenerateCoverImage}
-                    disabled={isGeneratingImage}
-                    className="flex h-32 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
-                  >
-                    {isGeneratingImage ? (
-                      <><Loader2 className="h-5 w-5 animate-spin" /> Generating cover image...</>
-                    ) : (
-                      <><ImagePlus className="h-5 w-5" /> Generate AI Cover Image</>
-                    )}
-                  </button>
                 )}
               </div>
 
