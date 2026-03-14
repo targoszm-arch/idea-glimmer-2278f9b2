@@ -336,7 +336,7 @@ const EditArticle = () => {
               
               {coverImageUrl ?
               <div className="relative overflow-hidden rounded-xl border border-border my-0">
-                  <img src={coverImageUrl} alt="Cover" className="h-48 w-fit object-contain" />
+                  <img src={coverImageUrl} alt="Cover" className="h-48 w-fit object-cover" />
                   <button
                   onClick={() => setCoverImageUrl(null)}
                   className="absolute right-2 top-2 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm hover:bg-background">
