@@ -94,9 +94,7 @@ const EditArticle = () => {
       const slug = title
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "")
-        .substring(0, 64)
-        .replace(/-+$/, "");
+        .replace(/(^-|-$)/g, "");
       const finalStatus = newStatus || status;
 
       const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
@@ -162,20 +160,19 @@ const EditArticle = () => {
     }
     setIsGeneratingImage(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-cover-image`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ prompt: imagePrompt }),
-        }
-      );
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-cover-image`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ prompt: imagePrompt }),
+      });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Image generation failed");
       setCoverImageUrl(data.image_url);
@@ -199,24 +196,23 @@ const EditArticle = () => {
         reader.readAsDataURL(file);
       });
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-article-cover`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            file_base64: base64,
-            file_name: file.name,
-            content_type: file.type,
-          }),
-        }
-      );
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-article-cover`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          file_base64: base64,
+          file_name: file.name,
+          content_type: file.type,
+        }),
+      });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Upload failed");
       setCoverImageUrl(data.image_url);
@@ -235,20 +231,19 @@ const EditArticle = () => {
 
     setIsSyncingIntercom(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-intercom`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ article_id: id }),
-        }
-      );
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-intercom`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ article_id: id }),
+      });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Intercom sync failed");
 
@@ -275,139 +270,165 @@ const EditArticle = () => {
 
   return (
     <PageLayout hideFooter>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="mb-6 flex items-center justify-between">
-            <button onClick={() => navigate("/")} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Library
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <div className="mb-6 flex items-center justify-between">
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Library
+          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => handleSave("draft")}
+              disabled={isSaving}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" /> Save Draft
             </button>
-            <div className="flex items-center gap-3">
-              <button onClick={() => handleSave("draft")} disabled={isSaving}
-                className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
-                <Save className="h-4 w-4" /> Save Draft
-              </button>
-              <button onClick={() => handleSave("published")} disabled={isSaving}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50">
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Publish
-              </button>
-              <button onClick={handleSyncToIntercom} disabled={isSyncingIntercom}
-                className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
-                {isSyncingIntercom ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-                {intercomArticleId ? "Update in Intercom" : "Sync to Intercom"}
-              </button>
-              <button onClick={() => setShowAssistant(!showAssistant)}
-                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${showAssistant ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary"}`}>
-                <Sparkles className="h-4 w-4" /> AI Assistant
-              </button>
-              <button onClick={handleDelete} className="flex items-center gap-2 text-sm text-destructive hover:text-destructive/80">
-                <Trash2 className="h-4 w-4" />
-                Delete
-              </button>
-            </div>
+            <button
+              onClick={() => handleSave("published")}
+              disabled={isSaving}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50"
+            >
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Publish
+            </button>
+            <button
+              onClick={handleSyncToIntercom}
+              disabled={isSyncingIntercom}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50"
+            >
+              {isSyncingIntercom ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+              {intercomArticleId ? "Update in Intercom" : "Sync to Intercom"}
+            </button>
+            <button
+              onClick={() => setShowAssistant(!showAssistant)}
+              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${showAssistant ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary"}`}
+            >
+              <Sparkles className="h-4 w-4" /> AI Assistant
+            </button>
+            <button
+              onClick={handleDelete}
+              className="flex items-center gap-2 text-sm text-destructive hover:text-destructive/80"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </button>
           </div>
+        </div>
 
-          <div className="flex flex-col gap-6 lg:flex-row">
-            <div className="flex-1">
-              {/* Cover Image */}
-              <div className="mb-4">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleUploadCoverImage(file);
-                    e.target.value = "";
-                  }}
-                />
-                {coverImageUrl ? (
-                  <div className="relative overflow-hidden rounded-xl border border-border">
-                    <img src={coverImageUrl} alt="Cover" className="h-48 w-full object-cover" />
-                    <button
-                      onClick={() => setCoverImageUrl(null)}
-                      className="absolute right-2 top-2 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm hover:bg-background"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                    <div className="absolute bottom-2 right-2 flex gap-2">
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isUploadingImage}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50">
-                        <Upload className="h-3 w-3" />
-                        Replace
-                      </button>
-                      <button
-                        onClick={handleGenerateCoverImage}
-                        disabled={isGeneratingImage}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50"
-                      >
-                        {isGeneratingImage ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImagePlus className="h-3 w-3" />}
-                        Regenerate
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex h-32 w-full gap-3 items-center justify-center rounded-xl border-2 border-dashed border-border">
+        <div className="flex flex-col gap-6 lg:flex-row">
+          <div className="flex-1">
+            {/* Cover Image */}
+            <div className="mb-4">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleUploadCoverImage(file);
+                  e.target.value = "";
+                }}
+              />
+              {coverImageUrl ? (
+                <div className="relative overflow-hidden rounded-xl border border-border">
+                  <img src={coverImageUrl} alt="Cover" className="h-48 w-fit object-cover" />
+                  <button
+                    onClick={() => setCoverImageUrl(null)}
+                    className="absolute right-2 top-2 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm hover:bg-background"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  <div className="absolute bottom-2 right-2 flex gap-2">
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUploadingImage}
-                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50">
-                      {isUploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                      Upload Image
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50"
+                    >
+                      <Upload className="h-3 w-3" />
+                      Replace
                     </button>
                     <button
                       onClick={handleGenerateCoverImage}
                       disabled={isGeneratingImage}
-                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50">
-                      {isGeneratingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-                      Generate AI Cover
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50"
+                    >
+                      {isGeneratingImage ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <ImagePlus className="h-3 w-3" />
+                      )}
+                      Regenerate
                     </button>
                   </div>
-                )}
-              </div>
-
-              <div className="mb-4 flex flex-wrap gap-4">
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Article Title"
-                  className="flex-1 border-none bg-transparent text-3xl font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
-                />
-                <input
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  placeholder="Category"
-                  className="w-32 rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                />
-                <input
-                  value={authorName}
-                  onChange={(e) => setAuthorName(e.target.value)}
-                  placeholder="Author Name"
-                  className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div className="rounded-xl border border-border bg-card">
-                <EditorToolbar editor={editor} />
-                <div className="rounded-b-xl overflow-hidden">
-                  <EditorContent editor={editor} />
                 </div>
-              </div>
+              ) : (
+                <div className="flex h-32 w-full gap-3 items-center justify-center rounded-xl border-2 border-dashed border-border">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingImage}
+                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+                  >
+                    {isUploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    Upload Image
+                  </button>
+                  <button
+                    onClick={handleGenerateCoverImage}
+                    disabled={isGeneratingImage}
+                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+                  >
+                    {isGeneratingImage ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ImagePlus className="h-4 w-4" />
+                    )}
+                    Generate AI Cover
+                  </button>
+                </div>
+              )}
             </div>
 
-            {showAssistant && (
-              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="w-full lg:w-80">
-                <AIAssistantPanel
-                  currentContent={editor?.getHTML() || ""}
-                  onApplyContent={(content) => editor?.commands.setContent(content)}
-                />
-              </motion.div>
-            )}
+            <div className="mb-4 flex flex-wrap gap-4">
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Article Title"
+                className="flex-1 border-none bg-transparent text-3xl font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+              />
+              <input
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder="Category"
+                className="w-32 rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              />
+              <input
+                value={authorName}
+                onChange={(e) => setAuthorName(e.target.value)}
+                placeholder="Author Name"
+                className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              />
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <EditorToolbar editor={editor} />
+              <EditorContent editor={editor} />
+            </div>
           </div>
-        </motion.div>
+
+          {showAssistant && (
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="w-full lg:w-80">
+              <AIAssistantPanel
+                currentContent={editor?.getHTML() || ""}
+                onApplyContent={(content) => editor?.commands.setContent(content)}
+              />
+            </motion.div>
+          )}
+        </div>
+      </motion.div>
     </PageLayout>
   );
 };
