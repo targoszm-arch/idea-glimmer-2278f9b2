@@ -73,6 +73,7 @@ const EditArticle = () => {
       setFramerItemId((data as any).framer_item_id || null);
       setIntercomArticleId((data as any).intercom_article_id || null);
       setAuthorName((data as any).author_name || "");
+      setMetaDescription(data.meta_description || "");
       editor?.commands.setContent(data.content || "");
       setLoading(false);
     })();
