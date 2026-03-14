@@ -94,7 +94,9 @@ const EditArticle = () => {
       const slug = title
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
+        .replace(/(^-|-$)/g, "")
+        .substring(0, 64)
+        .replace(/-+$/, "");
       const finalStatus = newStatus || status;
 
       const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;

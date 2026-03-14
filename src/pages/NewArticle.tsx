@@ -238,7 +238,7 @@ const NewArticle = () => {
       const content = editor?.getHTML() || "";
       const plainText = editor?.getText() || "";
       const excerpt = plainText.slice(0, 200);
-      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").substring(0, 64).replace(/-+$/, "");
 
       const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
       const reading_time_minutes = Math.max(1, Math.ceil(wordCount / 200));
