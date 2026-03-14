@@ -439,9 +439,11 @@ const NewArticle = () => {
                   className="w-full border-none bg-transparent text-3xl font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none" />
               </div>
 
-              <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <div className="rounded-xl border border-border bg-card">
                 <EditorToolbar editor={editor} />
-                <EditorContent editor={editor} />
+                <div className="rounded-b-xl overflow-hidden">
+                  <EditorContent editor={editor} />
+                </div>
               </div>
             </div>
 
