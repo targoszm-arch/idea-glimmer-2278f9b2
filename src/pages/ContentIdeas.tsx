@@ -206,7 +206,7 @@ const ContentIdeas = () => {
           toast({ title: "Cover image failed", description: "Article saved without a cover image.", variant: "destructive" });
         }
 
-        const slug = articleTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+        const slug = articleTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").substring(0, 64).replace(/-+$/, "");
         const excerpt = cleanContent.replace(/<[^>]*>/g, "").slice(0, 200);
 
         const { data: articleData, error: saveError } = await supabase.from("articles").insert({

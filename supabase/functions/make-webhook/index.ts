@@ -29,7 +29,7 @@ serve(async (req) => {
 
     const articles = (data ?? []).map((a) => ({
       title: a.title,
-      slug: a.slug,
+      slug: (a.slug ?? "").substring(0, 64).replace(/-+$/, ""),
       body: a.content,
       excerpt: a.excerpt,
       meta_description: a.meta_description,
