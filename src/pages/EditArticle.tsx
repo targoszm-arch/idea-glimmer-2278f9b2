@@ -151,7 +151,7 @@ const EditArticle = () => {
   };
 
   const handleGenerateCoverImage = async () => {
-    const imagePrompt = title.trim();
+    const imagePrompt = metaDescription.trim() || title.trim();
     if (!imagePrompt) {
       toast({ title: "Enter a title first", variant: "destructive" });
       return;
