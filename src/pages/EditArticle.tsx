@@ -19,7 +19,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 
 const EditArticle = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams<{id: string;}>();
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
@@ -39,22 +39,22 @@ const EditArticle = () => {
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
-      Link.configure({ openOnClick: false }),
-      Placeholder.configure({ placeholder: "Start writing..." }),
-      Image.configure({ inline: false, allowBase64: false }),
-      Youtube.configure({ width: 840, height: 480 }),
-      Table.configure({ resizable: false }),
-      TableRow,
-      TableCell,
-      TableHeader,
-    ],
+    StarterKit,
+    Link.configure({ openOnClick: false }),
+    Placeholder.configure({ placeholder: "Start writing..." }),
+    Image.configure({ inline: false, allowBase64: false }),
+    Youtube.configure({ width: 840, height: 480 }),
+    Table.configure({ resizable: false }),
+    TableRow,
+    TableCell,
+    TableHeader],
+
     content: "",
     editorProps: {
       attributes: {
-        class: "prose prose-sm sm:prose max-w-none focus:outline-none min-h-[400px] px-6 py-4",
-      },
-    },
+        class: "prose prose-sm sm:prose max-w-none focus:outline-none min-h-[400px] px-6 py-4"
+      }
+    }
   });
 
   useEffect(() => {
@@ -91,10 +91,10 @@ const EditArticle = () => {
       const content = editor?.getHTML() || "";
       const plainText = editor?.getText() || "";
       const excerpt = plainText.slice(0, 200);
-      const slug = title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
+      const slug = title.
+      toLowerCase().
+      replace(/[^a-z0-9]+/g, "-").
+      replace(/(^-|-$)/g, "");
       const finalStatus = newStatus || status;
 
       const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
@@ -103,23 +103,23 @@ const EditArticle = () => {
       const faqMatch = content.match(/(<h2[^>]*>(?:[^<]*FAQ[^<]*)<\/h2>[\s\S]*)/i);
       const faq_html = faqMatch ? faqMatch[1] : "";
 
-      const { error } = await supabase
-        .from("articles")
-        .update({
-          title,
-          slug,
-          content,
-          excerpt,
-          meta_description: excerpt.slice(0, 255),
-          category,
-          status: finalStatus,
-          cover_image_url: coverImageUrl,
-          author_name: authorName.trim(),
-          reading_time_minutes,
-          faq_html,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id);
+      const { error } = await supabase.
+      from("articles").
+      update({
+        title,
+        slug,
+        content,
+        excerpt,
+        meta_description: excerpt.slice(0, 255),
+        category,
+        status: finalStatus,
+        cover_image_url: coverImageUrl,
+        author_name: authorName.trim(),
+        reading_time_minutes,
+        faq_html,
+        updated_at: new Date().toISOString()
+      }).
+      eq("id", id);
 
       if (error) {
         toast({ title: "Save failed", description: error.message, variant: "destructive" });
@@ -131,7 +131,7 @@ const EditArticle = () => {
       if (finalStatus === "published") {
         toast({
           title: "Article published!",
-          description: "Open your Framer plugin and click 'Sync' to push it to Framer CMS.",
+          description: "Open your Framer plugin and click 'Sync' to push it to Framer CMS."
         });
       } else {
         toast({ title: "Article saved!" });
@@ -161,7 +161,7 @@ const EditArticle = () => {
     setIsGeneratingImage(true);
     try {
       const {
-        data: { session },
+        data: { session }
       } = await supabase.auth.getSession();
       const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
@@ -169,9 +169,9 @@ const EditArticle = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ prompt: imagePrompt }),
+        body: JSON.stringify({ prompt: imagePrompt })
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Image generation failed");
@@ -197,7 +197,7 @@ const EditArticle = () => {
       });
 
       const {
-        data: { session },
+        data: { session }
       } = await supabase.auth.getSession();
       const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
@@ -205,13 +205,13 @@ const EditArticle = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           file_base64: base64,
           file_name: file.name,
-          content_type: file.type,
-        }),
+          content_type: file.type
+        })
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Upload failed");
@@ -232,7 +232,7 @@ const EditArticle = () => {
     setIsSyncingIntercom(true);
     try {
       const {
-        data: { session },
+        data: { session }
       } = await supabase.auth.getSession();
       const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
@@ -240,9 +240,9 @@ const EditArticle = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ article_id: id }),
+        body: JSON.stringify({ article_id: id })
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Intercom sync failed");
@@ -250,7 +250,7 @@ const EditArticle = () => {
       setIntercomArticleId(String(data.intercom_article_id));
       toast({
         title: `Article ${data.action} in Intercom!`,
-        description: `Intercom article ID: ${data.intercom_article_id}`,
+        description: `Intercom article ID: ${data.intercom_article_id}`
       });
     } catch (e: any) {
       toast({ title: "Intercom sync failed", description: e.message, variant: "destructive" });
@@ -264,8 +264,8 @@ const EditArticle = () => {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      </PageLayout>
-    );
+      </PageLayout>);
+
   }
 
   return (
@@ -274,8 +274,8 @@ const EditArticle = () => {
         <div className="mb-6 flex items-center justify-between">
           <button
             onClick={() => navigate("/")}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            
             <ArrowLeft className="h-4 w-4" />
             Back to Library
           </button>
@@ -283,36 +283,36 @@ const EditArticle = () => {
             <button
               onClick={() => handleSave("draft")}
               disabled={isSaving}
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50"
-            >
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
+              
               <Save className="h-4 w-4" /> Save Draft
             </button>
             <button
               onClick={() => handleSave("published")}
               disabled={isSaving}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50"
-            >
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50">
+              
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Publish
             </button>
             <button
               onClick={handleSyncToIntercom}
               disabled={isSyncingIntercom}
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50"
-            >
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
+              
               {isSyncingIntercom ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
               {intercomArticleId ? "Update in Intercom" : "Sync to Intercom"}
             </button>
             <button
               onClick={() => setShowAssistant(!showAssistant)}
-              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${showAssistant ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary"}`}
-            >
+              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${showAssistant ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary"}`}>
+              
               <Sparkles className="h-4 w-4" /> AI Assistant
             </button>
             <button
               onClick={handleDelete}
-              className="flex items-center gap-2 text-sm text-destructive hover:text-destructive/80"
-            >
+              className="flex items-center gap-2 text-sm text-destructive hover:text-destructive/80">
+              
               <Trash2 className="h-4 w-4" />
               Delete
             </button>
@@ -320,9 +320,9 @@ const EditArticle = () => {
         </div>
 
         <div className="flex flex-col gap-6 lg:flex-row">
-          <div className="flex-1">
+          <div className="flex-1 my-0">
             {/* Cover Image */}
-            <div className="mb-4">
+            <div className="mb-4 my-0">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -332,64 +332,64 @@ const EditArticle = () => {
                   const file = e.target.files?.[0];
                   if (file) handleUploadCoverImage(file);
                   e.target.value = "";
-                }}
-              />
-              {coverImageUrl ? (
-                <div className="relative overflow-hidden rounded-xl border border-border">
-                  <img src={coverImageUrl} alt="Cover" className="h-48 w-fit object-cover" />
+                }} />
+              
+              {coverImageUrl ?
+              <div className="relative overflow-hidden rounded-xl border border-border my-0">
+                  <img src={coverImageUrl} alt="Cover" className="h-48 w-fit object-contain" />
                   <button
-                    onClick={() => setCoverImageUrl(null)}
-                    className="absolute right-2 top-2 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm hover:bg-background"
-                  >
+                  onClick={() => setCoverImageUrl(null)}
+                  className="absolute right-2 top-2 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm hover:bg-background">
+                  
                     <X className="h-4 w-4" />
                   </button>
                   <div className="absolute bottom-2 right-2 flex gap-2">
                     <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploadingImage}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50"
-                    >
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingImage}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50">
+                    
                       <Upload className="h-3 w-3" />
                       Replace
                     </button>
                     <button
-                      onClick={handleGenerateCoverImage}
-                      disabled={isGeneratingImage}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50"
-                    >
-                      {isGeneratingImage ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <ImagePlus className="h-3 w-3" />
-                      )}
+                    onClick={handleGenerateCoverImage}
+                    disabled={isGeneratingImage}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50">
+                    
+                      {isGeneratingImage ?
+                    <Loader2 className="h-3 w-3 animate-spin" /> :
+
+                    <ImagePlus className="h-3 w-3" />
+                    }
                       Regenerate
                     </button>
                   </div>
-                </div>
-              ) : (
-                <div className="flex h-32 w-full gap-3 items-center justify-center rounded-xl border-2 border-dashed border-border">
+                </div> :
+
+              <div className="flex h-32 w-full gap-3 items-center justify-center rounded-xl border-2 border-dashed border-border">
                   <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploadingImage}
-                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
-                  >
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingImage}
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50">
+                  
                     {isUploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                     Upload Image
                   </button>
                   <button
-                    onClick={handleGenerateCoverImage}
-                    disabled={isGeneratingImage}
-                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
-                  >
-                    {isGeneratingImage ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ImagePlus className="h-4 w-4" />
-                    )}
+                  onClick={handleGenerateCoverImage}
+                  disabled={isGeneratingImage}
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50">
+                  
+                    {isGeneratingImage ?
+                  <Loader2 className="h-4 w-4 animate-spin" /> :
+
+                  <ImagePlus className="h-4 w-4" />
+                  }
                     Generate AI Cover
                   </button>
                 </div>
-              )}
+              }
             </div>
 
             <div className="mb-4 flex flex-wrap gap-4">
@@ -397,20 +397,20 @@ const EditArticle = () => {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Article Title"
-                className="flex-1 border-none bg-transparent text-3xl font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
-              />
+                className="flex-1 border-none bg-transparent text-3xl font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none" />
+              
               <input
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 placeholder="Category"
-                className="w-32 rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              />
+                className="w-32 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
+              
               <input
                 value={authorName}
                 onChange={(e) => setAuthorName(e.target.value)}
                 placeholder="Author Name"
-                className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              />
+                className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
+              
             </div>
 
             <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -419,18 +419,18 @@ const EditArticle = () => {
             </div>
           </div>
 
-          {showAssistant && (
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="w-full lg:w-80">
+          {showAssistant &&
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="w-full lg:w-80">
               <AIAssistantPanel
-                currentContent={editor?.getHTML() || ""}
-                onApplyContent={(content) => editor?.commands.setContent(content)}
-              />
+              currentContent={editor?.getHTML() || ""}
+              onApplyContent={(content) => editor?.commands.setContent(content)} />
+            
             </motion.div>
-          )}
+          }
         </div>
       </motion.div>
-    </PageLayout>
-  );
+    </PageLayout>);
+
 };
 
 export default EditArticle;
