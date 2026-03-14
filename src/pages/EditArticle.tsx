@@ -34,6 +34,7 @@ const EditArticle = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSyncingIntercom, setIsSyncingIntercom] = useState(false);
   const [authorName, setAuthorName] = useState("");
+  const [metaDescription, setMetaDescription] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
