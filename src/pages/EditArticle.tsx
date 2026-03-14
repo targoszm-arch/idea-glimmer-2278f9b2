@@ -34,6 +34,7 @@ const EditArticle = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSyncingIntercom, setIsSyncingIntercom] = useState(false);
   const [authorName, setAuthorName] = useState("");
+  const [metaDescription, setMetaDescription] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
@@ -72,6 +73,7 @@ const EditArticle = () => {
       setFramerItemId((data as any).framer_item_id || null);
       setIntercomArticleId((data as any).intercom_article_id || null);
       setAuthorName((data as any).author_name || "");
+      setMetaDescription(data.meta_description || "");
       editor?.commands.setContent(data.content || "");
       setLoading(false);
     })();
@@ -151,7 +153,7 @@ const EditArticle = () => {
   };
 
   const handleGenerateCoverImage = async () => {
-    const imagePrompt = title.trim();
+    const imagePrompt = metaDescription.trim() || title.trim();
     if (!imagePrompt) {
       toast({ title: "Enter a title first", variant: "destructive" });
       return;

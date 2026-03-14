@@ -147,7 +147,7 @@ const NewArticle = () => {
   }, [aiSettings, category, editor, title, topic, tone]);
 
   const handleGenerateCoverImage = async () => {
-    const imagePrompt = topic.trim() || title.trim();
+    const imagePrompt = generatedMetaDescription.trim() || topic.trim() || title.trim();
     if (!imagePrompt) {
       toast({ title: "Enter a topic or title first", variant: "destructive" });
       return;
