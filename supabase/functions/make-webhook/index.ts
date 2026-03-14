@@ -7,14 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-function cleanHtmlForFramer(html: string): string {
-  return html
-    .replace(/<p>\s*(<br\s*\/?>)?\s*<\/p>/gi, '')
-    .replace(/<p>&nbsp;<\/p>/gi, '')
-    .replace(/(<br\s*\/?\s*>){2,}/gi, '<br>')
-    .replace(/(<\/(?:p|h[1-6]|div|ul|ol|table|blockquote)>)\s+(<(?:p|h[1-6]|div|ul|ol|table|blockquote))/gi, '$1$2');
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -38,7 +30,7 @@ serve(async (req) => {
     const articles = (data ?? []).map((a) => ({
       title: a.title,
       slug: (a.slug ?? "").substring(0, 64).replace(/-+$/, ""),
-      body: cleanHtmlForFramer(a.content ?? ""),
+      body: a.content,
       excerpt: a.excerpt,
       meta_description: a.meta_description,
       category: a.category,
@@ -46,8 +38,9 @@ serve(async (req) => {
       published_date: a.created_at,
       author_name: a.author_name ?? "",
       reading_time_minutes: a.reading_time_minutes ?? 0,
-      faq: cleanHtmlForFramer(a.faq_html ?? ""),
+      faq: a.faq_html ?? "",
     }));
+
     return new Response(JSON.stringify(articles), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
