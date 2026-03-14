@@ -109,7 +109,7 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-border bg-secondary/30 px-3 py-2 rounded-t-lg">
+    <div className="flex flex-wrap items-center gap-1 border-b border-border bg-secondary/80 backdrop-blur-sm px-3 py-2 rounded-t-lg sticky top-0 z-30">
       <button onClick={() => editor.chain().focus().toggleBold().run()} className={btnClass(editor.isActive("bold"))}>
         <Bold className="h-4 w-4" />
       </button>
