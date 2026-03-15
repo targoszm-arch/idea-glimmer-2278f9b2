@@ -33,6 +33,9 @@ const EditArticle = () => {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSyncingIntercom, setIsSyncingIntercom] = useState(false);
+  const [intercomCollections, setIntercomCollections] = useState<{ id: string; name: string }[]>([]);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
+  const [isLoadingCollections, setIsLoadingCollections] = useState(false);
   const [authorName, setAuthorName] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
