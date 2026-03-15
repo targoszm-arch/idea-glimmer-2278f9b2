@@ -17,6 +17,28 @@ serve(async (req) => {
     const INTERCOM_API_TOKEN = Deno.env.get("INTERCOM_API_TOKEN");
     if (!INTERCOM_API_TOKEN) throw new Error("INTERCOM_API_TOKEN is not configured");
 
+    const body = await req.json();
+
+    // Mode 1: List collections
+    if (body.list_collections) {
+      const collectionsRes = await fetch("https://api.intercom.io/help_center/collections", {
+        headers: {
+          Authorization: `Bearer ${INTERCOM_API_TOKEN}`,
+          "Intercom-Version": "2.11",
+        },
+      });
+      const collectionsData = await collectionsRes.json();
+      if (!collectionsRes.ok) {
+        throw new Error("Failed to fetch Intercom collections: " + JSON.stringify(collectionsData));
+      }
+      return new Response(JSON.stringify({
+        collections: (collectionsData.data || []).map((c: any) => ({ id: c.id, name: c.name })),
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Mode 2: Sync article
     // Fetch the first admin's ID from Intercom automatically
     const adminsRes = await fetch("https://api.intercom.io/admins", {
       headers: {
@@ -30,7 +52,7 @@ serve(async (req) => {
     }
     const authorId = parseInt(adminsData.admins[0].id);
 
-    const { article_id } = await req.json();
+    const { article_id, parent_id } = body;
     if (!article_id) {
       return new Response(JSON.stringify({ error: "article_id is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -53,7 +75,7 @@ serve(async (req) => {
       });
     }
 
-    const intercomPayload = {
+    const intercomPayload: Record<string, unknown> = {
       title: article.title,
       description: article.excerpt || "",
       body: sanitizeHtmlForIntercom(article.content || ""),
@@ -62,10 +84,16 @@ serve(async (req) => {
     };
 
     const existingIntercomId = article.intercom_article_id;
+
+    // Only include parent_id on create (Intercom doesn't support moving via update)
+    if (!existingIntercomId && parent_id) {
+      intercomPayload.parent_id = parent_id;
+      intercomPayload.parent_type = "collection";
+    }
+
     let intercomResponse: Response;
 
     if (existingIntercomId) {
-      // Update existing article
       intercomResponse = await fetch(`https://api.intercom.io/articles/${existingIntercomId}`, {
         method: "PUT",
         headers: {
@@ -76,7 +104,6 @@ serve(async (req) => {
         body: JSON.stringify(intercomPayload),
       });
     } else {
-      // Create new article
       intercomResponse = await fetch("https://api.intercom.io/articles", {
         method: "POST",
         headers: {

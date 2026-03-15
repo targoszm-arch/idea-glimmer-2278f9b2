@@ -10,7 +10,7 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
-import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X, Upload, MessageSquare } from "lucide-react";
+import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X, Upload, MessageSquare, ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import EditorToolbar from "@/components/EditorToolbar";
@@ -33,6 +33,9 @@ const EditArticle = () => {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSyncingIntercom, setIsSyncingIntercom] = useState(false);
+  const [intercomCollections, setIntercomCollections] = useState<{ id: string; name: string }[]>([]);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
+  const [isLoadingCollections, setIsLoadingCollections] = useState(false);
   const [authorName, setAuthorName] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -223,13 +226,9 @@ const EditArticle = () => {
     setIsUploadingImage(false);
   };
 
-  const handleSyncToIntercom = async () => {
-    if (!id) return;
-
-    // Save first to ensure latest content is in DB
-    await handleSave();
-
-    setIsSyncingIntercom(true);
+  const fetchIntercomCollections = async () => {
+    if (intercomCollections.length > 0) return; // already fetched
+    setIsLoadingCollections(true);
     try {
       const {
         data: { session }
@@ -242,7 +241,50 @@ const EditArticle = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ article_id: id })
+        body: JSON.stringify({ list_collections: true })
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Failed to fetch collections");
+      setIntercomCollections(data.collections || []);
+    } catch (e: any) {
+      toast({ title: "Failed to load Intercom collections", description: e.message, variant: "destructive" });
+    }
+    setIsLoadingCollections(false);
+  };
+
+  const handleSyncToIntercom = async () => {
+    if (!id) return;
+
+    // For new syncs, require a collection selection
+    if (!intercomArticleId && !selectedCollectionId) {
+      // Fetch collections and let user pick
+      await fetchIntercomCollections();
+      toast({ title: "Please select an Intercom collection first" });
+      return;
+    }
+
+    // Save first to ensure latest content is in DB
+    await handleSave();
+
+    setIsSyncingIntercom(true);
+    try {
+      const {
+        data: { session }
+      } = await supabase.auth.getSession();
+      const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const payload: Record<string, unknown> = { article_id: id };
+      if (!intercomArticleId && selectedCollectionId) {
+        payload.parent_id = selectedCollectionId;
+      }
+
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-intercom`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Intercom sync failed");
@@ -295,12 +337,27 @@ const EditArticle = () => {
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Publish
             </button>
+            {/* Intercom collection picker (only for new syncs) */}
+            {!intercomArticleId && intercomCollections.length > 0 && (
+              <div className="relative">
+                <select
+                  value={selectedCollectionId}
+                  onChange={(e) => setSelectedCollectionId(e.target.value)}
+                  className="appearance-none rounded-lg border border-border bg-secondary px-3 py-2 pr-8 text-sm font-medium text-foreground">
+                  <option value="">Select collection…</option>
+                  {intercomCollections.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              </div>
+            )}
             <button
               onClick={handleSyncToIntercom}
-              disabled={isSyncingIntercom}
+              disabled={isSyncingIntercom || isLoadingCollections}
               className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
               
-              {isSyncingIntercom ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+              {isSyncingIntercom || isLoadingCollections ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
               {intercomArticleId ? "Update in Intercom" : "Sync to Intercom"}
             </button>
             <button
