@@ -10,7 +10,7 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
-import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X, Upload, MessageSquare } from "lucide-react";
+import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X, Upload, MessageSquare, ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import EditorToolbar from "@/components/EditorToolbar";
