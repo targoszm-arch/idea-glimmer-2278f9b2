@@ -226,13 +226,9 @@ const EditArticle = () => {
     setIsUploadingImage(false);
   };
 
-  const handleSyncToIntercom = async () => {
-    if (!id) return;
-
-    // Save first to ensure latest content is in DB
-    await handleSave();
-
-    setIsSyncingIntercom(true);
+  const fetchIntercomCollections = async () => {
+    if (intercomCollections.length > 0) return; // already fetched
+    setIsLoadingCollections(true);
     try {
       const {
         data: { session }
@@ -245,7 +241,50 @@ const EditArticle = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ article_id: id })
+        body: JSON.stringify({ list_collections: true })
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Failed to fetch collections");
+      setIntercomCollections(data.collections || []);
+    } catch (e: any) {
+      toast({ title: "Failed to load Intercom collections", description: e.message, variant: "destructive" });
+    }
+    setIsLoadingCollections(false);
+  };
+
+  const handleSyncToIntercom = async () => {
+    if (!id) return;
+
+    // For new syncs, require a collection selection
+    if (!intercomArticleId && !selectedCollectionId) {
+      // Fetch collections and let user pick
+      await fetchIntercomCollections();
+      toast({ title: "Please select an Intercom collection first" });
+      return;
+    }
+
+    // Save first to ensure latest content is in DB
+    await handleSave();
+
+    setIsSyncingIntercom(true);
+    try {
+      const {
+        data: { session }
+      } = await supabase.auth.getSession();
+      const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const payload: Record<string, unknown> = { article_id: id };
+      if (!intercomArticleId && selectedCollectionId) {
+        payload.parent_id = selectedCollectionId;
+      }
+
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-intercom`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Intercom sync failed");
