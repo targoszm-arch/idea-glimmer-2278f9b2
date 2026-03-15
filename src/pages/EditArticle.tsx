@@ -337,12 +337,27 @@ const EditArticle = () => {
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Publish
             </button>
+            {/* Intercom collection picker (only for new syncs) */}
+            {!intercomArticleId && intercomCollections.length > 0 && (
+              <div className="relative">
+                <select
+                  value={selectedCollectionId}
+                  onChange={(e) => setSelectedCollectionId(e.target.value)}
+                  className="appearance-none rounded-lg border border-border bg-secondary px-3 py-2 pr-8 text-sm font-medium text-foreground">
+                  <option value="">Select collection…</option>
+                  {intercomCollections.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              </div>
+            )}
             <button
               onClick={handleSyncToIntercom}
-              disabled={isSyncingIntercom}
+              disabled={isSyncingIntercom || isLoadingCollections}
               className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
               
-              {isSyncingIntercom ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+              {isSyncingIntercom || isLoadingCollections ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
               {intercomArticleId ? "Update in Intercom" : "Sync to Intercom"}
             </button>
             <button
