@@ -56,7 +56,7 @@ serve(async (req) => {
     const intercomPayload = {
       title: article.title,
       description: article.excerpt || "",
-      body: article.content || "",
+      body: sanitizeHtmlForIntercom(article.content || ""),
       state: article.status === "published" ? "published" : "draft",
       author_id: authorId,
     };
