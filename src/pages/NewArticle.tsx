@@ -239,7 +239,7 @@ const NewArticle = () => {
         return;
       }
 
-      const content = editor?.getHTML() || "";
+      const content = (editor?.getHTML() || "").replace(/\s*style="[^"]*"/gi, "");
       const plainText = editor?.getText() || "";
       const excerpt = plainText.slice(0, 200);
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").substring(0, 64).replace(/-+$/, "");

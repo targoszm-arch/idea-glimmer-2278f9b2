@@ -29,10 +29,11 @@ serve(async (req) => {
 
     if (error) throw error;
 
+    const stripStyles = (html: string) => html?.replace(/\s*style="[^"]*"/gi, "") ?? "";
     const articles = (data ?? []).map((a) => ({
       title: a.title,
       slug: (a.slug ?? "").substring(0, 64).replace(/-+$/, ""),
-      body: a.content,
+      body: stripStyles(a.content),
       excerpt: a.excerpt,
       meta_description: a.meta_description,
       category: a.category,
@@ -40,7 +41,7 @@ serve(async (req) => {
       published_date: a.created_at,
       author_name: a.author_name ?? "",
       reading_time_minutes: a.reading_time_minutes ?? 0,
-      faq: a.faq_html ?? "",
+      faq: stripStyles(a.faq_html ?? ""),
     }));
 
     return new Response(JSON.stringify(articles), {
