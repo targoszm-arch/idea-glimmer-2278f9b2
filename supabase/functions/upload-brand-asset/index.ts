@@ -37,7 +37,18 @@ serve(async (req) => {
   }
 
   try {
-    
+    // Auth check
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+    }
+    const supabaseAuthClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authHeader } } });
+    const { data: { user }, error: authError } = await supabaseAuthClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+    }
+
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -88,6 +99,12 @@ serve(async (req) => {
       resolvedContentType = match[1];
       bytes = base64ToBytes(match[2]);
     } else if (fileUrl) {
+      // SSRF protection: only allow HTTPS URLs from trusted domains
+      let parsed: URL;
+      try { parsed = new URL(fileUrl); } catch { throw new Error("Invalid fileUrl"); }
+      if (parsed.protocol !== 'https:') throw new Error("Only HTTPS URLs are allowed");
+      const blockedPatterns = ['169.254.', '10.', '172.16.', '172.17.', '172.18.', '172.19.', '172.20.', '172.21.', '172.22.', '172.23.', '172.24.', '172.25.', '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.', '192.168.', '127.', '0.', 'localhost', '[::1]'];
+      if (blockedPatterns.some(p => parsed.hostname.includes(p))) throw new Error("Internal URLs are not allowed");
       const res = await fetch(fileUrl);
       if (!res.ok) throw new Error(`Failed to download file: ${res.status}`);
       resolvedContentType = res.headers.get("content-type") || resolvedContentType;
