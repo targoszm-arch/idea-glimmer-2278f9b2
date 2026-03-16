@@ -91,7 +91,7 @@ const EditArticle = () => {
         return;
       }
 
-      const content = editor?.getHTML() || "";
+      const content = (editor?.getHTML() || "").replace(/\s*style="[^"]*"/gi, "");
       const plainText = editor?.getText() || "";
       const excerpt = plainText.slice(0, 200);
       const slug = title.

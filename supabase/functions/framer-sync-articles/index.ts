@@ -36,11 +36,17 @@ serve(async (req) => {
 
     if (error) throw error;
 
+    const stripStyles = (html: string) => html?.replace(/\s*style="[^"]*"/gi, "") ?? "";
+    const cleaned = (data ?? []).map((a: any) => ({
+      ...a,
+      content: stripStyles(a.content),
+    }));
+
     return new Response(
       JSON.stringify({
         ok: true,
-        count: data?.length ?? 0,
-        articles: data ?? [],
+        count: cleaned.length,
+        articles: cleaned,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
