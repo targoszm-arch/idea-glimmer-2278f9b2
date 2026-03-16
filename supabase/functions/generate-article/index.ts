@@ -214,7 +214,7 @@ Follow this structure, inspired by the Saltfish.ai example article [web:22]:
 
      - "Which platform is better for global teams and localization?"
 
-   - Questions should be formatted as HTML headings (\`<h5>Question…</h5>\`) with \`<p>\` answers, matching how our blog templates work.
+   - Questions MUST be formatted as \`<h3>Question</h3>\` with \`<p>\` answers. NEVER use \`<h5>\`, \`<strong>\`, \`<b>\`, or any other tag for FAQ questions — only \`<h3>\`.
 
 --------------------
 
