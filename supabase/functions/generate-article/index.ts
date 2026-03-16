@@ -310,7 +310,7 @@ Your output MUST follow this structure:
 
    - Comparison table as \`<table>\` with \`<thead>\`, \`<tbody>\`, \`<tr>\`, \`<th>\`, \`<td>\`.
 
-   - FAQ items as: \`<div class="faq-item"><h3>Question</h3><p>Answer</p></div>\`
+   - FAQ items as: \`<div class="faq-item"><h3>Question</h3><p>Answer</p></div>\` — FAQ questions MUST use \`<h3>\` tags. NEVER use \`<strong>\`, \`<b>\`, \`<h5>\`, or bold text for FAQ questions.
 
 3. At the very end, AFTER all HTML content, add these two comment lines:
 
