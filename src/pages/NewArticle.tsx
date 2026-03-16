@@ -130,6 +130,10 @@ const NewArticle = () => {
           .replace(/_?Disclaimer:.*$/gis, "")
           .replace(/<p>\s*<em>Disclaimer:.*?<\/em>\s*<\/p>/gis, "")
           .replace(/<p>\s*_?Disclaimer:.*?<\/p>/gis, "")
+          .replace(/\[\d+\]/g, "")
+          .replace(/^```html\s*/i, "")
+          .replace(/```\s*$/g, "")
+          .replace(/^html\s*/i, "")
           .trim();
 
         if (cleanContent) {

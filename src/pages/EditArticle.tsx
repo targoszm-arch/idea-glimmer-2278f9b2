@@ -42,7 +42,7 @@ const EditArticle = () => {
 
   const editor = useEditor({
     extensions: [
-    StarterKit,
+    StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
     Link.configure({ openOnClick: false }),
     Placeholder.configure({ placeholder: "Start writing..." }),
     Image.configure({ inline: false, allowBase64: false }),

@@ -160,7 +160,7 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
         <Minus className="h-4 w-4" />
       </button>
       <div className="mx-1 h-6 w-px bg-border" />
-      <button onClick={setLink} className={btnClass(editor.isActive("link"))}>
+      <button onClick={setLink} className={btnClass(editorState.isLink)}>
         <LinkIcon className="h-4 w-4" />
       </button>
 
