@@ -175,6 +175,10 @@ const ContentIdeas = () => {
           .replace(/<!--\s*META_DESCRIPTION:.*?-->/gi, "")
           .replace(/\/\/\s*META_TITLE:.*$/gim, "")
           .replace(/\/\/\s*META_DESCRIPTION:.*$/gim, "")
+          .replace(/\[\d+\]/g, "")
+          .replace(/^```html\s*/i, "")
+          .replace(/```\s*$/g, "")
+          .replace(/^html\s*/i, "")
           .trim();
 
         // Generate cover image
