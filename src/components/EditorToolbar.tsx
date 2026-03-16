@@ -34,6 +34,23 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [infographicOpen, setInfographicOpen] = useState(false);
 
+  // Subscribe to editor state changes so isActive() re-evaluates on every transaction
+  const editorState = useEditorState({
+    editor,
+    selector: ({ editor: e }) => ({
+      isBold: e?.isActive("bold") ?? false,
+      isItalic: e?.isActive("italic") ?? false,
+      isH1: e?.isActive("heading", { level: 1 }) ?? false,
+      isH2: e?.isActive("heading", { level: 2 }) ?? false,
+      isH3: e?.isActive("heading", { level: 3 }) ?? false,
+      isBulletList: e?.isActive("bulletList") ?? false,
+      isOrderedList: e?.isActive("orderedList") ?? false,
+      isBlockquote: e?.isActive("blockquote") ?? false,
+      isCodeBlock: e?.isActive("codeBlock") ?? false,
+      isLink: e?.isActive("link") ?? false,
+    }),
+  });
+
   if (!editor) return null;
 
   const btnClass = (active: boolean, disabled = false) =>
