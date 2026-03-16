@@ -18,7 +18,11 @@ export async function streamAI({
 }) {
   try {
     const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    if (!session?.access_token) {
+      onError?.('You must be logged in to use this feature.');
+      return;
+    }
+    const token = session.access_token;
 
     const resp = await fetch(getStreamUrl(functionName), {
       method: 'POST',

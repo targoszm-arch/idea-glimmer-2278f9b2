@@ -99,6 +99,12 @@ serve(async (req) => {
       resolvedContentType = match[1];
       bytes = base64ToBytes(match[2]);
     } else if (fileUrl) {
+      // SSRF protection: only allow HTTPS URLs from trusted domains
+      let parsed: URL;
+      try { parsed = new URL(fileUrl); } catch { throw new Error("Invalid fileUrl"); }
+      if (parsed.protocol !== 'https:') throw new Error("Only HTTPS URLs are allowed");
+      const blockedPatterns = ['169.254.', '10.', '172.16.', '172.17.', '172.18.', '172.19.', '172.20.', '172.21.', '172.22.', '172.23.', '172.24.', '172.25.', '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.', '192.168.', '127.', '0.', 'localhost', '[::1]'];
+      if (blockedPatterns.some(p => parsed.hostname.includes(p))) throw new Error("Internal URLs are not allowed");
       const res = await fetch(fileUrl);
       if (!res.ok) throw new Error(`Failed to download file: ${res.status}`);
       resolvedContentType = res.headers.get("content-type") || resolvedContentType;
