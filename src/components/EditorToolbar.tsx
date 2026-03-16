@@ -127,33 +127,33 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
 
   return (
     <div className="flex flex-wrap items-center gap-1 border-b border-border bg-secondary px-3 py-2 rounded-t-xl sticky top-0 z-40 shadow-sm">
-      <button onClick={() => editor.chain().focus().toggleBold().run()} className={btnClass(editor.isActive("bold"))}>
+      <button onClick={() => editor.chain().focus().toggleBold().run()} className={btnClass(editorState.isBold)}>
         <Bold className="h-4 w-4" />
       </button>
-      <button onClick={() => editor.chain().focus().toggleItalic().run()} className={btnClass(editor.isActive("italic"))}>
+      <button onClick={() => editor.chain().focus().toggleItalic().run()} className={btnClass(editorState.isItalic)}>
         <Italic className="h-4 w-4" />
       </button>
       <div className="mx-1 h-6 w-px bg-border" />
-      <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} className={btnClass(editor.isActive("heading", { level: 1 }))}>
+      <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} className={btnClass(editorState.isH1)}>
         <Heading1 className="h-4 w-4" />
       </button>
-      <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={btnClass(editor.isActive("heading", { level: 2 }))}>
+      <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={btnClass(editorState.isH2)}>
         <Heading2 className="h-4 w-4" />
       </button>
-      <button onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} className={btnClass(editor.isActive("heading", { level: 3 }))}>
+      <button onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} className={btnClass(editorState.isH3)}>
         <Heading3 className="h-4 w-4" />
       </button>
       <div className="mx-1 h-6 w-px bg-border" />
-      <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={btnClass(editor.isActive("bulletList"))}>
+      <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={btnClass(editorState.isBulletList)}>
         <List className="h-4 w-4" />
       </button>
-      <button onClick={() => editor.chain().focus().toggleOrderedList().run()} className={btnClass(editor.isActive("orderedList"))}>
+      <button onClick={() => editor.chain().focus().toggleOrderedList().run()} className={btnClass(editorState.isOrderedList)}>
         <ListOrdered className="h-4 w-4" />
       </button>
-      <button onClick={() => editor.chain().focus().toggleBlockquote().run()} className={btnClass(editor.isActive("blockquote"))}>
+      <button onClick={() => editor.chain().focus().toggleBlockquote().run()} className={btnClass(editorState.isBlockquote)}>
         <Quote className="h-4 w-4" />
       </button>
-      <button onClick={() => editor.chain().focus().toggleCodeBlock().run()} className={btnClass(editor.isActive("codeBlock"))}>
+      <button onClick={() => editor.chain().focus().toggleCodeBlock().run()} className={btnClass(editorState.isCodeBlock)}>
         <Code className="h-4 w-4" />
       </button>
       <button onClick={() => editor.chain().focus().setHorizontalRule().run()} className={btnClass(false)}>
