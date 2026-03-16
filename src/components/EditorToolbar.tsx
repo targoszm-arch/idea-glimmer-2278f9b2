@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Editor } from "@tiptap/react";
+import { Editor, useEditorState } from "@tiptap/react";
 import {
   Bold,
   Italic,
