@@ -8,10 +8,17 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const WS_PROTOCOL_TOKEN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
-const NativeWebSocket = globalThis.WebSocket;
-if (NativeWebSocket) {
-  class PatchedWebSocket extends NativeWebSocket {
+function env(name: string) {
+  const v = Deno.env.get(name);
+  return v && v.trim().length ? v.trim() : null;
+}
+
+function patchWebSocket() {
+  const WS_PROTOCOL_TOKEN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+  const NativeWS = globalThis.WebSocket;
+  if (!NativeWS || (NativeWS as any).__patched) return;
+
+  class PatchedWebSocket extends NativeWS {
     constructor(url: string | URL, protocols?: string | string[]) {
       const raw = typeof url === "string" ? url : url.toString();
       const fixedUrl = raw.startsWith("https://")
@@ -19,29 +26,29 @@ if (NativeWebSocket) {
         : raw.startsWith("http://")
           ? `ws://${raw.slice("http://".length)}`
           : raw;
+
       const sanitize = (p: string) => (WS_PROTOCOL_TOKEN.test(p) ? p : null);
+
       if (Array.isArray(protocols)) {
         const cleaned = protocols.map((p) => sanitize(p)).filter(Boolean) as string[];
         if (cleaned.length) super(fixedUrl, cleaned);
         else super(fixedUrl);
         return;
       }
+
       if (typeof protocols === "string") {
         const cleaned = sanitize(protocols);
         if (cleaned) super(fixedUrl, cleaned);
         else super(fixedUrl);
         return;
       }
+
       super(fixedUrl);
     }
   }
+  (PatchedWebSocket as any).__patched = true;
   // @ts-expect-error override global
   globalThis.WebSocket = PatchedWebSocket;
-}
-
-function env(name: string) {
-  const v = Deno.env.get(name);
-  return v && v.trim().length ? v.trim() : null;
 }
 
 serve(async (req) => {
@@ -93,7 +100,9 @@ serve(async (req) => {
 
     const dbSlugs = new Set((articles || []).map((a: any) => a.slug));
 
-    // Connect to Framer and get collection items
+    // Patch WebSocket right before connecting to Framer
+    patchWebSocket();
+
     const framer = await connect(FRAMER_PROJECT_URL, FRAMER_API_KEY);
 
     try {
@@ -104,7 +113,7 @@ serve(async (req) => {
       }
 
       const items = await collection.getItems();
-      
+
       // Find orphans: items in Framer whose slug is not in DB
       const orphans = items.filter((item: any) => !dbSlugs.has(item.slug));
 
