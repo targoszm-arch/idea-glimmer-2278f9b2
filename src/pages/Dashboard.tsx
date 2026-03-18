@@ -1,17 +1,37 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { PenSquare, Filter, Loader2 } from "lucide-react";
+import { PenSquare, Filter, Loader2, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import ArticleCard from "@/components/ArticleCard";
 import { supabase, type Article } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 const Dashboard = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "published">("all");
+  const [syncing, setSyncing] = useState(false);
   const location = useLocation();
+
+  const handleSyncFramer = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("reconcile-framer");
+      if (error) throw error;
+      const removed = data?.removed ?? 0;
+      const slugs = data?.slugs ?? [];
+      toast({
+        title: removed > 0 ? `Removed ${removed} stale item${removed !== 1 ? "s" : ""} from Framer` : "Framer is clean",
+        description: removed > 0 ? slugs.join(", ") : "No orphaned items found.",
+      });
+    } catch (err: any) {
+      toast({ title: "Framer sync failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     fetchArticles();
@@ -49,13 +69,24 @@ const Dashboard = () => {
               {articles.length} article{articles.length !== 1 ? "s" : ""} in your library
             </p>
           </div>
-          <Link
-            to="/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 active:scale-95">
-            
-            <PenSquare className="h-4 w-4" />
-            New Article
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSyncFramer}
+              disabled={syncing}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+              Sync Framer
+            </Button>
+            <Link
+              to="/new"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 active:scale-95">
+              <PenSquare className="h-4 w-4" />
+              New Article
+            </Link>
+          </div>
         </motion.div>
 
         {/* Filters */}
