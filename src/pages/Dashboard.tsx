@@ -69,13 +69,24 @@ const Dashboard = () => {
               {articles.length} article{articles.length !== 1 ? "s" : ""} in your library
             </p>
           </div>
-          <Link
-            to="/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 active:scale-95">
-            
-            <PenSquare className="h-4 w-4" />
-            New Article
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSyncFramer}
+              disabled={syncing}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+              Sync Framer
+            </Button>
+            <Link
+              to="/new"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 active:scale-95">
+              <PenSquare className="h-4 w-4" />
+              New Article
+            </Link>
+          </div>
         </motion.div>
 
         {/* Filters */}
