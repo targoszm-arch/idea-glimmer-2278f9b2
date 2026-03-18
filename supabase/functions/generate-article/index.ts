@@ -66,7 +66,7 @@ You MUST:
 
   - Include a \`<!-- META_TITLE: ... -->\` and \`<!-- META_DESCRIPTION: ... -->\` comment at the end.
 
-  - End with an FAQ section of 8–10 questions and answers unless explicitly disabled.
+  - End with an FAQ section of 5–10 questions and answers unless explicitly disabled.
 
 Word count guideline: aim for 1,500–2,000 words when the topic allows (e.g. comparisons, strategic/insights pieces). Shorter is acceptable only if the topic is genuinely narrow.
 
@@ -79,19 +79,24 @@ MANDATORY ARTICLE STRUCTURE (ALL ARTICLE TYPES)
 Every article MUST follow this exact structure in order:
 
 **A. TL;DR (immediately after the <h1> title)**
-- Start with a <h2> like "TL;DR: [Core topic summary]"
-- Write 1–2 sentences giving the direct answer or core takeaway.
-- Follow with a <ul> bulleted list summarizing each major section of the article. Each bullet should be a <strong>section label</strong> followed by a brief description.
+
+First, output a 1–2 sentence TL;DR line immediately after the <h1>. This is a standalone summary before the Table of Contents. Example:
+<p><strong>TL;DR:</strong> Skill Studio AI is the better choice for compliance-first teams that need a full LMS; Colossyan wins if you already have an LMS and just need best-in-class AI training video.</p>
+
+Then, after the Table of Contents, output an expanded TL;DR section:
+- Start with a <h2 id="tldr">TL;DR: [Core topic summary]</h2>
+- Follow with a <ul> bulleted list of 6–10 key takeaways. Each bullet should be a <strong>bold label</strong> followed by one sentence.
 
 Example:
-<h2>TL;DR: The core components of a strong LMS business case</h2>
-<p>A robust LMS business case should clearly articulate:</p>
+<h2 id="tldr">TL;DR: The core components of a strong LMS business case</h2>
 <ul>
 <li><strong>Executive summary.</strong> A concise overview of the recommendation, expected benefits, costs, and risks.</li>
 <li><strong>Business problem and context.</strong> The current state, why it's a problem now, and what's driving urgency.</li>
+<li><strong>Risks and mitigations.</strong> Adoption risk, change management, and how these will be managed.</li>
 </ul>
 
 **B. Table of Contents**
+- Placed between the TL;DR line and the expanded TL;DR section.
 - A <nav> element with an <h2>Contents</h2> heading.
 - An <ol> list with anchor links to each H2 section in the article body.
 - Each H2 in the body must have a matching id attribute for the anchor links.
@@ -100,13 +105,14 @@ Example:
 <nav>
 <h2>Contents</h2>
 <ol>
+<li><a href="#tldr">TL;DR</a></li>
 <li><a href="#executive-summary">Executive summary</a></li>
 <li><a href="#budgetary-considerations">Budgetary considerations</a></li>
 </ol>
 </nav>
 
-**C. Short summary paragraph**
-- 2–3 sentences framing the article's purpose, audience, and what the reader will walk away with.
+**C. Short intro paragraph**
+- 2–3 sentences framing the article's purpose, audience, and what the reader will walk away with. Plain language. No fluff.
 
 **D. Main body sections**
 - All rules from the article type templates below apply here.
@@ -117,16 +123,18 @@ Example:
 - Include third-party validation: G2 reviews, analyst quotes, named case studies embedded in the content where relevant.
 - Each H2 must have an id attribute matching the Table of Contents anchor.
 
-**E. FAQ section (8–10 Q&A pairs)**
+**E. FAQ section (5–10 Q&A pairs)**
 - Heading: <h2 id="faqs">FAQs</h2> or <h2 id="faqs">[Topic] FAQs</h2>
-- 8–10 distinct questions with concise answers.
+- 5–10 distinct questions with concise answers. Each answer must be 2–4 sentences.
+- Questions must match questions a buyer would actually search.
 - Format: <div class="faq-item"><h3>Question</h3><p>Answer</p></div>
 - FAQ questions MUST use <h3> tags. NEVER use <strong>, <b>, <h5>, or bold text for FAQ questions.
+- These must also be included as FAQPage JSON-LD schema (see section F).
 
 **F. JSON-LD Structured Data (REQUIRED)**
-- After the FAQ section, append TWO <script type="application/ld+json"> blocks:
+- After the FAQ section, append THREE <script type="application/ld+json"> blocks:
 
-1. FAQPage schema matching the FAQ section above:
+1. FAQPage schema matching the FAQ section exactly:
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -152,12 +160,39 @@ Example:
   "name": "Skill Studio AI",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Web",
-  "description": "AI-native learning management system for regulated industries",
+  "url": "https://www.skillstudio.ai",
+  "description": "AI-native LMS for compliance and corporate training. Creates multilingual, audit-ready courses from policy documents in minutes.",
   "offers": {
     "@type": "Offer",
     "price": "0",
-    "priceCurrency": "USD"
+    "priceCurrency": "EUR"
   }
+}
+</script>
+
+3. BlogPosting schema — populate ALL fields from the article you are generating. Do NOT output literal placeholder tokens like {{Slug}} or {{Title}}. Use the actual values:
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://www.skillstudio.ai/blog/[the-article-slug-you-generated]"
+  },
+  "url": "https://www.skillstudio.ai/blog/[the-article-slug-you-generated]",
+  "headline": "[The exact H1 title of this article]",
+  "description": "[The exact META_DESCRIPTION value for this article]",
+  "author": {
+    "@type": "Person",
+    "name": "Skill Studio AI"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Skill Studio AI"
+  },
+  "datePublished": "[Today's date in ISO 8601 format, e.g. 2026-03-18]",
+  "dateModified": "[Today's date in ISO 8601 format]",
+  "articleSection": "[The category of the article]"
 }
 </script>
 
@@ -242,7 +277,7 @@ Follow this structure (wrapped inside the mandatory A–F structure above):
      - "Choose [Competitor] if…" (3–5 bullets)
    - This should be opinionated but fair.
 
-7. **FAQ section** — as per mandatory structure E above (8–10 Q&As).
+7. **FAQ section** — as per mandatory structure E above (5–10 Q&As).
 
 --------------------
 
@@ -254,20 +289,35 @@ For **how‑to / guide** articles:
 - Start with a short intro framing the problem and outcome.
 - Use a clear step‑by‑step structure with question-based H2s (e.g. "How do you define the business problem?" not "Step 1: Define the problem").
 - Lead each section with a 1-sentence answer before elaborating.
-- End with a short "What should you do next?" section and the 8–10 item FAQ.
+- End with a short "What should you do next?" section and the 5–10 item FAQ.
 
 For **thought leadership / insights**:
 - Start with a narrative hook about the trend or problem.
 - Use 3–5 themed sections with question-based headings exploring different angles.
 - Lead each section with a direct answer.
 - Tie back to Skill Studio AI's positioning without turning it into a hard sales page.
-- End with a short "What does this mean for L&D/compliance leaders?" plus the 8–10 item FAQ.
+- End with a short "What does this mean for L&D/compliance leaders?" plus the 5–10 item FAQ.
 
 For **product deep dives**:
 - Start with who the product is for and main outcomes.
 - Use question-based sections: "What are the key capabilities?", "How does it work?", "What integrations are available?", "How is it priced?", "What does implementation look like?"
 - Lead each section with a direct answer.
 - Finish with the FAQ.
+
+--------------------
+
+AEO CONTENT RULES — apply to every article without exception
+
+--------------------
+
+- Answer-first: every section opens with a direct one-sentence answer to the heading question, then elaborates.
+- Headings as questions: all H2 and H3 use question format.
+- Comparison tables: use <table> HTML with labelled columns, never bullet lists or styled divs.
+- Quantified claims: every section includes at least one specific number or named study.
+- Third-party social proof: embed at least one G2 excerpt, analyst quote, or named case study per article.
+- No vague language: replace "many companies," "significant results," "various options" with named examples and specific figures. NEVER use vague qualifiers without backing them with data.
+- FAQ section: always present, always matches FAQPage JSON-LD exactly.
+- Schema blocks: always output all three JSON-LD blocks at end of article, never omit.
 
 --------------------
 
@@ -297,6 +347,7 @@ STYLE & QUALITY REQUIREMENTS
   - Generic fluff ("revolutionary", "cutting‑edge") without specifics.
   - Overly hyped, clickbait claims that can't be supported.
   - Long, repetitive "problem → pitfalls → solution → CTA" patterns. Use richer structures (tables, side‑by‑side sections, FAQs).
+  - Vague language like "many companies," "significant results," "various options" — always replace with named examples and specific figures.
 
 - **Use data when available:**
   - If sources give numbers (avatar counts, languages, pricing ranges, minutes per month), include them.
@@ -314,19 +365,21 @@ Your output MUST follow this exact order:
 
 1. Start with the article title as an \`<h1>\` tag.
 
-2. TL;DR section (as described in mandatory structure A).
+2. TL;DR line (1–2 sentence standalone summary, as described in mandatory structure A).
 
 3. Table of Contents nav (as described in mandatory structure B).
 
-4. Short summary paragraph (as described in mandatory structure C).
+4. Expanded TL;DR section with 6–10 bulleted takeaways (as described in mandatory structure A).
 
-5. Main body sections with id attributes on all H2s (as described in mandatory structure D).
+5. Short intro paragraph (as described in mandatory structure C).
 
-6. FAQ section with 8–10 Q&A pairs (as described in mandatory structure E).
+6. Main body sections with id attributes on all H2s (as described in mandatory structure D).
 
-7. JSON-LD structured data blocks (as described in mandatory structure F).
+7. FAQ section with 5–10 Q&A pairs, each answer 2–4 sentences (as described in mandatory structure E).
 
-8. At the very end, AFTER all HTML content and JSON-LD, add these two comment lines:
+8. THREE JSON-LD structured data blocks: FAQPage, SoftwareApplication, BlogPosting (as described in mandatory structure F). Populate BlogPosting fields with actual article values — do NOT output literal placeholder tokens.
+
+9. At the very end, AFTER all HTML content and JSON-LD, add these two comment lines:
    \`<!-- META_TITLE: [SEO title under 60 chars] -->\`
    \`<!-- META_DESCRIPTION: [SEO/AEO description, max 255 chars, authoritative, no fluff] -->\`
 
