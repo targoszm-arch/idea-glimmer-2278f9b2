@@ -80,6 +80,11 @@ serve(async (req) => {
     const FRAMER_API_KEY = env("FRAMER_API_KEY") ?? env("FRAMER_API_TOKEN");
     const FRAMER_COLLECTION_ID = env("FRAMER_COLLECTION_ID");
 
+    console.log("FRAMER_PROJECT_URL:", FRAMER_PROJECT_URL?.slice(0, 30) + "...");
+    console.log("FRAMER_API_KEY source:", env("FRAMER_API_KEY") ? "FRAMER_API_KEY" : "FRAMER_API_TOKEN");
+    console.log("FRAMER_API_KEY length:", FRAMER_API_KEY?.length);
+    console.log("FRAMER_COLLECTION_ID:", FRAMER_COLLECTION_ID);
+
     if (!FRAMER_PROJECT_URL || !FRAMER_API_KEY || !FRAMER_COLLECTION_ID) {
       throw new Error("Missing Framer configuration secrets");
     }
