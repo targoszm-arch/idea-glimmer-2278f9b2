@@ -124,6 +124,7 @@ serve(async (req) => {
       throw new Error("title and slug are required");
     }
 
+    const { connect } = await import("npm:framer-api@0.1.2");
     const framer = await connect(FRAMER_PROJECT_URL, FRAMER_API_KEY);
 
     try {
