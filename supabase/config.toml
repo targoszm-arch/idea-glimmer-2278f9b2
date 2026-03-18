@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.generate-infographic]
 verify_jwt = false
+
+[functions.delete-from-framer]
+verify_jwt = false

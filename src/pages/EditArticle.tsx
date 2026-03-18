@@ -146,12 +146,31 @@ const EditArticle = () => {
 
   const handleDelete = async () => {
     if (!confirm("Delete this article? This cannot be undone.")) return;
+
+    // Clean up Framer CMS item if it exists (non-blocking)
+    if (framerItemId) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-from-framer`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ framer_item_id: framerItemId }),
+        });
+      } catch (e) {
+        console.warn("Framer cleanup failed (non-blocking):", e);
+      }
+    }
+
     const { error } = await supabase.from("articles").delete().eq("id", id);
     if (error) {
       toast({ title: "Delete failed", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Article deleted" });
-      navigate("/");
+      navigate("/", { replace: true });
     }
   };
 

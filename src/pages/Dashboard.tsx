@@ -11,10 +11,11 @@ const Dashboard = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "published">("all");
+  const location = useLocation();
 
   useEffect(() => {
     fetchArticles();
-  }, []);
+  }, [location.key]);
 
   const fetchArticles = async () => {
     setLoading(true);
