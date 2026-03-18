@@ -12,12 +12,10 @@ function env(name: string) {
   return v && v.trim().length ? v.trim() : null;
 }
 
-function patchWebSocket() {
-  const WS_PROTOCOL_TOKEN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
-  const OrigWS = globalThis.WebSocket;
-  if (!OrigWS || (globalThis as any).__wsPatched) return;
-  (globalThis as any).__wsPatched = true;
-
+// Patch WebSocket at module level before framer-api is imported
+const WS_PROTOCOL_TOKEN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+const OrigWS = globalThis.WebSocket;
+if (OrigWS) {
   // @ts-expect-error override global
   globalThis.WebSocket = function PatchedWebSocket(
     url: string | URL,
@@ -46,8 +44,6 @@ function patchWebSocket() {
 
     return new OrigWS(fixedUrl);
   };
-
-  // Copy static properties
   Object.setPrototypeOf(globalThis.WebSocket, OrigWS);
   globalThis.WebSocket.prototype = OrigWS.prototype;
 }
