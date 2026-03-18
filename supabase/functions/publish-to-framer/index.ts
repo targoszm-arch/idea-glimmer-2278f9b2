@@ -92,6 +92,7 @@ serve(async (req) => {
     // Diagnostics
     const url = new URL(req.url);
     if (req.method === "GET" || url.searchParams.get("debug") === "1") {
+      const { connect } = await import("npm:framer-api@0.1.2");
       const framer = await connect(FRAMER_PROJECT_URL, FRAMER_API_KEY);
       try {
         const collections = await framer.getCollections();
