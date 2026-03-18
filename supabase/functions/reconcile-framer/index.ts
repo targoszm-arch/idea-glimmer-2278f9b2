@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { connect } from "npm:framer-api@0.1.2";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -8,40 +7,45 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const WS_PROTOCOL_TOKEN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
-const NativeWebSocket = globalThis.WebSocket;
-if (NativeWebSocket) {
-  class PatchedWebSocket extends NativeWebSocket {
-    constructor(url: string | URL, protocols?: string | string[]) {
-      const raw = typeof url === "string" ? url : url.toString();
-      const fixedUrl = raw.startsWith("https://")
-        ? `wss://${raw.slice("https://".length)}`
-        : raw.startsWith("http://")
-          ? `ws://${raw.slice("http://".length)}`
-          : raw;
-      const sanitize = (p: string) => (WS_PROTOCOL_TOKEN.test(p) ? p : null);
-      if (Array.isArray(protocols)) {
-        const cleaned = protocols.map((p) => sanitize(p)).filter(Boolean) as string[];
-        if (cleaned.length) super(fixedUrl, cleaned);
-        else super(fixedUrl);
-        return;
-      }
-      if (typeof protocols === "string") {
-        const cleaned = sanitize(protocols);
-        if (cleaned) super(fixedUrl, cleaned);
-        else super(fixedUrl);
-        return;
-      }
-      super(fixedUrl);
-    }
-  }
-  // @ts-expect-error override global
-  globalThis.WebSocket = PatchedWebSocket;
-}
-
 function env(name: string) {
   const v = Deno.env.get(name);
   return v && v.trim().length ? v.trim() : null;
+}
+
+// Patch WebSocket at module level before framer-api is imported
+const WS_PROTOCOL_TOKEN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+const OrigWS = globalThis.WebSocket;
+if (OrigWS) {
+  // @ts-expect-error override global
+  globalThis.WebSocket = function PatchedWebSocket(
+    url: string | URL,
+    protocols?: string | string[]
+  ) {
+    const raw = typeof url === "string" ? url : url.toString();
+    const fixedUrl = raw.startsWith("https://")
+      ? `wss://${raw.slice("https://".length)}`
+      : raw.startsWith("http://")
+        ? `ws://${raw.slice("http://".length)}`
+        : raw;
+
+    const sanitize = (p: string) => (WS_PROTOCOL_TOKEN.test(p) ? p : undefined);
+
+    if (Array.isArray(protocols)) {
+      const cleaned = protocols.map(sanitize).filter(Boolean) as string[];
+      return cleaned.length
+        ? new OrigWS(fixedUrl, cleaned)
+        : new OrigWS(fixedUrl);
+    }
+
+    if (typeof protocols === "string") {
+      const cleaned = sanitize(protocols);
+      return cleaned ? new OrigWS(fixedUrl, cleaned) : new OrigWS(fixedUrl);
+    }
+
+    return new OrigWS(fixedUrl);
+  };
+  Object.setPrototypeOf(globalThis.WebSocket, OrigWS);
+  globalThis.WebSocket.prototype = OrigWS.prototype;
 }
 
 serve(async (req) => {
@@ -93,7 +97,8 @@ serve(async (req) => {
 
     const dbSlugs = new Set((articles || []).map((a: any) => a.slug));
 
-    // Connect to Framer and get collection items
+    // Dynamic import so the WS patch is in place before framer-api captures it
+    const { connect } = await import("npm:framer-api@0.1.2");
     const framer = await connect(FRAMER_PROJECT_URL, FRAMER_API_KEY);
 
     try {
@@ -104,7 +109,7 @@ serve(async (req) => {
       }
 
       const items = await collection.getItems();
-      
+
       // Find orphans: items in Framer whose slug is not in DB
       const orphans = items.filter((item: any) => !dbSlugs.has(item.slug));
 
