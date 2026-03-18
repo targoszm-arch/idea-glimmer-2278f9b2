@@ -15,40 +15,42 @@ function env(name: string) {
 
 function patchWebSocket() {
   const WS_PROTOCOL_TOKEN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
-  const NativeWS = globalThis.WebSocket;
-  if (!NativeWS || (NativeWS as any).__patched) return;
+  const OrigWS = globalThis.WebSocket;
+  if (!OrigWS || (globalThis as any).__wsPatched) return;
+  (globalThis as any).__wsPatched = true;
 
-  class PatchedWebSocket extends NativeWS {
-    constructor(url: string | URL, protocols?: string | string[]) {
-      const raw = typeof url === "string" ? url : url.toString();
-      const fixedUrl = raw.startsWith("https://")
-        ? `wss://${raw.slice("https://".length)}`
-        : raw.startsWith("http://")
-          ? `ws://${raw.slice("http://".length)}`
-          : raw;
-
-      const sanitize = (p: string) => (WS_PROTOCOL_TOKEN.test(p) ? p : null);
-
-      if (Array.isArray(protocols)) {
-        const cleaned = protocols.map((p) => sanitize(p)).filter(Boolean) as string[];
-        if (cleaned.length) super(fixedUrl, cleaned);
-        else super(fixedUrl);
-        return;
-      }
-
-      if (typeof protocols === "string") {
-        const cleaned = sanitize(protocols);
-        if (cleaned) super(fixedUrl, cleaned);
-        else super(fixedUrl);
-        return;
-      }
-
-      super(fixedUrl);
-    }
-  }
-  (PatchedWebSocket as any).__patched = true;
   // @ts-expect-error override global
-  globalThis.WebSocket = PatchedWebSocket;
+  globalThis.WebSocket = function PatchedWebSocket(
+    url: string | URL,
+    protocols?: string | string[]
+  ) {
+    const raw = typeof url === "string" ? url : url.toString();
+    const fixedUrl = raw.startsWith("https://")
+      ? `wss://${raw.slice("https://".length)}`
+      : raw.startsWith("http://")
+        ? `ws://${raw.slice("http://".length)}`
+        : raw;
+
+    const sanitize = (p: string) => (WS_PROTOCOL_TOKEN.test(p) ? p : undefined);
+
+    if (Array.isArray(protocols)) {
+      const cleaned = protocols.map(sanitize).filter(Boolean) as string[];
+      return cleaned.length
+        ? new OrigWS(fixedUrl, cleaned)
+        : new OrigWS(fixedUrl);
+    }
+
+    if (typeof protocols === "string") {
+      const cleaned = sanitize(protocols);
+      return cleaned ? new OrigWS(fixedUrl, cleaned) : new OrigWS(fixedUrl);
+    }
+
+    return new OrigWS(fixedUrl);
+  };
+
+  // Copy static properties
+  Object.setPrototypeOf(globalThis.WebSocket, OrigWS);
+  globalThis.WebSocket.prototype = OrigWS.prototype;
 }
 
 serve(async (req) => {
