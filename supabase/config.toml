@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.delete-from-framer]
 verify_jwt = false
+
+[functions.reconcile-framer]
+verify_jwt = false

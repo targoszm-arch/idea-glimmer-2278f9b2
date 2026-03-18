@@ -12,7 +12,26 @@ const Dashboard = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "published">("all");
+  const [syncing, setSyncing] = useState(false);
   const location = useLocation();
+
+  const handleSyncFramer = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("reconcile-framer");
+      if (error) throw error;
+      const removed = data?.removed ?? 0;
+      const slugs = data?.slugs ?? [];
+      toast({
+        title: removed > 0 ? `Removed ${removed} stale item${removed !== 1 ? "s" : ""} from Framer` : "Framer is clean",
+        description: removed > 0 ? slugs.join(", ") : "No orphaned items found.",
+      });
+    } catch (err: any) {
+      toast({ title: "Framer sync failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     fetchArticles();
