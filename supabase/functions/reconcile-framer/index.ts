@@ -97,9 +97,8 @@ serve(async (req) => {
 
     const dbSlugs = new Set((articles || []).map((a: any) => a.slug));
 
-    // Patch WebSocket right before connecting to Framer
-    patchWebSocket();
-
+    // Dynamic import so the WS patch is in place before framer-api captures it
+    const { connect } = await import("npm:framer-api@0.1.2");
     const framer = await connect(FRAMER_PROJECT_URL, FRAMER_API_KEY);
 
     try {
