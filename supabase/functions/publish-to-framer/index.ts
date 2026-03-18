@@ -210,13 +210,30 @@ serve(async (req) => {
       // Confirm current id for caller
       const itemsAfter = await collection.getItems();
       const saved = itemsAfter.find((it: any) => it.slug === body.slug) ?? null;
+      const finalFramerItemId = saved?.id ?? itemId ?? null;
+
+      // Save framer_item_id back to articles table so delete can find it later
+      if (articleId && finalFramerItemId) {
+        try {
+          const supabaseService = createClient(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+          );
+          await supabaseService
+            .from("articles")
+            .update({ framer_item_id: finalFramerItemId })
+            .eq("id", articleId);
+        } catch (e) {
+          console.warn("Failed to save framer_item_id back to DB:", e);
+        }
+      }
 
       return new Response(
         JSON.stringify(
           {
             ok: true,
             article_id: articleId ?? null,
-            framer_item_id: saved?.id ?? itemId ?? null,
+            framer_item_id: finalFramerItemId,
             framer_slug: saved?.slug ?? body.slug,
           },
           null,

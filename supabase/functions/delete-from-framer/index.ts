@@ -79,10 +79,10 @@ serve(async (req) => {
       });
     }
 
-    const { framer_item_id } = await req.json();
-    if (!framer_item_id) {
+    const { framer_item_id, slug } = await req.json();
+    if (!framer_item_id && !slug) {
       return new Response(
-        JSON.stringify({ error: "framer_item_id is required" }),
+        JSON.stringify({ error: "framer_item_id or slug is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -104,10 +104,25 @@ serve(async (req) => {
         throw new Error(`Collection ${FRAMER_COLLECTION_ID} not found`);
       }
 
-      await collection.removeItems([framer_item_id]);
+      // Resolve the item ID: use framer_item_id directly, or look up by slug
+      let resolvedId = framer_item_id;
+      if (!resolvedId && slug) {
+        const items = await collection.getItems();
+        const found = items.find((it: any) => it.slug === slug);
+        if (found?.id) {
+          resolvedId = found.id;
+        } else {
+          return new Response(
+            JSON.stringify({ ok: true, message: "No matching item found in Framer" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      await collection.removeItems([resolvedId]);
 
       return new Response(
-        JSON.stringify({ ok: true, removed: framer_item_id }),
+        JSON.stringify({ ok: true, removed: resolvedId }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } finally {
