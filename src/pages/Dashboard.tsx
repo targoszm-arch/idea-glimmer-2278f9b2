@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { PenSquare, Filter, Loader2 } from "lucide-react";
+import { PenSquare, Filter, Loader2, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import ArticleCard from "@/components/ArticleCard";
 import { supabase, type Article } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 const Dashboard = () => {
   const [articles, setArticles] = useState<Article[]>([]);
