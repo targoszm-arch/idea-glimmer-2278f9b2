@@ -57,17 +57,16 @@ export async function syncArticles(collection: any, category: string): Promise<n
 
   const items = articles.map((a) => {
     const fieldData: Record<string, any> = {
-      [F.title]:    a.title ?? "",
-      [F.body]:     a.content ?? "",
-      [F.excerpt]:  a.excerpt ?? "",
-      [F.category]: a.category ?? "",
-      [F.metaDesc]: a.meta_description ?? "",
-      [F.pubDate]:  a.created_at ?? "",
+      [F.title]:    { type: "string",        value: a.title ?? "" },
+      [F.body]:     { type: "formattedText", value: a.content ?? "" },
+      [F.excerpt]:  { type: "string",        value: a.excerpt ?? "" },
+      [F.category]: { type: "string",        value: a.category ?? "" },
+      [F.metaDesc]: { type: "string",        value: a.meta_description ?? "" },
+      [F.pubDate]:  { type: "date",          value: a.created_at ?? "" },
     }
-    // Supabase Storage gives absolute public URLs — pass directly as image src
-    // Framer CMS accepts { src: "https://..." } for image fields in addItems
+    // Supabase Storage URL is absolute public HTTPS — Framer downloads & hosts it
     if (a.cover_image_url) {
-      fieldData[F.image] = a.cover_image_url
+      fieldData[F.image] = { type: "image", value: { src: a.cover_image_url } }
     }
     return { id: a.id, slug: a.slug, fieldData }
   })
