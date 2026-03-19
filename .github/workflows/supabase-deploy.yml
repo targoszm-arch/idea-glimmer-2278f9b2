@@ -1,0 +1,48 @@
+name: Supabase Deploy (migrations + functions)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/functions/**'
+      - '.github/workflows/supabase-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+
+jobs:
+  supabase-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Supabase login
+        run: supabase login --token "${{ secrets.SUPABASE_CLI_LOGIN_TOKEN }}"
+
+      - name: Link project
+        run: supabase link --project-ref "${{ env.SUPABASE_PROJECT_REF }}"
+
+      - name: Run DB migrations
+        run: supabase db push --confirm
+
+      - name: Deploy Edge Functions
+        run: |
+          set -e
+          for fn in framer-sync-articles framer-probe make-webhook; do
+            echo "Deploying $fn..."
+            supabase functions deploy "$fn" --project-ref "${{ env.SUPABASE_PROJECT_REF }}"
+          done
+
+      - name: Done
+        run: echo "All migrations and functions deployed successfully."
