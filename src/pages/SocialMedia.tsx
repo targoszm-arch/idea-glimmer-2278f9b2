@@ -542,6 +542,10 @@ const SocialMedia = () => {
 
   const handleGenerateHeygenAgent = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
+    if (!hasEnough("heygen_video")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setGeneratingPostId(idea.id);
     setExpandedPostId(idea.id);
     setVideoProgress("Sending to HeyGen Video Agent...");
