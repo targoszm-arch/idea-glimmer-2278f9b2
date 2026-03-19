@@ -44,7 +44,7 @@ const Article = () => {
       const { data, error } = await supabase.from("articles").select("*").eq("id", id).single();
       if (error || !data) {
         toast({ title: "Article not found", variant: "destructive" });
-        navigate("/");
+        navigate("/dashboard");
         return;
       }
       setArticle(data as ArticleType);
@@ -74,7 +74,7 @@ const Article = () => {
     <PageLayout className="max-w-3xl">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="mb-6 flex items-center justify-between">
-            <button onClick={() => navigate("/")} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <button onClick={() => navigate("/dashboard")} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
               <ArrowLeft className="h-4 w-4" />
               Back to Library
             </button>

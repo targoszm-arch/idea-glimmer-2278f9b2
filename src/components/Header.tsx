@@ -7,7 +7,7 @@ import { useCredits, CREDIT_COSTS, STRIPE_URLS } from "@/hooks/use-credits";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const navItems = [
-  { label: "Library", href: "/", icon: Library },
+  { label: "Library", href: "/dashboard", icon: Library },
   { label: "New Article", href: "/new", icon: PenSquare },
   { label: "Content Ideas", href: "/ideas", icon: Lightbulb },
   { label: "Social Media", href: "/social", icon: Share2 },
@@ -25,7 +25,7 @@ const Header = () => {
     <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="container flex h-16 items-center justify-between py-0">
         <div className="flex items-center gap-8">
-          <Link to="/" className="text-xl font-bold tracking-tight text-foreground">
+          <Link to="/dashboard" className="text-xl font-bold tracking-tight text-foreground">
             Skill Studio AI <span className="text-primary">ContentLab</span>
           </Link>
           <nav className="hidden md:flex items-center gap-1">
