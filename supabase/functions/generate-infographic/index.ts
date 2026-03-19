@@ -21,6 +21,12 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
     }
 
+    const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const { data: hasCredits } = await supabaseAdmin.rpc('deduct_credits', { p_user_id: user.id, p_amount: 5, p_action: 'generate_infographic' });
+    if (!hasCredits) {
+      return new Response(JSON.stringify({ error: 'Insufficient credits', code: 'NO_CREDITS' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     const { prompt, style = "general" } = await req.json();
 
     if (!prompt) {
