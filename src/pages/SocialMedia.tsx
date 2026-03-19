@@ -198,6 +198,10 @@ const SocialMedia = () => {
 
   const handleGenerateReelVideo = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
+    if (!hasEnough("generate_reel_video")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setGeneratingPostId(idea.id);
     setExpandedPostId(idea.id);
     setVideoProgress("Generating video prompt...");
