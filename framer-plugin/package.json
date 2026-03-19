@@ -1,0 +1,24 @@
+{
+  "name": "skill-studio-blog-sync",
+  "version": "1.0.0",
+  "description": "Syncs published articles from Skill Studio AI into Framer CMS.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "pack": "vite build && node --input-type=module -e \"import fs from 'fs'; import { execSync } from 'child_process'; fs.copyFileSync('framer.json', 'dist/framer.json'); execSync('cd dist && zip -r ../plugin.zip .', { stdio: 'inherit' });\""
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "framer-plugin": "^3.10.3",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0",
+    "vite-plugin-framer": "^1.0.7"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

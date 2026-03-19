@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+-e 
+# Framer plugin build artifacts
+framer-plugin/dist
+framer-plugin/plugin.zip
+framer-plugin/node_modules
