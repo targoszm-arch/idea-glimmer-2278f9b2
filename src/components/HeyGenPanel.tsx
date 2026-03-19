@@ -6,6 +6,8 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { getEdgeFunctionHeaders } from "@/lib/edge-function-auth";
 import { cn } from "@/lib/utils";
+import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 
 type HeyGenTemplate = {
   template_id: string;
