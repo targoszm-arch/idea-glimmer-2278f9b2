@@ -18,18 +18,23 @@ type Integration = {
   platform_user_id: string | null;
 };
 
+const PLATFORM_LOGOS: Record<string, string> = {
+  notion: "https://www.notion.so/images/favicon.ico",
+  shopify: "https://cdn.shopify.com/shopifycloud/web/assets/v1/favicon.ico",
+  intercom: "https://static.intercomassets.com/assets/favicon-48x48-be7e72c76d5c79763bb3e46b97e7d6b8.png",
+  google: "https://www.google.com/favicon.ico",
+};
+
 const PLATFORMS = [
   {
     id: "notion" as Platform,
     name: "Notion",
     description: "Sync articles to any Notion database",
-    icon: "https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png",
   },
   {
     id: "shopify" as Platform,
     name: "Shopify",
     description: "Publish articles to your Shopify blog",
-    icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Shopify_logo_2018.svg/320px-Shopify_logo_2018.svg.png",
     requiresInput: true,
     inputLabel: "Shopify store domain",
     inputPlaceholder: "mystore.myshopify.com",
@@ -38,13 +43,11 @@ const PLATFORMS = [
     id: "intercom" as Platform,
     name: "Intercom",
     description: "Push articles to Intercom Help Center",
-    icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Intercom_logo.svg/320px-Intercom_logo.svg.png",
   },
   {
     id: "google" as Platform,
     name: "Google Workspace",
     description: "Export articles to Google Docs",
-    icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/320px-Google_%22G%22_Logo.svg.png",
   },
 ];
 
@@ -142,7 +145,7 @@ export default function Integrations() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg border border-border bg-background flex items-center justify-center p-2">
-                        <img src={platform.icon} alt={platform.name} className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                        <img src={PLATFORM_LOGOS[platform.id]} alt={platform.name} className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                       </div>
                       <div>
                         <CardTitle className="text-base flex items-center gap-2">

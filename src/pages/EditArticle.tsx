@@ -21,6 +21,27 @@ import { toast } from "@/hooks/use-toast";
 import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
 import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 
+
+// Platform logo icons
+const PlatformLogo = ({ platform, size = 16 }: { platform: string; size?: number }) => {
+  const logos: Record<string, string> = {
+    notion: "https://www.notion.so/images/favicon.ico",
+    shopify: "https://cdn.shopify.com/shopifycloud/web/assets/v1/favicon.ico",
+    intercom: "https://static.intercomassets.com/assets/favicon-48x48-be7e72c76d5c79763bb3e46b97e7d6b8.png",
+    google: "https://www.google.com/favicon.ico",
+  };
+  return (
+    <img
+      src={logos[platform]}
+      alt={platform}
+      width={size}
+      height={size}
+      className="rounded-sm object-contain flex-shrink-0"
+      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+    />
+  );
+};
+
 const EditArticle = () => {
   const { id } = useParams<{id: string;}>();
   const navigate = useNavigate();
@@ -526,32 +547,32 @@ const EditArticle = () => {
                   <DropdownMenuSeparator />
                   {connectedPlatforms.includes("notion") ? (
                     <DropdownMenuItem onClick={() => handleSyncToNotion()} className="gap-2 cursor-pointer">
-                      <span className="text-base">📝</span>
+                      <PlatformLogo platform="notion" />
                       {notionPageId ? "Update in Notion" : "Sync to Notion"}
                     </DropdownMenuItem>
                   ) : (
                     <DropdownMenuItem disabled className="gap-2 opacity-40">
-                      <span className="text-base">📝</span> Notion <span className="ml-auto text-xs">Not connected</span>
+                      <PlatformLogo platform="notion" /> Notion <span className="ml-auto text-xs">Not connected</span>
                     </DropdownMenuItem>
                   )}
                   {connectedPlatforms.includes("shopify") ? (
                     <DropdownMenuItem onClick={() => handleSyncToShopify()} className="gap-2 cursor-pointer">
-                      <span className="text-base">🛍️</span>
+                      <PlatformLogo platform="shopify" />
                       {shopifyArticleId ? "Update in Shopify" : "Sync to Shopify"}
                     </DropdownMenuItem>
                   ) : (
                     <DropdownMenuItem disabled className="gap-2 opacity-40">
-                      <span className="text-base">🛍️</span> Shopify <span className="ml-auto text-xs">Not connected</span>
+                      <PlatformLogo platform="shopify" /> Shopify <span className="ml-auto text-xs">Not connected</span>
                     </DropdownMenuItem>
                   )}
                   {connectedPlatforms.includes("intercom") ? (
                     <DropdownMenuItem onClick={() => { if (!intercomArticleId) { fetchIntercomCollections().then(() => setShowPlatformPicker("intercom")); } else { handleSyncToIntercom(); } }} className="gap-2 cursor-pointer">
-                      <span className="text-base">💬</span>
+                      <PlatformLogo platform="intercom" />
                       {intercomArticleId ? "Update in Intercom" : "Sync to Intercom"}
                     </DropdownMenuItem>
                   ) : (
                     <DropdownMenuItem disabled className="gap-2 opacity-40">
-                      <span className="text-base">💬</span> Intercom <span className="ml-auto text-xs">Not connected</span>
+                      <PlatformLogo platform="intercom" /> Intercom <span className="ml-auto text-xs">Not connected</span>
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
