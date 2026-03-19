@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { streamAI } from "@/lib/ai-stream";
+import { getEdgeFunctionHeaders } from "@/lib/edge-function-auth";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import CarouselSlidePreview, { parseCarouselContent } from "@/components/CarouselSlidePreview";
-
 const platforms = [
   { key: "linkedin", label: "LinkedIn", icon: Linkedin },
   { key: "youtube", label: "YouTube", icon: Youtube },
@@ -196,7 +196,6 @@ const SocialMedia = () => {
     setVideoProgressPercent(5);
 
     try {
-      // Step 1: Start generation
       const startResult = await callReelFunction({
         action: "start",
         topic: idea.title_suggestion,
@@ -212,10 +211,9 @@ const SocialMedia = () => {
       setVideoProgressPercent(15);
       setStreamingContent(startResult.video_prompt || "");
 
-      // Step 2: Poll for status
       await new Promise<void>((resolve, reject) => {
         let attempts = 0;
-        const maxAttempts = 60; // 5 minutes max
+        const maxAttempts = 60;
 
         pollingRef.current = setInterval(async () => {
           attempts++;
@@ -244,17 +242,14 @@ const SocialMedia = () => {
               setVideoProgress(`Generating video... ${status === "in_progress" ? "Rendering" : "Queued"}`);
             }
           } catch (e) {
-            // Don't stop polling on transient errors
             console.warn("Poll error:", e);
           }
         }, 5000);
       });
 
-      // Step 3: Download and store
       const dlResult = await callReelFunction({ action: "download", video_id: videoId });
       setVideoProgressPercent(100);
 
-      // Save post to DB
       const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
         platform: idea.platform,
         topic: idea.topic,
@@ -355,10 +350,7 @@ const SocialMedia = () => {
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/heygen`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
+        headers: await getEdgeFunctionHeaders(),
         body: JSON.stringify(body),
       }
     );

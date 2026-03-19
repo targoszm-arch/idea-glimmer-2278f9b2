@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { getEdgeFunctionHeaders } from "@/lib/edge-function-auth";
 import { cn } from "@/lib/utils";
 
 type HeyGenTemplate = {
@@ -39,10 +40,7 @@ const callHeygen = async (body: Record<string, unknown>) => {
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/heygen`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
+      headers: await getEdgeFunctionHeaders(),
       body: JSON.stringify(body),
     }
   );
