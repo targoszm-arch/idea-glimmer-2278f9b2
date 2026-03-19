@@ -64,6 +64,10 @@ const InfographicDialog = ({ open, onOpenChange, editor }: InfographicDialogProp
 
   const handleAiGenerate = async () => {
     if (!aiPrompt.trim()) return;
+    if (!hasEnough("generate_infographic")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-infographic", {

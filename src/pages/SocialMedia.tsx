@@ -396,6 +396,10 @@ const SocialMedia = () => {
 
   const handleGenerateHeygenTemplate = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
+    if (!hasEnough("heygen_video")) {
+      setShowCreditsDialog(true);
+      return;
+    }
 
     const templateId = selectedHeygenTemplateByIdea[idea.id];
     if (!templateId) {

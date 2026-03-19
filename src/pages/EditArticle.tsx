@@ -191,6 +191,10 @@ const EditArticle = () => {
       toast({ title: "Enter a title first", variant: "destructive" });
       return;
     }
+    if (!hasEnough("generate_cover_image")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setIsGeneratingImage(true);
     try {
       const {

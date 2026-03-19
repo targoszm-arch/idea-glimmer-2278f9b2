@@ -135,6 +135,10 @@ const ContentIdeas = () => {
 
   const handleUseIdea = useCallback(async (idea: ContentIdea) => {
     if (generatingArticleId) return;
+    if (!hasEnough("generate_article")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setGeneratingArticleId(idea.id);
 
     const tonePreset = TONE_PRESETS.find((t) => t.key === (aiSettings?.tone_key || "informative"));
