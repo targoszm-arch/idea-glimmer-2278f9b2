@@ -32,7 +32,7 @@ jobs:
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
 
       - name: Run DB migrations
-        run: supabase db push --confirm
+        run: supabase db push --yes
 
       - name: Deploy Edge Functions
         run: |
