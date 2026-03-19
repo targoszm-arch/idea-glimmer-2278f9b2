@@ -53,10 +53,8 @@ const Header = () => {
         <div className="flex items-center gap-3">
           {/* Credits badge + help */}
           <div className="inline-flex items-center gap-1">
-            <button
-              onClick={redirectToPayment}
-              className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent/80"
-              title="Buy more credits"
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground"
             >
               <Coins className="h-4 w-4 text-primary" />
               {creditsLoading ? "…" : credits ?? 0}
