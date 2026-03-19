@@ -5,11 +5,10 @@ import { SYNC_ENDPOINT, SUPABASE_ANON_KEY } from "./config"
 type Article = {
   id: string; title: string; slug: string; content: string
   excerpt: string; meta_description: string; category: string
-  cover_image_url: string | null; created_at: string; updated_at: string
+  cover_image_url: string | null; created_at: string
 }
-type Status = "idle" | "syncing" | "success" | "error"
 
-// Field IDs — 6 word characters, start with letter
+// Field IDs — exactly 6 word characters, start with letter
 const F = {
   title:    "fldaaa",
   body:     "fldbbb",
@@ -17,8 +16,8 @@ const F = {
   category: "fldddd",
   metaDesc: "fldeee",
   pubDate:  "fldfff",
-  imgUrl:   "fldggg",
-} as const
+  image:    "fldggg",
+}
 
 const FIELDS = [
   { id: F.title,    name: "Title",            type: "string" as const },
@@ -27,18 +26,15 @@ const FIELDS = [
   { id: F.category, name: "Category",         type: "string" as const },
   { id: F.metaDesc, name: "Meta Description", type: "string" as const },
   { id: F.pubDate,  name: "Published Date",   type: "date" as const },
-  { id: F.imgUrl,   name: "Cover Image URL",  type: "string" as const },
+  { id: F.image,    name: "Cover Image",      type: "image" as const },
 ]
 
-// Called by Framer when plugin is first added to a collection
 export async function configureManagedCollection() {
   const collection = await framer.getManagedCollection()
   if (!collection) return
   await collection.setFields(FIELDS)
-  framer.notify("Skill Studio: Collection configured ✓")
 }
 
-// Called by Framer on background sync — must complete quickly, no UI
 export async function syncManagedCollection() {
   const collection = await framer.getManagedCollection()
   if (!collection) return
@@ -50,44 +46,46 @@ export async function syncManagedCollection() {
   }
 }
 
-async function syncArticles(collection: any, category: string): Promise<number> {
+async function uploadImageSafe(url: string): Promise<any> {
+  try {
+    if (!url || url.startsWith("data:")) return null
+    const asset = await framer.uploadImage({ image: url, name: url.split("/").pop() ?? "image" })
+    return asset ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function syncArticles(collection: any, category: string): Promise<number> {
   const param = category !== "all" ? `&category=${encodeURIComponent(category)}` : ""
   const res = await fetch(`${SYNC_ENDPOINT}?status=published${param}`, {
     headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, apikey: SUPABASE_ANON_KEY },
   })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
   const { articles } = await res.json() as { articles: Article[] }
   if (!articles?.length) return 0
 
-  const items = articles.map(a => ({
-    id: a.id,
-    slug: a.slug,
-    fieldData: {
+  const items = await Promise.all(articles.map(async (a) => {
+    const imageAsset = a.cover_image_url ? await uploadImageSafe(a.cover_image_url) : null
+    const fieldData: Record<string, any> = {
       [F.title]:    a.title ?? "",
       [F.body]:     a.content ?? "",
       [F.excerpt]:  a.excerpt ?? "",
       [F.category]: a.category ?? "",
       [F.metaDesc]: a.meta_description ?? "",
       [F.pubDate]:  a.created_at ?? "",
-      [F.imgUrl]:   a.cover_image_url ?? "",
-    },
+    }
+    if (imageAsset) fieldData[F.image] = imageAsset
+    return { id: a.id, slug: a.slug, fieldData }
   }))
 
   await collection.addItems(items)
   return items.length
 }
 
-// Route Framer's silent mode calls — must be top-level awaited
-const mode = framer.mode
-if (mode === "configureManagedCollection") {
-  configureManagedCollection()
-} else if (mode === "syncManagedCollection") {
-  syncManagedCollection()
-}
-
-// ── UI (only shown in canvas/configure mode) ────────────────────────────────
+// ── UI ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [status, setStatus] = useState<Status>("idle")
+  const [status, setStatus] = useState<"idle"|"syncing"|"success"|"error">("idle")
   const [message, setMessage] = useState("")
   const [categories, setCategories] = useState<string[]>([])
   const [totalCount, setTotalCount] = useState<number | null>(null)
@@ -107,7 +105,7 @@ export default function App() {
     setStatus("syncing"); setMessage("")
     try {
       const collection = await framer.getManagedCollection()
-      if (!collection) throw new Error("No collection found — add this plugin via CMS → Add Plugin first.")
+      if (!collection) throw new Error("No collection — add plugin via CMS → Add Plugin first.")
       const count = await syncArticles(collection, selectedCategory)
       setLastSync(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))
       setStatus("success")
@@ -160,19 +158,19 @@ export default function App() {
 }
 
 const s: Record<string, React.CSSProperties> = {
-  root:   { fontFamily: "system-ui,sans-serif", padding: 16, display: "flex", flexDirection: "column", gap: 10, background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", minHeight: "100vh", boxSizing: "border-box" },
-  header: { display: "flex", alignItems: "center", gap: 10 },
-  title:  { fontWeight: 700, fontSize: 13 },
-  sub:    { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)" },
-  badge:  { marginLeft: "auto", background: "var(--framer-color-bg-secondary,#f0f0f0)", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" },
-  divider:{ height: 1, background: "var(--framer-color-divider,#eee)" },
-  label:  { fontSize: 11, fontWeight: 600, color: "var(--framer-color-text-secondary,#666)", textTransform: "uppercase", letterSpacing: "0.05em" },
-  select: { width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--framer-color-divider,#ddd)", background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", fontSize: 13 },
-  btn:    { background: "#0066FF", color: "#fff", border: "none", borderRadius: 8, padding: "10px 0", fontSize: 13, fontWeight: 600, cursor: "pointer", width: "100%" },
-  btnOff: { opacity: 0.5, cursor: "not-allowed" },
-  msg:    { fontSize: 12, borderRadius: 6, padding: "8px 10px" },
-  msgOk:  { background: "#e6f4ea", color: "#1a6b35" },
-  msgErr: { background: "#fdecea", color: "#8b1a1a" },
-  meta:   { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)", textAlign: "center" },
-  hint:   { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)", lineHeight: 1.5, margin: 0 },
+  root:    { fontFamily: "system-ui,sans-serif", padding: 16, display: "flex", flexDirection: "column", gap: 10, background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", minHeight: "100vh", boxSizing: "border-box" },
+  header:  { display: "flex", alignItems: "center", gap: 10 },
+  title:   { fontWeight: 700, fontSize: 13 },
+  sub:     { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)" },
+  badge:   { marginLeft: "auto", background: "var(--framer-color-bg-secondary,#f0f0f0)", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" },
+  divider: { height: 1, background: "var(--framer-color-divider,#eee)" },
+  label:   { fontSize: 11, fontWeight: 600, color: "var(--framer-color-text-secondary,#666)", textTransform: "uppercase", letterSpacing: "0.05em" },
+  select:  { width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--framer-color-divider,#ddd)", background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", fontSize: 13 },
+  btn:     { background: "#0066FF", color: "#fff", border: "none", borderRadius: 8, padding: "10px 0", fontSize: 13, fontWeight: 600, cursor: "pointer", width: "100%" },
+  btnOff:  { opacity: 0.5, cursor: "not-allowed" },
+  msg:     { fontSize: 12, borderRadius: 6, padding: "8px 10px" },
+  msgOk:   { background: "#e6f4ea", color: "#1a6b35" },
+  msgErr:  { background: "#fdecea", color: "#8b1a1a" },
+  meta:    { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)", textAlign: "center" },
+  hint:    { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)", lineHeight: 1.5, margin: 0 },
 }
