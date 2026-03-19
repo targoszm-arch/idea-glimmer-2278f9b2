@@ -13,7 +13,16 @@ serve(async (req) => {
   }
 
   try {
-
+    // ── Auth: validate shared webhook secret ──────────────────────────────
+    const WEBHOOK_SECRET = Deno.env.get("MAKE_WEBHOOK_SECRET");
+    if (WEBHOOK_SECRET) {
+      const provided = req.headers.get("x-webhook-secret") ?? req.headers.get("authorization")?.replace("Bearer ", "");
+      if (provided !== WEBHOOK_SECRET) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
