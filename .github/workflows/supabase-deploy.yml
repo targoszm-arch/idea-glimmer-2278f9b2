@@ -19,7 +19,7 @@ jobs:
           version: 2.30.4
 
       - run: |
-          for fn in framer-sync-articles framer-probe make-webhook; do
+          for fn in framer-sync-articles framer-probe make-webhook sync-to-notion sync-to-shopify; do
             supabase functions deploy $fn --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
           done
         env:
