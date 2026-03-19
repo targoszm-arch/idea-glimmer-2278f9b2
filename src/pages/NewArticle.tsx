@@ -14,6 +14,8 @@ import { Save, Sparkles, Loader2, ArrowLeft, Settings, ImagePlus, X, Upload, Mes
 import CategoryPicker from "@/components/CategoryPicker";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
+import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 import EditorToolbar from "@/components/EditorToolbar";
 import AIAssistantPanel from "@/components/AIAssistantPanel";
 import { supabase } from "@/lib/supabase";
