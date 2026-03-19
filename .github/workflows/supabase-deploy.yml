@@ -24,9 +24,11 @@ jobs:
 
       - name: Install Supabase CLI
         run: |
-          curl -fsSL https://github.com/supabase/cli/releases/download/v2.23.4/supabase_linux_amd64.tar.gz \
-            | tar -xzf - --overwrite
-          sudo mv -f supabase /usr/local/bin/supabase
+          rm -rf supabase
+          wget -q https://github.com/supabase/cli/releases/download/v2.23.4/supabase_linux_amd64.tar.gz
+          tar -xzf supabase_linux_amd64.tar.gz
+          sudo install -m 755 supabase /usr/local/bin/supabase
+          rm -f supabase supabase_linux_amd64.tar.gz
           supabase --version
 
       - name: Link project
@@ -44,4 +46,4 @@ jobs:
           done
 
       - name: Done
-        run: echo "All migrations and functions deployed successfully."
+        run: echo "All done!"
