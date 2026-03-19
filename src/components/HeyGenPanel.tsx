@@ -9,6 +9,34 @@ import { cn } from "@/lib/utils";
 
 ...
 
+type HeyGenTemplate = {
+  template_id: string;
+  name: string;
+  thumbnail_image_url?: string;
+};
+
+type TemplateVariable = {
+  name: string;
+  type: string;
+  properties?: {
+    content?: string;
+    url?: string;
+    [key: string]: unknown;
+  };
+};
+
+type TemplateDetail = {
+  variables: Record<string, TemplateVariable>;
+};
+
+type GeneratedVideo = {
+  template_id: string;
+  template_name: string;
+  video_id: string;
+  status: string;
+  video_url?: string;
+};
+
 const callHeygen = async (body: Record<string, unknown>) => {
   const resp = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/heygen`,

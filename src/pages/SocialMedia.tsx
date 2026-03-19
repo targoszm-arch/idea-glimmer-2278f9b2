@@ -13,6 +13,339 @@ import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import CarouselSlidePreview, { parseCarouselContent } from "@/components/CarouselSlidePreview";
 ...
+const platforms = [
+  { key: "linkedin", label: "LinkedIn", icon: Linkedin },
+  { key: "youtube", label: "YouTube", icon: Youtube },
+  { key: "twitter", label: "Twitter", icon: Twitter },
+  { key: "instagram_carousel", label: "IG Carousel", icon: Instagram },
+  { key: "instagram_reel", label: "IG Reel", icon: Film },
+] as const;
+
+type VideoMode = "text_post" | "sora_video" | "heygen_template" | "heygen_agent" | "multipage";
+
+type Platform = (typeof platforms)[number]["key"];
+
+type SocialPostIdea = {
+  id: string;
+  platform: string;
+  topic: string;
+  title_suggestion: string;
+  description: string;
+  status: string;
+  post_id: string | null;
+  created_at: string;
+};
+
+type SocialPost = {
+  id: string;
+  platform: string;
+  topic: string;
+  title: string;
+  content: string;
+  video_url?: string | null;
+  created_at: string;
+};
+
+const SocialMedia = () => {
+  const [platform, setPlatform] = useState<Platform>("linkedin");
+  const [niche, setNiche] = useState("");
+  const [ideas, setIdeas] = useState<SocialPostIdea[]>([]);
+  const [posts, setPosts] = useState<Record<string, SocialPost>>({});
+  const [loading, setLoading] = useState(true);
+  const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
+  const [generatingPostId, setGeneratingPostId] = useState<string | null>(null);
+  const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
+  const [streamingContent, setStreamingContent] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [videoProgress, setVideoProgress] = useState<string | null>(null);
+  const [videoProgressPercent, setVideoProgressPercent] = useState(0);
+  const [videoMode, setVideoMode] = useState<VideoMode>("text_post");
+  const [heygenTemplates, setHeygenTemplates] = useState<Array<{ template_id: string; name: string; thumbnail_image_url?: string }>>([]);
+  const [selectedHeygenTemplateByIdea, setSelectedHeygenTemplateByIdea] = useState<Record<string, string>>({});
+  const [loadingHeygenTemplates, setLoadingHeygenTemplates] = useState(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { toast } = useToast();
+
+  const [aiSettings, setAiSettings] = useState<{
+    app_description: string;
+    app_audience: string;
+    tone_label: string;
+    tone_description: string;
+    reference_urls: string[];
+  } | null>(null);
+
+  const [brandAssets, setBrandAssets] = useState<{ logos: any[]; visuals: any[] }>({ logos: [], visuals: [] });
+
+  useEffect(() => {
+    fetchData();
+    supabase.from("ai_settings").select("*").limit(1).single().then(({ data }) => {
+      if (data) setAiSettings(data as any);
+    });
+    supabase.from("brand_assets").select("*").then(({ data }) => {
+      if (data) {
+        setBrandAssets({
+          logos: (data as any[]).filter((a) => a.type === "logo"),
+          visuals: (data as any[]).filter((a) => a.type === "visual"),
+        });
+      }
+    });
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    const [ideasResult, postsResult] = await Promise.all([
+      supabase.from("social_post_ideas").select("*").order("created_at", { ascending: false }),
+      supabase.from("social_posts").select("*").order("created_at", { ascending: false }),
+    ]);
+
+    if (ideasResult.data) setIdeas(ideasResult.data as SocialPostIdea[]);
+    if (postsResult.data) {
+      const postsMap: Record<string, SocialPost> = {};
+      (postsResult.data as SocialPost[]).forEach((p) => {
+        postsMap[p.id] = p;
+      });
+      setPosts(postsMap);
+    }
+    setLoading(false);
+  };
+
+  const filteredIdeas = ideas.filter((i) => i.platform === platform);
+
+  const handleGenerateIdeas = async () => {
+    if (!niche.trim() && !aiSettings?.app_description) {
+      toast({ title: "No context", description: "Enter a topic or configure AI Settings.", variant: "destructive" });
+      return;
+    }
+
+    setIsGeneratingIdeas(true);
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-social-ideas`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            platform,
+            niche: niche.trim() || undefined,
+            app_description: aiSettings?.app_description || "",
+            app_audience: aiSettings?.app_audience || "",
+            tone: aiSettings?.tone_label || "",
+            tone_description: aiSettings?.tone_description || "",
+            reference_urls: aiSettings?.reference_urls || [],
+          }),
+        }
+      );
+
+      if (!resp.ok) {
+        const t = await resp.text();
+        throw new Error(t);
+      }
+
+      const result = await resp.json();
+      if (result.ideas && Array.isArray(result.ideas)) {
+        const { data, error } = await supabase.from("social_post_ideas").insert(
+          result.ideas.map((idea: any) => ({
+            platform,
+            topic: idea.topic || niche || aiSettings?.app_description || "",
+            title_suggestion: idea.title,
+            description: idea.description || "",
+            status: "unused",
+          }))
+        ).select();
+        if (error) throw new Error(error.message);
+        if (data) setIdeas((prev) => [...(data as SocialPostIdea[]), ...prev]);
+        toast({ title: "Ideas generated!", description: `${result.ideas.length} new ${platform} ideas created.` });
+      }
+    } catch (e) {
+      toast({ title: "Generation failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    }
+    setIsGeneratingIdeas(false);
+  };
+
+  const callReelFunction = async (body: Record<string, unknown>) => {
+    const resp = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-reel-video`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify(body),
+      }
+    );
+    if (!resp.ok) {
+      const t = await resp.text();
+      let errMsg = t;
+      try { errMsg = JSON.parse(t).error || t; } catch {}
+      throw new Error(errMsg);
+    }
+    return resp.json();
+  };
+
+  const handleGenerateReelVideo = useCallback(async (idea: SocialPostIdea) => {
+    if (generatingPostId) return;
+    setGeneratingPostId(idea.id);
+    setExpandedPostId(idea.id);
+    setVideoProgress("Generating video prompt...");
+    setVideoProgressPercent(5);
+
+    try {
+      const startResult = await callReelFunction({
+        action: "start",
+        topic: idea.title_suggestion,
+        tone: aiSettings?.tone_label || "Engaging",
+        tone_description: aiSettings?.tone_description || "",
+        app_description: aiSettings?.app_description || "",
+        app_audience: aiSettings?.app_audience || "",
+        reference_urls: aiSettings?.reference_urls || [],
+      });
+
+      const videoId = startResult.video_id;
+      setVideoProgress("Video generation started. This may take 1-3 minutes...");
+      setVideoProgressPercent(15);
+      setStreamingContent(startResult.video_prompt || "");
+
+      await new Promise<void>((resolve, reject) => {
+        let attempts = 0;
+        const maxAttempts = 60;
+
+        pollingRef.current = setInterval(async () => {
+          attempts++;
+          if (attempts > maxAttempts) {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            reject(new Error("Video generation timed out after 5 minutes"));
+            return;
+          }
+
+          try {
+            const statusResult = await callReelFunction({ action: "status", video_id: videoId });
+            const status = statusResult.status;
+            const progress = statusResult.progress || 0;
+
+            if (status === "completed") {
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              setVideoProgress("Downloading and saving video...");
+              setVideoProgressPercent(90);
+              resolve();
+            } else if (status === "failed") {
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              reject(new Error(statusResult.error?.message || "Video generation failed"));
+            } else {
+              const pct = Math.min(15 + (progress || (attempts / maxAttempts) * 70), 85);
+              setVideoProgressPercent(pct);
+              setVideoProgress(`Generating video... ${status === "in_progress" ? "Rendering" : "Queued"}`);
+            }
+          } catch (e) {
+            console.warn("Poll error:", e);
+          }
+        }, 5000);
+      });
+
+      const dlResult = await callReelFunction({ action: "download", video_id: videoId });
+      setVideoProgressPercent(100);
+
+      const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
+        platform: idea.platform,
+        topic: idea.topic,
+        title: idea.title_suggestion,
+        content: streamingContent || startResult.video_prompt || idea.title_suggestion,
+        video_url: dlResult.video_url,
+      }).select().single();
+
+      if (saveError) throw new Error(saveError.message);
+
+      await supabase.from("social_post_ideas").update({
+        status: "used",
+        post_id: postData.id,
+      }).eq("id", idea.id);
+
+      setIdeas((prev) => prev.map((i) =>
+        i.id === idea.id ? { ...i, status: "used", post_id: postData.id } : i
+      ));
+      setPosts((prev) => ({ ...prev, [postData.id]: postData as SocialPost }));
+      setVideoProgress(null);
+      setVideoProgressPercent(0);
+      setStreamingContent("");
+      setGeneratingPostId(null);
+      toast({ title: "Reel video generated!", description: `"${idea.title_suggestion}" video is ready.` });
+    } catch (e) {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      setGeneratingPostId(null);
+      setVideoProgress(null);
+      setVideoProgressPercent(0);
+      setStreamingContent("");
+      toast({ title: "Video generation failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    }
+  }, [aiSettings, generatingPostId, toast]);
+
+  const handleGenerateMultipageReel = useCallback(async (idea: SocialPostIdea) => {
+    if (generatingPostId) return;
+    setGeneratingPostId(idea.id);
+    setExpandedPostId(idea.id);
+    setStreamingContent("");
+
+    let accumulated = "";
+
+    toast({ title: "Generating multipage reel...", description: `"${idea.title_suggestion}" — creating slides...` });
+
+    await streamAI({
+      functionName: "generate-social-post",
+      body: {
+        platform: "instagram_reel_multipage",
+        topic: idea.title_suggestion,
+        tone: aiSettings?.tone_label || "Engaging",
+        tone_description: aiSettings?.tone_description || "",
+        app_description: aiSettings?.app_description || "",
+        app_audience: aiSettings?.app_audience || "",
+        reference_urls: aiSettings?.reference_urls || [],
+        brand_assets: brandAssets,
+      },
+      onDelta: (text) => {
+        accumulated += text;
+        setStreamingContent(accumulated);
+      },
+      onDone: async () => {
+        const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
+          platform: idea.platform,
+          topic: idea.topic,
+          title: idea.title_suggestion,
+          content: accumulated,
+        }).select().single();
+
+        if (saveError) {
+          toast({ title: "Failed to save", description: saveError.message, variant: "destructive" });
+          setGeneratingPostId(null);
+          return;
+        }
+
+        await supabase.from("social_post_ideas").update({
+          status: "used",
+          post_id: postData.id,
+        }).eq("id", idea.id);
+
+        setIdeas((prev) => prev.map((i) =>
+          i.id === idea.id ? { ...i, status: "used", post_id: postData.id } : i
+        ));
+        setPosts((prev) => ({ ...prev, [postData.id]: postData as SocialPost }));
+        setStreamingContent("");
+        setGeneratingPostId(null);
+        toast({ title: "Multipage reel created!", description: `"${idea.title_suggestion}" slides ready.` });
+      },
+      onError: (error) => {
+        setGeneratingPostId(null);
+        setStreamingContent("");
+        toast({ title: "Generation failed", description: error, variant: "destructive" });
+      },
+    });
+  }, [aiSettings, brandAssets, generatingPostId, toast]);
+
   const callHeygen = async (body: Record<string, unknown>) => {
     const resp = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/heygen`,
