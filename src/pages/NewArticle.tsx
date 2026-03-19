@@ -478,6 +478,8 @@ const NewArticle = () => {
           </div>
         </motion.div>
     </PageLayout>
+    <OutOfCreditsDialog open={showCreditsDialog} onOpenChange={setShowCreditsDialog} creditsNeeded={CREDIT_COSTS.generate_article} creditsAvailable={credits ?? 0} />
+    </>
   );
 };
 
