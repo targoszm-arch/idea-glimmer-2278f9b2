@@ -583,6 +583,8 @@ const ContentIdeas = () => {
           </Tabs>
         </motion.div>
     </PageLayout>
+    <OutOfCreditsDialog open={showCreditsDialog} onOpenChange={setShowCreditsDialog} creditsAvailable={credits ?? 0} />
+    </>
   );
 };
 

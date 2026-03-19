@@ -1114,6 +1114,8 @@ const SocialMedia = () => {
           </Tabs>
         </motion.div>
     </PageLayout>
+    <OutOfCreditsDialog open={showCreditsDialog} onOpenChange={setShowCreditsDialog} creditsAvailable={credits ?? 0} />
+    </>
   );
 };
 

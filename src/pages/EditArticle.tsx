@@ -522,7 +522,9 @@ const EditArticle = () => {
           }
         </div>
       </motion.div>
-    </PageLayout>);
+    </PageLayout>
+    <OutOfCreditsDialog open={showCreditsDialog} onOpenChange={setShowCreditsDialog} creditsNeeded={CREDIT_COSTS.generate_cover_image} creditsAvailable={credits ?? 0} />
+    </>);
 
 };
 

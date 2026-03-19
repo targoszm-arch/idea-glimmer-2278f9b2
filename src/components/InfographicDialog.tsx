@@ -222,6 +222,8 @@ const InfographicDialog = ({ open, onOpenChange, editor }: InfographicDialogProp
         </Tabs>
       </DialogContent>
     </Dialog>
+    <OutOfCreditsDialog open={showCreditsDialog} onOpenChange={setShowCreditsDialog} creditsNeeded={CREDIT_COSTS.generate_infographic} creditsAvailable={credits ?? 0} />
+    </>
   );
 };
 
