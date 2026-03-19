@@ -122,6 +122,10 @@ const SocialMedia = () => {
       toast({ title: "No context", description: "Enter a topic or configure AI Settings.", variant: "destructive" });
       return;
     }
+    if (!hasEnough("generate_social_ideas")) {
+      setShowCreditsDialog(true);
+      return;
+    }
 
     setIsGeneratingIdeas(true);
     try {
