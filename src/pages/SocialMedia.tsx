@@ -66,6 +66,8 @@ const SocialMedia = () => {
   const [loadingHeygenTemplates, setLoadingHeygenTemplates] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
+  const [showCreditsDialog, setShowCreditsDialog] = useState(false);
+  const { credits, hasEnough, deductLocally } = useCredits();
 
   const [aiSettings, setAiSettings] = useState<{
     app_description: string;
