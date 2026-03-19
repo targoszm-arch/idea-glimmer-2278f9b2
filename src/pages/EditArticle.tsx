@@ -17,6 +17,8 @@ import EditorToolbar from "@/components/EditorToolbar";
 import AIAssistantPanel from "@/components/AIAssistantPanel";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
+import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 
 const EditArticle = () => {
   const { id } = useParams<{id: string;}>();
