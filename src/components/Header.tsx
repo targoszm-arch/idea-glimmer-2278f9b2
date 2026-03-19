@@ -58,7 +58,7 @@ const Header = () => {
             >
               <Coins className="h-4 w-4 text-primary" />
               {creditsLoading ? "…" : credits ?? 0}
-            </button>
+            </span>
 
             <Popover>
               <PopoverTrigger asChild>
