@@ -131,6 +131,10 @@ export default function HeyGenPanel() {
 
   const handleGenerate = useCallback(async () => {
     if (!selectedTemplate || generating) return;
+    if (!hasEnough("heygen_video")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setGenerating(true);
     setVideoProgress("Starting video generation...");
     setVideoProgressPercent(5);
