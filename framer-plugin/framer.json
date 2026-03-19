@@ -1,5 +1,5 @@
 {
-  "id": "skill-studio-cms-sync",
+  "id": "skstcm",
   "name": "Skill Studio Blog Sync",
   "modes": ["configureManagedCollection", "syncManagedCollection"]
 }
