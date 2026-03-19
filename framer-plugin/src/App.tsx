@@ -46,18 +46,6 @@ export async function syncManagedCollection() {
   }
 }
 
-// Upload with a 5s timeout — if it fails/times out, skip image silently
-async function tryUploadImage(url: string): Promise<any> {
-  if (!url || url.startsWith("data:") || url.startsWith("blob:")) return null
-  try {
-    const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 5000))
-    const upload = framer.uploadImage({ image: url, name: url.split("/").pop()?.split("?")[0] ?? "image.jpg" })
-    return await Promise.race([upload, timeout])
-  } catch {
-    return null
-  }
-}
-
 export async function syncArticles(collection: any, category: string): Promise<number> {
   const param = category !== "all" ? `&category=${encodeURIComponent(category)}` : ""
   const res = await fetch(`${SYNC_ENDPOINT}?status=published${param}`, {
@@ -67,12 +55,7 @@ export async function syncArticles(collection: any, category: string): Promise<n
   const { articles } = await res.json() as { articles: Article[] }
   if (!articles?.length) return 0
 
-  // Upload images in parallel with timeout protection
-  const imageAssets = await Promise.all(
-    articles.map(a => a.cover_image_url ? tryUploadImage(a.cover_image_url) : Promise.resolve(null))
-  )
-
-  const items = articles.map((a, i) => {
+  const items = articles.map((a) => {
     const fieldData: Record<string, any> = {
       [F.title]:    a.title ?? "",
       [F.body]:     a.content ?? "",
@@ -81,7 +64,10 @@ export async function syncArticles(collection: any, category: string): Promise<n
       [F.metaDesc]: a.meta_description ?? "",
       [F.pubDate]:  a.created_at ?? "",
     }
-    if (imageAssets[i]) fieldData[F.image] = imageAssets[i]
+    // Pass URL directly — Framer downloads & hosts automatically, just like Make CMS Sync
+    if (a.cover_image_url) {
+      fieldData[F.image] = { url: a.cover_image_url }
+    }
     return { id: a.id, slug: a.slug, fieldData }
   })
 
