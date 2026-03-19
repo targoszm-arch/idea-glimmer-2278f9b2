@@ -11,22 +11,20 @@ type Article = {
 type Status = "idle" | "loading" | "syncing" | "success" | "error"
 
 const FIELDS = [
-  { name: "Title", type: "string" as const },
-  { name: "Body", type: "formattedText" as const },
-  { name: "Excerpt", type: "string" as const },
-  { name: "Category", type: "string" as const },
-  { name: "Cover Image", type: "image" as const },
-  { name: "Meta Description", type: "string" as const },
-  { name: "Published Date", type: "date" as const },
+  { id: "title", name: "Title", type: "string" as const },
+  { id: "body", name: "Body", type: "formattedText" as const },
+  { id: "excerpt", name: "Excerpt", type: "string" as const },
+  { id: "category", name: "Category", type: "string" as const },
+  { id: "cover_image", name: "Cover Image", type: "image" as const },
+  { id: "meta_description", name: "Meta Description", type: "string" as const },
+  { id: "published_date", name: "Published Date", type: "date" as const },
 ] as const
 
 // ── Managed Collection modes (called by Framer automatically) ──────────────
 export async function configureManagedCollection() {
   const collection = await framer.getManagedCollection()
   if (!collection) return
-  for (const field of FIELDS) {
-    try { await collection.addField({ name: field.name, type: field.type }) } catch { }
-  }
+  await collection.setFields(FIELDS.map(f => ({ id: f.id, name: f.name, type: f.type })))
   framer.notify("Collection configured ✓")
 }
 
@@ -51,25 +49,19 @@ async function doSync(collection: any, category: string): Promise<{ count: numbe
   const { articles } = (await res.json()) as { articles: Article[] }
   if (!articles?.length) return { count: 0 }
 
-  const fields = await collection.getFields()
-  const fieldMap = new Map(fields.map((f: any) => [f.name, f.id]))
-
   const items = articles.map((article) => {
-    const fieldData: Record<string, any> = {}
-    const set = (name: string, value: any) => {
-      const id = fieldMap.get(name)
-      if (id) fieldData[id] = value
+    const fieldData: Record<string, any> = {
+      title: article.title,
+      body: article.content,
+      excerpt: article.excerpt,
+      category: article.category,
+      meta_description: article.meta_description,
+      published_date: article.created_at,
     }
-    set("Title", { type: "string", value: article.title })
-    set("Body", { type: "formattedText", value: article.content, contentType: "html" })
-    set("Excerpt", { type: "string", value: article.excerpt })
-    set("Category", { type: "string", value: article.category })
-    set("Meta Description", { type: "string", value: article.meta_description })
-    set("Published Date", { type: "date", value: article.created_at })
     if (article.cover_image_url && !article.cover_image_url.startsWith("data:")) {
-      set("Cover Image", { type: "image", value: article.cover_image_url })
+      fieldData.cover_image = article.cover_image_url
     }
-    return { id: article.id, slug: article.slug, title: article.title, fieldData }
+    return { id: article.id, slug: article.slug, fieldData }
   })
 
   await collection.addItems(items)
