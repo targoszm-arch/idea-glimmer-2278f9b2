@@ -7,8 +7,6 @@ import { useToast } from "@/hooks/use-toast";
 import { getEdgeFunctionHeaders } from "@/lib/edge-function-auth";
 import { cn } from "@/lib/utils";
 
-...
-
 type HeyGenTemplate = {
   template_id: string;
   name: string;
