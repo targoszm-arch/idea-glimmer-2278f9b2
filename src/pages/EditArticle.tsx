@@ -20,27 +20,8 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
 import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
+import PlatformLogo from "@/components/PlatformLogo";
 
-
-// Platform logo icons
-const PlatformLogo = ({ platform, size = 16 }: { platform: string; size?: number }) => {
-  const logos: Record<string, string> = {
-    notion: "https://www.notion.so/images/favicon.ico",
-    shopify: "https://cdn.shopify.com/shopifycloud/web/assets/v1/favicon.ico",
-    intercom: "https://static.intercomassets.com/assets/favicon-48x48-be7e72c76d5c79763bb3e46b97e7d6b8.png",
-    google: "https://www.google.com/favicon.ico",
-  };
-  return (
-    <img
-      src={logos[platform]}
-      alt={platform}
-      width={size}
-      height={size}
-      className="rounded-sm object-contain flex-shrink-0"
-      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-    />
-  );
-};
 
 const EditArticle = () => {
   const { id } = useParams<{id: string;}>();

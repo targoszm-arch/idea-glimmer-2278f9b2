@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getEdgeFunctionHeaders } from "@/lib/edge-function-auth";
 import { useToast } from "@/hooks/use-toast";
 import PageLayout from "@/components/PageLayout";
+import PlatformLogo from "@/components/PlatformLogo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,13 +17,6 @@ type Integration = {
   platform: Platform;
   platform_user_name: string | null;
   platform_user_id: string | null;
-};
-
-const PLATFORM_LOGOS: Record<string, string> = {
-  notion: "https://www.notion.so/images/favicon.ico",
-  shopify: "https://cdn.shopify.com/shopifycloud/web/assets/v1/favicon.ico",
-  intercom: "https://static.intercomassets.com/assets/favicon-48x48-be7e72c76d5c79763bb3e46b97e7d6b8.png",
-  google: "https://www.google.com/favicon.ico",
 };
 
 const PLATFORMS = [
@@ -145,7 +139,7 @@ export default function Integrations() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg border border-border bg-background flex items-center justify-center p-2">
-                        <img src={PLATFORM_LOGOS[platform.id]} alt={platform.name} className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                        <PlatformLogo platform={platform.id} size={24} />
                       </div>
                       <div>
                         <CardTitle className="text-base flex items-center gap-2">
