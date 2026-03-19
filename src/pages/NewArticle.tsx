@@ -165,6 +165,10 @@ const NewArticle = () => {
       toast({ title: "Enter a topic or title first", variant: "destructive" });
       return;
     }
+    if (!hasEnough("generate_cover_image")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setIsGeneratingImage(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
