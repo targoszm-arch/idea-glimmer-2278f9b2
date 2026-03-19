@@ -7,7 +7,7 @@ import { useCredits, CREDIT_COSTS, STRIPE_URLS } from "@/hooks/use-credits";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const navItems = [
-  { label: "Library", href: "/", icon: Library },
+  { label: "Library", href: "/dashboard", icon: Library },
   { label: "New Article", href: "/new", icon: PenSquare },
   { label: "Content Ideas", href: "/ideas", icon: Lightbulb },
   { label: "Social Media", href: "/social", icon: Share2 },
