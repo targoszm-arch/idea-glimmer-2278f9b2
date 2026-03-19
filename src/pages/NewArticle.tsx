@@ -87,6 +87,10 @@ const NewArticle = () => {
       toast({ title: "Enter a topic", description: "Please provide a topic to generate an article.", variant: "destructive" });
       return;
     }
+    if (!hasEnough("generate_article")) {
+      setShowCreditsDialog(true);
+      return;
+    }
 
     setIsGenerating(true);
     setGeneratedMetaDescription("");
