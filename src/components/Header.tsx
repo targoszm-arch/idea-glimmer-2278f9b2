@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut, Coins } from "lucide-react";
+import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut, Coins, HelpCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCredits } from "@/hooks/use-credits";
+import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const navItems = [
   { label: "Library", href: "/", icon: Library },
@@ -50,15 +51,51 @@ const Header = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Credits badge */}
-          <button
-            onClick={redirectToPayment}
-            className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent/80"
-            title="Buy more credits"
-          >
-            <Coins className="h-4 w-4 text-primary" />
-            {creditsLoading ? "…" : credits ?? 0}
-          </button>
+          {/* Credits badge + help */}
+          <div className="inline-flex items-center gap-1">
+            <button
+              onClick={redirectToPayment}
+              className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent/80"
+              title="Buy more credits"
+            >
+              <Coins className="h-4 w-4 text-primary" />
+              {creditsLoading ? "…" : credits ?? 0}
+            </button>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="rounded-full p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="How credits work">
+                  <HelpCircle className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 text-sm" align="end">
+                <h4 className="font-semibold text-foreground mb-2">How Credits Work</h4>
+                <p className="text-muted-foreground mb-3">Credits are deducted each time you generate AI content. Free plan starts with 10 credits.</p>
+                <div className="space-y-1.5">
+                  {[
+                    { label: "Article generation", cost: CREDIT_COSTS.generate_article },
+                    { label: "Cover image", cost: CREDIT_COSTS.generate_cover_image },
+                    { label: "Infographic", cost: CREDIT_COSTS.generate_infographic },
+                    { label: "Social post", cost: CREDIT_COSTS.generate_social_post },
+                    { label: "Content ideas", cost: CREDIT_COSTS.generate_ideas },
+                    { label: "Social ideas", cost: CREDIT_COSTS.generate_social_ideas },
+                    { label: "Reel video (Sora)", cost: CREDIT_COSTS.generate_reel_video },
+                    { label: "HeyGen video", cost: CREDIT_COSTS.heygen_video },
+                  ].map((item) => (
+                    <div key={item.label} className="flex items-center justify-between">
+                      <span className="text-muted-foreground">{item.label}</span>
+                      <span className="font-medium text-foreground">{item.cost} cr</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 pt-3 border-t border-border">
+                  <button onClick={redirectToPayment} className="text-primary hover:underline text-xs font-medium">
+                    Buy more credits →
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
 
           <Link
             to="/new"
