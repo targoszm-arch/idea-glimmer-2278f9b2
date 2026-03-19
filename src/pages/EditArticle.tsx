@@ -389,9 +389,9 @@ const EditArticle = () => {
             )}
             <button
               onClick={handleSyncToIntercom}
-              disabled={isSyncingIntercom || isLoadingCollections}
+              disabled={isSyncingIntercom || isLoadingCollections || !content.trim()}
+              title={!content.trim() ? "Generate or write content first" : intercomArticleId ? "Update article in Intercom" : "Sync article to Intercom"}
               className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
-              
               {isSyncingIntercom || isLoadingCollections ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
               {intercomArticleId ? "Update in Intercom" : "Sync to Intercom"}
             </button>

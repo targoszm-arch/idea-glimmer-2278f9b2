@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lightbulb, Sparkles, Loader2, ArrowRight, Trash2, CalendarIcon, List, CalendarPlus, Eye } from "lucide-react";
 import { motion } from "framer-motion";
@@ -30,7 +30,7 @@ const strategyDotColors: Record<string, string> = {
 
 const ContentIdeas = () => {
   const navigate = useNavigate();
-  const [niche, setNiche] = useState("");
+  const nicheRef = useRef<HTMLInputElement>(null);
   const [ideas, setIdeas] = useState<ContentIdea[]>([]);
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -72,6 +72,7 @@ const ContentIdeas = () => {
   };
 
   const handleGenerate = async () => {
+    const niche = nicheRef.current?.value ?? "";
     if (!niche.trim() && !aiSettings?.app_description) {
       toast({ title: "No context available", description: "Enter a niche or configure your AI Settings first.", variant: "destructive" });
       return;
@@ -96,7 +97,7 @@ const ContentIdeas = () => {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            niche: niche.trim() || undefined,
+            niche: (nicheRef.current?.value ?? "").trim() || undefined,
             app_description: aiSettings?.app_description || "",
             app_audience: aiSettings?.app_audience || "",
             tone: aiSettings?.tone_label || "",
@@ -115,7 +116,7 @@ const ContentIdeas = () => {
       if (result.ideas && Array.isArray(result.ideas)) {
         const { error } = await supabase.from("content_ideas").insert(
           result.ideas.map((idea: any) => ({
-            topic: idea.topic || niche || aiSettings?.app_description || "",
+            topic: idea.topic || (nicheRef.current?.value ?? "") || aiSettings?.app_description || "",
             title_suggestion: idea.title,
             description: idea.description || "",
             strategy: idea.strategy || "TOFU",
@@ -309,7 +310,7 @@ const ContentIdeas = () => {
   const getIdeasForDay = (day: Date) =>
     scheduledIdeas.filter((i) => i.scheduled_for && isSameDay(new Date(i.scheduled_for), day));
 
-  const IdeaCard = ({ idea, index }: { idea: ContentIdea; index: number }) => {
+  const IdeaCard = memo(({ idea, index }: { idea: ContentIdea; index: number }) => {
     const isGeneratingThis = generatingArticleId === idea.id;
     const hasArticle = !!idea.article_id;
 
@@ -407,7 +408,7 @@ const ContentIdeas = () => {
         </div>
       </motion.div>
     );
-  };
+  });  // end IdeaCard memo
 
   return (
     <>
@@ -434,8 +435,9 @@ const ContentIdeas = () => {
             )}
             <div className="flex gap-3">
               <input
-                value={niche}
-                onChange={(e) => setNiche(e.target.value)}
+                ref={nicheRef}
+                defaultValue=""
+
                 onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
                 placeholder={aiSettings?.app_description ? "Optional: add extra context or leave empty to use AI Settings" : "Describe your product or niche (e.g., B2B SaaS project management tool)"}
                 className="flex-1 rounded-lg border border-input bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
