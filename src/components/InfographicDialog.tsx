@@ -56,6 +56,8 @@ const InfographicDialog = ({ open, onOpenChange, editor }: InfographicDialogProp
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiStyle, setAiStyle] = useState("general");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showCreditsDialog, setShowCreditsDialog] = useState(false);
+  const { credits, hasEnough, deductLocally } = useCredits();
 
   const [templateType, setTemplateType] = useState<TemplateType>("stats");
   const [items, setItems] = useState<TemplateItem[]>(defaultItems);
