@@ -76,6 +76,10 @@ const ContentIdeas = () => {
       toast({ title: "No context available", description: "Enter a niche or configure your AI Settings first.", variant: "destructive" });
       return;
     }
+    if (!hasEnough("generate_ideas")) {
+      setShowCreditsDialog(true);
+      return;
+    }
 
     setIsGenerating(true);
 
