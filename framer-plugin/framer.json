@@ -1,5 +1,6 @@
 {
-  "id": "ec6025",
-  "name": "Skill Studio Blog Sync",
-  "modes": ["configureManagedCollection", "syncManagedCollection"]
+  "id": "18738b",
+  "name": "ContentLab",
+  "modes": ["configureManagedCollection", "syncManagedCollection"],
+  "icon": "/icon.png"
 }
