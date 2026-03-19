@@ -24,12 +24,12 @@ const Header = () => {
 
   return (
     <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="container flex h-16 items-center justify-between py-0">
+      <div className="container flex h-14 items-center justify-between px-6">
         <div className="flex items-center gap-8">
           <Link to="/dashboard" className="text-xl font-bold tracking-tight text-foreground">
             Skill Studio AI <span className="text-primary">ContentLab</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-0">
+          <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
@@ -37,7 +37,7 @@ const Header = () => {
                 <Link
                   key={item.label}
                   to={item.href}
-                  className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap ${
                     isActive
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-secondary hover:text-foreground"
