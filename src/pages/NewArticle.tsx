@@ -149,6 +149,7 @@ const NewArticle = () => {
         }
 
         setIsGenerating(false);
+        deductLocally("generate_article");
         toast({ title: "Article generated!", description: "Review and edit the content, then save." });
       },
       onError: (error) => {
