@@ -41,6 +41,7 @@ const EditArticle = () => {
   const [intercomCollections, setIntercomCollections] = useState<{ id: string; name: string }[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [isLoadingCollections, setIsLoadingCollections] = useState(false);
+  const [isSyncingFramer, setIsSyncingFramer] = useState(false);
   const [isSyncingNotion, setIsSyncingNotion] = useState(false);
   const [isSyncingShopify, setIsSyncingShopify] = useState(false);
   const [notionPageId, setNotionPageId] = useState<string | null>(null);
@@ -153,7 +154,7 @@ const EditArticle = () => {
       if (finalStatus === "published") {
         toast({
           title: "Article published!",
-          description: "Open your Framer plugin and click 'Sync' to push it to Framer CMS."
+          description: "Use the Publish to menu to distribute to Framer and other platforms."
         });
       } else {
         toast({ title: "Article saved!" });
@@ -285,6 +286,31 @@ const EditArticle = () => {
   const getAuthToken = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     return session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  };
+
+  const handleSyncToFramer = async () => {
+    if (!id) return;
+    await handleSave();
+    setIsSyncingFramer(true);
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/publish-to-framer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          article_id: id,
+          title, slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
+          framer_item_id: framerItemId ?? null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Framer sync failed");
+      if (data.framer_item_id) setFramerItemId(data.framer_item_id);
+      toast({ title: `Article ${data.action ?? "synced"} in Framer CMS!` });
+    } catch (e: any) {
+      toast({ title: "Framer sync failed", description: e.message, variant: "destructive" });
+    }
+    setIsSyncingFramer(false);
   };
 
   const handleSyncToNotion = async (databaseId?: string) => {
@@ -462,9 +488,8 @@ const EditArticle = () => {
               onClick={() => handleSave("published")}
               disabled={isSaving}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50">
-              
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Publish
+              {status === "published" ? "Save" : "Publish"}
             </button>
             {/* Platform picker modals */}
             {showPlatformPicker === "notion" && notionDatabases.length > 0 && (
@@ -514,9 +539,9 @@ const EditArticle = () => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    disabled={!editor?.getText()?.trim() || isSyncingIntercom || isSyncingNotion || isSyncingShopify}
+                    disabled={!editor?.getText()?.trim() || isSyncingIntercom || isSyncingNotion || isSyncingShopify || isSyncingFramer}
                     className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
-                    {(isSyncingIntercom || isSyncingNotion || isSyncingShopify)
+                    {(isSyncingIntercom || isSyncingNotion || isSyncingShopify || isSyncingFramer)
                       ? <Loader2 className="h-4 w-4 animate-spin" />
                       : <Send className="h-4 w-4" />}
                     Publish to
@@ -524,8 +549,14 @@ const EditArticle = () => {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuLabel className="text-xs text-muted-foreground">Connected platforms</DropdownMenuLabel>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">Distribute article</DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSyncToFramer} disabled={isSyncingFramer} className="gap-2 cursor-pointer">
+                    <PlatformLogo platform="framer" />
+                    {isSyncingFramer ? "Syncing…" : framerItemId ? "Update in Framer" : "Publish to Framer"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">Other platforms</DropdownMenuLabel>
                   {connectedPlatforms.includes("notion") ? (
                     <DropdownMenuItem onClick={() => handleSyncToNotion()} className="gap-2 cursor-pointer">
                       <PlatformLogo platform="notion" />

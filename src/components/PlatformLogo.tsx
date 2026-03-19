@@ -24,6 +24,12 @@ const logos: Record<string, JSX.Element> = {
       <path d="M12 18.5c1.1.9 2.5 1.5 4 1.5s2.9-.6 4-1.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
     </svg>
   ),
+  framer: (
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <rect width="24" height="24" rx="5" fill="#0055FF"/>
+      <path d="M6 5h12v5.5H12V16l-6-5.5V5z" fill="white"/>
+    </svg>
+  ),
   google: (
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>

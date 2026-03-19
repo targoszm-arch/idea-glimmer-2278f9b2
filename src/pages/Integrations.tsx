@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle, XCircle, Loader2, ExternalLink } from "lucide-react";
 
-type Platform = "notion" | "shopify" | "intercom" | "google";
+type Platform = "framer" | "notion" | "shopify" | "intercom" | "google";
 
 type Integration = {
   platform: Platform;
@@ -20,6 +20,12 @@ type Integration = {
 };
 
 const PLATFORMS = [
+  {
+    id: "framer" as Platform,
+    name: "Framer CMS",
+    description: "Publish articles directly to your Framer CMS collection",
+    requiresSecrets: true,
+  },
   {
     id: "notion" as Platform,
     name: "Notion",
@@ -80,7 +86,7 @@ export default function Integrations() {
     setLoading(true);
     const { data } = await supabase.from("user_integrations").select("platform, platform_user_name, platform_user_id");
     if (data) {
-      const map: Record<string, Integration | null> = { notion: null, shopify: null, intercom: null, google: null };
+      const map: Record<string, Integration | null> = { framer: null, notion: null, shopify: null, intercom: null, google: null };
       for (const item of data) map[item.platform] = item as Integration;
       setConnected(map as Record<Platform, Integration | null>);
     }
@@ -88,6 +94,12 @@ export default function Integrations() {
   }
 
   async function connectPlatform(platform: Platform) {
+    if (platform === "framer") {
+      // Framer uses Supabase secrets (FRAMER_PROJECT_URL, FRAMER_API_KEY, FRAMER_COLLECTION_ID)
+      // Direct user to documentation
+      window.open("https://supabase.com/dashboard/project/rnshobvpqegttrpaowxe/settings/functions", "_blank");
+      return;
+    }
     setConnecting(platform);
     try {
       const headers = await getEdgeFunctionHeaders();
