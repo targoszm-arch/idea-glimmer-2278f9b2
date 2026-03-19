@@ -9,9 +9,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 const navItems = [
   { label: "Library", href: "/dashboard", icon: Library },
   { label: "New Article", href: "/new", icon: PenSquare },
-  { label: "Content Ideas", href: "/ideas", icon: Lightbulb },
-  { label: "Social Media", href: "/social", icon: Share2 },
-  { label: "Brand Assets", href: "/brand", icon: Palette },
+  { label: "Ideas", href: "/ideas", icon: Lightbulb },
+  { label: "Social", href: "/social", icon: Share2 },
+  { label: "Brand", href: "/brand", icon: Palette },
   { label: "AI Settings", href: "/settings", icon: Settings },
   { label: "Integrations", href: "/settings/integrations", icon: Plug },
 ];
@@ -29,7 +29,7 @@ const Header = () => {
           <Link to="/dashboard" className="text-xl font-bold tracking-tight text-foreground">
             Skill Studio AI <span className="text-primary">ContentLab</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden md:flex items-center gap-0">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
@@ -37,13 +37,12 @@ const Header = () => {
                 <Link
                   key={item.label}
                   to={item.href}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                     isActive
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
                   {item.label}
                 </Link>
               );
