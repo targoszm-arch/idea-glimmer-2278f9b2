@@ -417,5 +417,7 @@ export default function HeyGenPanel() {
         </div>
       )}
     </div>
+    <OutOfCreditsDialog open={showCreditsDialog} onOpenChange={setShowCreditsDialog} creditsNeeded={CREDIT_COSTS.heygen_video} creditsAvailable={credits ?? 0} />
+    </>
   );
 }
