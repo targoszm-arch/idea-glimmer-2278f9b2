@@ -2,7 +2,12 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-const STRIPE_CHECKOUT_URL = "https://buy.stripe.com/bJe6oH2v92vRbJG9J17EQ0f";
+export const STRIPE_URLS = {
+  signup: "https://buy.stripe.com/bJe6oH2v92vRbJG9J17EQ0f",
+  topUp100: "https://buy.stripe.com/7sY3cv9XBgmHcNKdZh7EQ0g",
+  topUp200: "https://buy.stripe.com/fZu7sL2v92vR1526wP7EQ0h",
+  customerPortal: "https://billing.stripe.com/p/login/cNi9AT2v91rN3dabR97EQ00",
+} as const;
 
 export const CREDIT_COSTS = {
   heygen_video: 20,
@@ -38,7 +43,6 @@ export const useCredits = () => {
       console.error("Failed to fetch credits:", error);
       setCredits(null);
     } else if (!data) {
-      // No row yet — create one (handles users who signed up before the trigger)
       const { data: inserted } = await supabase
         .from("user_credits")
         .insert({ user_id: user.id, credits: 10, plan: "free" })
@@ -64,16 +68,11 @@ export const useCredits = () => {
     setCredits((prev) => (prev !== null ? prev - CREDIT_COSTS[action] : prev));
   };
 
-  const redirectToPayment = () => {
-    window.open(STRIPE_CHECKOUT_URL, "_blank");
-  };
-
   return {
     credits,
     loading,
     refetch: fetchCredits,
     hasEnough,
     deductLocally,
-    redirectToPayment,
   };
 };

@@ -86,9 +86,16 @@ const Header = () => {
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 pt-3 border-t border-border">
-                  <button onClick={redirectToPayment} className="text-primary hover:underline text-xs font-medium">
-                    Buy more credits →
+                <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+                  <button onClick={() => window.open(STRIPE_URLS.topUp100, "_blank")} className="block text-primary hover:underline text-xs font-medium">
+                    Buy 100 credits — €25 →
+                  </button>
+                  <button onClick={() => window.open(STRIPE_URLS.topUp200, "_blank")} className="block text-primary hover:underline text-xs font-medium">
+                    Buy 200 credits — €50 →
+                  </button>
+                  <button onClick={() => window.open(STRIPE_URLS.customerPortal, "_blank")} className="flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline text-xs">
+                    <ExternalLink className="h-3 w-3" />
+                    Manage Billing
                   </button>
                 </div>
               </PopoverContent>
