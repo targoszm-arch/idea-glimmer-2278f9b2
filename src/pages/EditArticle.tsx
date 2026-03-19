@@ -10,7 +10,8 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
-import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X, Upload, MessageSquare, ChevronDown } from "lucide-react";
+import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X, Upload, ChevronDown, Send } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import EditorToolbar from "@/components/EditorToolbar";
@@ -38,6 +39,16 @@ const EditArticle = () => {
   const [intercomCollections, setIntercomCollections] = useState<{ id: string; name: string }[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [isLoadingCollections, setIsLoadingCollections] = useState(false);
+  const [isSyncingNotion, setIsSyncingNotion] = useState(false);
+  const [isSyncingShopify, setIsSyncingShopify] = useState(false);
+  const [notionPageId, setNotionPageId] = useState<string | null>(null);
+  const [shopifyArticleId, setShopifyArticleId] = useState<string | null>(null);
+  const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
+  const [notionDatabases, setNotionDatabases] = useState<{id: string; name: string}[]>([]);
+  const [shopifyBlogs, setShopifyBlogs] = useState<{id: string; name: string}[]>([]);
+  const [selectedNotionDb, setSelectedNotionDb] = useState("");
+  const [selectedShopifyBlog, setSelectedShopifyBlog] = useState("");
+  const [showPlatformPicker, setShowPlatformPicker] = useState<"notion" | "shopify" | "intercom" | null>(null);
   const [authorName, setAuthorName] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,6 +90,8 @@ const EditArticle = () => {
       setCoverImageUrl(data.cover_image_url || null);
       setFramerItemId((data as any).framer_item_id || null);
       setIntercomArticleId((data as any).intercom_article_id || null);
+      setNotionPageId((data as any).notion_page_id || null);
+      setShopifyArticleId((data as any).shopify_article_id || null);
       setAuthorName((data as any).author_name || "");
       setMetaDescription(data.meta_description || "");
       editor?.commands.setContent(data.content || "");
@@ -260,6 +273,85 @@ const EditArticle = () => {
     setIsUploadingImage(false);
   };
 
+  // Load which platforms the user has connected
+  useEffect(() => {
+    supabase.from("user_integrations").select("platform").then(({ data }) => {
+      setConnectedPlatforms((data || []).map((d: any) => d.platform));
+    });
+  }, []);
+
+  const getAuthToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  };
+
+  const handleSyncToNotion = async (databaseId?: string) => {
+    if (!id) return;
+    const dbId = databaseId || selectedNotionDb;
+    if (!dbId) {
+      // Fetch databases first
+      const token = await getAuthToken();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-notion`, {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ list_databases: true }),
+      });
+      const data = await res.json();
+      if (res.ok) { setNotionDatabases(data.databases || []); setShowPlatformPicker("notion"); }
+      else toast({ title: "Failed to load Notion databases", description: data.error, variant: "destructive" });
+      return;
+    }
+    await handleSave();
+    setIsSyncingNotion(true);
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-notion`, {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ article_id: id, database_id: dbId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Notion sync failed");
+      setNotionPageId(data.notion_page_id);
+      setShowPlatformPicker(null);
+      toast({ title: `Article ${data.action} in Notion!`, description: `${data.blocks_synced} blocks synced.` });
+    } catch (e: any) {
+      toast({ title: "Notion sync failed", description: e.message, variant: "destructive" });
+    }
+    setIsSyncingNotion(false);
+  };
+
+  const handleSyncToShopify = async (blogId?: string) => {
+    if (!id) return;
+    const bId = blogId || selectedShopifyBlog;
+    if (!bId && !shopifyArticleId) {
+      const token = await getAuthToken();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-shopify`, {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ list_blogs: true }),
+      });
+      const data = await res.json();
+      if (res.ok) { setShopifyBlogs(data.blogs || []); setShowPlatformPicker("shopify"); }
+      else toast({ title: "Failed to load Shopify blogs", description: data.error, variant: "destructive" });
+      return;
+    }
+    await handleSave();
+    setIsSyncingShopify(true);
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-shopify`, {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ article_id: id, blog_id: bId || selectedShopifyBlog }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Shopify sync failed");
+      setShopifyArticleId(String(data.shopify_article_id));
+      setShowPlatformPicker(null);
+      toast({ title: `Article ${data.action} in Shopify!` });
+    } catch (e: any) {
+      toast({ title: "Shopify sync failed", description: e.message, variant: "destructive" });
+    }
+    setIsSyncingShopify(false);
+  };
+
   const fetchIntercomCollections = async () => {
     if (intercomCollections.length > 0) return; // already fetched
     setIsLoadingCollections(true);
@@ -372,29 +464,103 @@ const EditArticle = () => {
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Publish
             </button>
-            {/* Intercom collection picker (only for new syncs) */}
-            {!intercomArticleId && intercomCollections.length > 0 && (
-              <div className="relative">
-                <select
-                  value={selectedCollectionId}
-                  onChange={(e) => setSelectedCollectionId(e.target.value)}
+            {/* Platform picker modals */}
+            {showPlatformPicker === "notion" && notionDatabases.length > 0 && (
+              <div className="flex items-center gap-2">
+                <select value={selectedNotionDb} onChange={(e) => setSelectedNotionDb(e.target.value)}
                   className="appearance-none rounded-lg border border-border bg-secondary px-3 py-2 pr-8 text-sm font-medium text-foreground">
-                  <option value="">Select collection…</option>
-                  {intercomCollections.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
+                  <option value="">Select Notion database…</option>
+                  {notionDatabases.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <button onClick={() => handleSyncToNotion(selectedNotionDb)} disabled={!selectedNotionDb || isSyncingNotion}
+                  className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">
+                  {isSyncingNotion ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sync"}
+                </button>
+                <button onClick={() => setShowPlatformPicker(null)} className="text-muted-foreground hover:text-foreground text-sm">Cancel</button>
               </div>
             )}
-            <button
-              onClick={handleSyncToIntercom}
-              disabled={isSyncingIntercom || isLoadingCollections || !editor?.getText()?.trim()}
-              title={!editor?.getText()?.trim() ? "Generate or write content first" : intercomArticleId ? "Update article in Intercom" : "Sync article to Intercom"}
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
-              {isSyncingIntercom || isLoadingCollections ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-              {intercomArticleId ? "Update in Intercom" : "Sync to Intercom"}
-            </button>
+            {showPlatformPicker === "shopify" && shopifyBlogs.length > 0 && (
+              <div className="flex items-center gap-2">
+                <select value={selectedShopifyBlog} onChange={(e) => setSelectedShopifyBlog(e.target.value)}
+                  className="appearance-none rounded-lg border border-border bg-secondary px-3 py-2 pr-8 text-sm font-medium text-foreground">
+                  <option value="">Select Shopify blog…</option>
+                  {shopifyBlogs.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+                <button onClick={() => handleSyncToShopify(selectedShopifyBlog)} disabled={!selectedShopifyBlog || isSyncingShopify}
+                  className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">
+                  {isSyncingShopify ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sync"}
+                </button>
+                <button onClick={() => setShowPlatformPicker(null)} className="text-muted-foreground hover:text-foreground text-sm">Cancel</button>
+              </div>
+            )}
+            {showPlatformPicker === "intercom" && intercomCollections.length > 0 && (
+              <div className="flex items-center gap-2">
+                <select value={selectedCollectionId} onChange={(e) => setSelectedCollectionId(e.target.value)}
+                  className="appearance-none rounded-lg border border-border bg-secondary px-3 py-2 pr-8 text-sm font-medium text-foreground">
+                  <option value="">Select Intercom collection…</option>
+                  {intercomCollections.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <button onClick={() => handleSyncToIntercom()} disabled={!selectedCollectionId || isSyncingIntercom}
+                  className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">
+                  {isSyncingIntercom ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sync"}
+                </button>
+                <button onClick={() => setShowPlatformPicker(null)} className="text-muted-foreground hover:text-foreground text-sm">Cancel</button>
+              </div>
+            )}
+            {/* Publish to dropdown */}
+            {!showPlatformPicker && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    disabled={!editor?.getText()?.trim() || isSyncingIntercom || isSyncingNotion || isSyncingShopify}
+                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
+                    {(isSyncingIntercom || isSyncingNotion || isSyncingShopify)
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Send className="h-4 w-4" />}
+                    Publish to
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">Connected platforms</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {connectedPlatforms.includes("notion") ? (
+                    <DropdownMenuItem onClick={() => handleSyncToNotion()} className="gap-2 cursor-pointer">
+                      <span className="text-base">📝</span>
+                      {notionPageId ? "Update in Notion" : "Sync to Notion"}
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem disabled className="gap-2 opacity-40">
+                      <span className="text-base">📝</span> Notion <span className="ml-auto text-xs">Not connected</span>
+                    </DropdownMenuItem>
+                  )}
+                  {connectedPlatforms.includes("shopify") ? (
+                    <DropdownMenuItem onClick={() => handleSyncToShopify()} className="gap-2 cursor-pointer">
+                      <span className="text-base">🛍️</span>
+                      {shopifyArticleId ? "Update in Shopify" : "Sync to Shopify"}
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem disabled className="gap-2 opacity-40">
+                      <span className="text-base">🛍️</span> Shopify <span className="ml-auto text-xs">Not connected</span>
+                    </DropdownMenuItem>
+                  )}
+                  {connectedPlatforms.includes("intercom") ? (
+                    <DropdownMenuItem onClick={() => { if (!intercomArticleId) { fetchIntercomCollections().then(() => setShowPlatformPicker("intercom")); } else { handleSyncToIntercom(); } }} className="gap-2 cursor-pointer">
+                      <span className="text-base">💬</span>
+                      {intercomArticleId ? "Update in Intercom" : "Sync to Intercom"}
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem disabled className="gap-2 opacity-40">
+                      <span className="text-base">💬</span> Intercom <span className="ml-auto text-xs">Not connected</span>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => window.open("/settings/integrations", "_blank")} className="gap-2 cursor-pointer text-xs text-muted-foreground">
+                    Manage integrations →
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <button
               onClick={() => setShowAssistant(!showAssistant)}
               className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${showAssistant ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary"}`}>
