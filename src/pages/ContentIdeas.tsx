@@ -13,6 +13,8 @@ import { streamAI } from "@/lib/ai-stream";
 import { TONE_PRESETS } from "@/lib/tones";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 
 const strategyColors: Record<string, string> = {
   TOFU: "bg-emerald-100 text-emerald-700 border-emerald-200",
@@ -35,6 +37,8 @@ const ContentIdeas = () => {
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [schedulingId, setSchedulingId] = useState<string | null>(null);
   const [generatingArticleId, setGeneratingArticleId] = useState<string | null>(null);
+  const [showCreditsDialog, setShowCreditsDialog] = useState(false);
+  const { credits, hasEnough, deductLocally } = useCredits();
   const [aiSettings, setAiSettings] = useState<{
     app_description: string;
     app_audience: string;
@@ -70,6 +74,10 @@ const ContentIdeas = () => {
   const handleGenerate = async () => {
     if (!niche.trim() && !aiSettings?.app_description) {
       toast({ title: "No context available", description: "Enter a niche or configure your AI Settings first.", variant: "destructive" });
+      return;
+    }
+    if (!hasEnough("generate_ideas")) {
+      setShowCreditsDialog(true);
       return;
     }
 
@@ -127,6 +135,10 @@ const ContentIdeas = () => {
 
   const handleUseIdea = useCallback(async (idea: ContentIdea) => {
     if (generatingArticleId) return;
+    if (!hasEnough("generate_article")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setGeneratingArticleId(idea.id);
 
     const tonePreset = TONE_PRESETS.find((t) => t.key === (aiSettings?.tone_key || "informative"));
@@ -398,6 +410,7 @@ const ContentIdeas = () => {
   };
 
   return (
+    <>
     <PageLayout>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="mb-8">
@@ -571,6 +584,8 @@ const ContentIdeas = () => {
           </Tabs>
         </motion.div>
     </PageLayout>
+    <OutOfCreditsDialog open={showCreditsDialog} onOpenChange={setShowCreditsDialog} creditsAvailable={credits ?? 0} />
+    </>
   );
 };
 

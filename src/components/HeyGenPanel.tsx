@@ -6,6 +6,8 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { getEdgeFunctionHeaders } from "@/lib/edge-function-auth";
 import { cn } from "@/lib/utils";
+import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 
 type HeyGenTemplate = {
   template_id: string;
@@ -67,6 +69,8 @@ export default function HeyGenPanel() {
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
+  const [showCreditsDialog, setShowCreditsDialog] = useState(false);
+  const { credits, hasEnough, deductLocally } = useCredits();
 
   useEffect(() => {
     return () => {
@@ -127,6 +131,10 @@ export default function HeyGenPanel() {
 
   const handleGenerate = useCallback(async () => {
     if (!selectedTemplate || generating) return;
+    if (!hasEnough("heygen_video")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setGenerating(true);
     setVideoProgress("Starting video generation...");
     setVideoProgressPercent(5);
@@ -225,6 +233,7 @@ export default function HeyGenPanel() {
   }, [selectedTemplate, templateDetail, variableValues, templates, generating, toast]);
 
   return (
+    <>
     <div className="space-y-6">
       {/* Header */}
       <div className="rounded-xl border border-border bg-card p-6">
@@ -409,5 +418,7 @@ export default function HeyGenPanel() {
         </div>
       )}
     </div>
+    <OutOfCreditsDialog open={showCreditsDialog} onOpenChange={setShowCreditsDialog} creditsNeeded={CREDIT_COSTS.heygen_video} creditsAvailable={credits ?? 0} />
+    </>
   );
 }

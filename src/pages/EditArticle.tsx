@@ -17,6 +17,8 @@ import EditorToolbar from "@/components/EditorToolbar";
 import AIAssistantPanel from "@/components/AIAssistantPanel";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
+import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 
 const EditArticle = () => {
   const { id } = useParams<{id: string;}>();
@@ -39,6 +41,8 @@ const EditArticle = () => {
   const [authorName, setAuthorName] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showCreditsDialog, setShowCreditsDialog] = useState(false);
+  const { credits, hasEnough } = useCredits();
 
   const editor = useEditor({
     extensions: [
@@ -185,6 +189,10 @@ const EditArticle = () => {
     const imagePrompt = metaDescription.trim() || title.trim();
     if (!imagePrompt) {
       toast({ title: "Enter a title first", variant: "destructive" });
+      return;
+    }
+    if (!hasEnough("generate_cover_image")) {
+      setShowCreditsDialog(true);
       return;
     }
     setIsGeneratingImage(true);
@@ -337,6 +345,7 @@ const EditArticle = () => {
   }
 
   return (
+    <>
     <PageLayout hideFooter>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <div className="mb-6 flex items-center justify-between">
@@ -514,7 +523,9 @@ const EditArticle = () => {
           }
         </div>
       </motion.div>
-    </PageLayout>);
+    </PageLayout>
+    <OutOfCreditsDialog open={showCreditsDialog} onOpenChange={setShowCreditsDialog} creditsNeeded={CREDIT_COSTS.generate_cover_image} creditsAvailable={credits ?? 0} />
+    </>);
 
 };
 

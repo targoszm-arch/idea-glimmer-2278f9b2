@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
+const STRIPE_CHECKOUT_URL = "https://buy.stripe.com/bJe6oH2v92vRbJG9J17EQ0f";
+
 const Signup = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,7 +22,11 @@ const Signup = () => {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Check your email for a confirmation link!");
+      toast.success("Account created! Redirecting to complete registration...");
+      // Redirect to Stripe checkout for plan registration
+      setTimeout(() => {
+        window.location.href = STRIPE_CHECKOUT_URL;
+      }, 1500);
     }
   };
 

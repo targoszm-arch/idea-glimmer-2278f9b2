@@ -11,6 +11,8 @@ import { Loader2, Plus, Trash2, Sparkles, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { generateTemplate, templateTypes, type TemplateItem, type TemplateType } from "@/lib/infographic-templates";
+import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 
 const sampleData: Record<TemplateType, TemplateItem[]> = {
   stats: [
@@ -54,12 +56,18 @@ const InfographicDialog = ({ open, onOpenChange, editor }: InfographicDialogProp
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiStyle, setAiStyle] = useState("general");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showCreditsDialog, setShowCreditsDialog] = useState(false);
+  const { credits, hasEnough, deductLocally } = useCredits();
 
   const [templateType, setTemplateType] = useState<TemplateType>("stats");
   const [items, setItems] = useState<TemplateItem[]>(defaultItems);
 
   const handleAiGenerate = async () => {
     if (!aiPrompt.trim()) return;
+    if (!hasEnough("generate_infographic")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-infographic", {
@@ -99,6 +107,7 @@ const InfographicDialog = ({ open, onOpenChange, editor }: InfographicDialogProp
   const removeItem = (index: number) => setItems(prev => prev.filter((_, i) => i !== index));
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
@@ -214,6 +223,8 @@ const InfographicDialog = ({ open, onOpenChange, editor }: InfographicDialogProp
         </Tabs>
       </DialogContent>
     </Dialog>
+    <OutOfCreditsDialog open={showCreditsDialog} onOpenChange={setShowCreditsDialog} creditsNeeded={CREDIT_COSTS.generate_infographic} creditsAvailable={credits ?? 0} />
+    </>
   );
 };
 

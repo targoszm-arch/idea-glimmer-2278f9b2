@@ -12,6 +12,8 @@ import { getEdgeFunctionHeaders } from "@/lib/edge-function-auth";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import CarouselSlidePreview, { parseCarouselContent } from "@/components/CarouselSlidePreview";
+import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 const platforms = [
   { key: "linkedin", label: "LinkedIn", icon: Linkedin },
   { key: "youtube", label: "YouTube", icon: Youtube },
@@ -64,6 +66,8 @@ const SocialMedia = () => {
   const [loadingHeygenTemplates, setLoadingHeygenTemplates] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
+  const [showCreditsDialog, setShowCreditsDialog] = useState(false);
+  const { credits, hasEnough, deductLocally } = useCredits();
 
   const [aiSettings, setAiSettings] = useState<{
     app_description: string;
@@ -116,6 +120,10 @@ const SocialMedia = () => {
   const handleGenerateIdeas = async () => {
     if (!niche.trim() && !aiSettings?.app_description) {
       toast({ title: "No context", description: "Enter a topic or configure AI Settings.", variant: "destructive" });
+      return;
+    }
+    if (!hasEnough("generate_social_ideas")) {
+      setShowCreditsDialog(true);
       return;
     }
 
@@ -190,6 +198,10 @@ const SocialMedia = () => {
 
   const handleGenerateReelVideo = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
+    if (!hasEnough("generate_reel_video")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setGeneratingPostId(idea.id);
     setExpandedPostId(idea.id);
     setVideoProgress("Generating video prompt...");
@@ -286,6 +298,10 @@ const SocialMedia = () => {
 
   const handleGenerateMultipageReel = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
+    if (!hasEnough("generate_social_post")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setGeneratingPostId(idea.id);
     setExpandedPostId(idea.id);
     setStreamingContent("");
@@ -380,6 +396,10 @@ const SocialMedia = () => {
 
   const handleGenerateHeygenTemplate = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
+    if (!hasEnough("heygen_video")) {
+      setShowCreditsDialog(true);
+      return;
+    }
 
     const templateId = selectedHeygenTemplateByIdea[idea.id];
     if (!templateId) {
@@ -522,6 +542,10 @@ const SocialMedia = () => {
 
   const handleGenerateHeygenAgent = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
+    if (!hasEnough("heygen_video")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setGeneratingPostId(idea.id);
     setExpandedPostId(idea.id);
     setVideoProgress("Sending to HeyGen Video Agent...");
@@ -614,6 +638,10 @@ const SocialMedia = () => {
     }
 
     if (generatingPostId) return;
+    if (!hasEnough("generate_social_post")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setGeneratingPostId(idea.id);
     setExpandedPostId(idea.id);
     setStreamingContent("");
@@ -960,6 +988,7 @@ const SocialMedia = () => {
   ]);
 
   return (
+    <>
     <PageLayout>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-3xl font-bold text-foreground mb-2">Social Media Generator</h1>
@@ -1094,6 +1123,8 @@ const SocialMedia = () => {
           </Tabs>
         </motion.div>
     </PageLayout>
+    <OutOfCreditsDialog open={showCreditsDialog} onOpenChange={setShowCreditsDialog} creditsAvailable={credits ?? 0} />
+    </>
   );
 };
 

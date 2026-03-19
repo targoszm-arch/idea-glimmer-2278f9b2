@@ -14,6 +14,8 @@ import { Save, Sparkles, Loader2, ArrowLeft, Settings, ImagePlus, X, Upload, Mes
 import CategoryPicker from "@/components/CategoryPicker";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
+import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 import EditorToolbar from "@/components/EditorToolbar";
 import AIAssistantPanel from "@/components/AIAssistantPanel";
 import { supabase } from "@/lib/supabase";
@@ -39,6 +41,8 @@ const NewArticle = () => {
   const [generatedMetaDescription, setGeneratedMetaDescription] = useState("");
   const [authorName, setAuthorName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showCreditsDialog, setShowCreditsDialog] = useState(false);
+  const { credits, hasEnough, deductLocally, redirectToPayment } = useCredits();
 
   const [aiSettings, setAiSettings] = useState<{
     tone_key: string;
@@ -81,6 +85,10 @@ const NewArticle = () => {
   const handleGenerate = useCallback(async () => {
     if (!topic.trim()) {
       toast({ title: "Enter a topic", description: "Please provide a topic to generate an article.", variant: "destructive" });
+      return;
+    }
+    if (!hasEnough("generate_article")) {
+      setShowCreditsDialog(true);
       return;
     }
 
@@ -141,6 +149,7 @@ const NewArticle = () => {
         }
 
         setIsGenerating(false);
+        deductLocally("generate_article");
         toast({ title: "Article generated!", description: "Review and edit the content, then save." });
       },
       onError: (error) => {
@@ -154,6 +163,10 @@ const NewArticle = () => {
     const imagePrompt = generatedMetaDescription.trim() || topic.trim() || title.trim();
     if (!imagePrompt) {
       toast({ title: "Enter a topic or title first", variant: "destructive" });
+      return;
+    }
+    if (!hasEnough("generate_cover_image")) {
+      setShowCreditsDialog(true);
       return;
     }
     setIsGeneratingImage(true);
@@ -294,6 +307,7 @@ const NewArticle = () => {
   };
 
   return (
+    <>
     <PageLayout hideFooter>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="mb-6 flex items-center justify-between">
@@ -465,6 +479,8 @@ const NewArticle = () => {
           </div>
         </motion.div>
     </PageLayout>
+    <OutOfCreditsDialog open={showCreditsDialog} onOpenChange={setShowCreditsDialog} creditsNeeded={CREDIT_COSTS.generate_article} creditsAvailable={credits ?? 0} />
+    </>
   );
 };
 

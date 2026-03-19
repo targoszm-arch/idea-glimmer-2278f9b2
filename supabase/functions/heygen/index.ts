@@ -24,12 +24,24 @@ serve(async (req) => {
     if (authError || !data?.claims) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
     }
+    const userId = data.claims.sub;
+
+    // Only deduct credits for generate action (not list/status/download)
+    const bodyText = await req.text();
+    const bodyJson = JSON.parse(bodyText);
+    if (bodyJson.action === 'generate') {
+      const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+      const { data: hasCredits } = await supabaseAdmin.rpc('deduct_credits', { p_user_id: userId, p_amount: 20, p_action: 'heygen_video' });
+      if (!hasCredits) {
+        return new Response(JSON.stringify({ error: 'Insufficient credits', code: 'NO_CREDITS' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
 
 
     const HEYGEN_API_KEY = Deno.env.get("HEYGEN_API_KEY");
     if (!HEYGEN_API_KEY) throw new Error("HEYGEN_API_KEY not configured");
 
-    const { action, template_id, variables, title, video_id, prompt } = await req.json();
+    const { action, template_id, variables, title, video_id, prompt } = bodyJson;
 
     const heygenHeaders = {
       "X-Api-Key": HEYGEN_API_KEY,
