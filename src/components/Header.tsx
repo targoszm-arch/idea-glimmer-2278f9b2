@@ -19,7 +19,7 @@ const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const { signOut } = useAuth();
-  const { credits, loading: creditsLoading, redirectToPayment } = useCredits();
+  const { credits, loading: creditsLoading } = useCredits();
 
   return (
     <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
