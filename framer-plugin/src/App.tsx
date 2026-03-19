@@ -11,13 +11,13 @@ type Article = {
 type Status = "idle" | "loading" | "syncing" | "success" | "error"
 
 const FIELDS = [
-  { id: "title", name: "Title", type: "string" as const },
-  { id: "body", name: "Body", type: "formattedText" as const },
-  { id: "excerpt", name: "Excerpt", type: "string" as const },
-  { id: "category", name: "Category", type: "string" as const },
-  { id: "cover_image", name: "Cover Image", type: "image" as const },
-  { id: "meta_description", name: "Meta Description", type: "string" as const },
-  { id: "published_date", name: "Published Date", type: "date" as const },
+  { id: "a1b2c3", name: "Title", type: "string" as const },
+  { id: "d4e5f6", name: "Body", type: "formattedText" as const },
+  { id: "7a8b9c", name: "Excerpt", type: "string" as const },
+  { id: "0d1e2f", name: "Category", type: "string" as const },
+  { id: "3a4b5c", name: "Cover Image", type: "image" as const },
+  { id: "6d7e8f", name: "Meta Description", type: "string" as const },
+  { id: "9a0b1c", name: "Published Date", type: "date" as const },
 ] as const
 
 // ── Managed Collection modes (called by Framer automatically) ──────────────
@@ -51,15 +51,15 @@ async function doSync(collection: any, category: string): Promise<{ count: numbe
 
   const items = articles.map((article) => {
     const fieldData: Record<string, any> = {
-      title: article.title,
-      body: article.content,
-      excerpt: article.excerpt,
-      category: article.category,
-      meta_description: article.meta_description,
-      published_date: article.created_at,
+      a1b2c3: article.title,
+      d4e5f6: article.content,
+      "7a8b9c": article.excerpt,
+      "0d1e2f": article.category,
+      "6d7e8f": article.meta_description,
+      "9a0b1c": article.created_at,
     }
     if (article.cover_image_url && !article.cover_image_url.startsWith("data:")) {
-      fieldData.cover_image = article.cover_image_url
+      fieldData["3a4b5c"] = article.cover_image_url
     }
     return { id: article.id, slug: article.slug, fieldData }
   })
