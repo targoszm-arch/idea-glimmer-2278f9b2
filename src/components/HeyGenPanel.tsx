@@ -233,6 +233,7 @@ export default function HeyGenPanel() {
   }, [selectedTemplate, templateDetail, variableValues, templates, generating, toast]);
 
   return (
+    <>
     <div className="space-y-6">
       {/* Header */}
       <div className="rounded-xl border border-border bg-card p-6">
