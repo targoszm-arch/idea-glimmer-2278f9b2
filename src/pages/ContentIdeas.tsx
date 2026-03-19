@@ -13,6 +13,8 @@ import { streamAI } from "@/lib/ai-stream";
 import { TONE_PRESETS } from "@/lib/tones";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 
 const strategyColors: Record<string, string> = {
   TOFU: "bg-emerald-100 text-emerald-700 border-emerald-200",
