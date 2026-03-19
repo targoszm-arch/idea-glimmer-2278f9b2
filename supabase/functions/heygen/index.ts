@@ -41,7 +41,7 @@ serve(async (req) => {
     const HEYGEN_API_KEY = Deno.env.get("HEYGEN_API_KEY");
     if (!HEYGEN_API_KEY) throw new Error("HEYGEN_API_KEY not configured");
 
-    const { action, template_id, variables, title, video_id, prompt } = await req.json();
+    const { action, template_id, variables, title, video_id, prompt } = bodyJson;
 
     const heygenHeaders = {
       "X-Api-Key": HEYGEN_API_KEY,
