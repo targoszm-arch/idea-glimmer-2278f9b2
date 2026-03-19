@@ -24,8 +24,10 @@ jobs:
 
       - name: Install Supabase CLI
         run: |
-          rm -rf supabase
-          wget -q https://github.com/supabase/cli/releases/download/v2.23.4/supabase_linux_amd64.tar.gz
+          rm -rf supabase supabase_linux_amd64.tar.gz
+          LATEST=$(curl -s https://api.github.com/repos/supabase/cli/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+          echo "Installing Supabase CLI $LATEST"
+          wget -q "https://github.com/supabase/cli/releases/download/${LATEST}/supabase_linux_amd64.tar.gz"
           tar -xzf supabase_linux_amd64.tar.gz
           sudo install -m 755 supabase /usr/local/bin/supabase
           rm -f supabase supabase_linux_amd64.tar.gz
@@ -35,7 +37,7 @@ jobs:
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
 
       - name: Run DB migrations
-        run: supabase db push --yes
+        run: supabase db push
 
       - name: Deploy Edge Functions
         run: |
