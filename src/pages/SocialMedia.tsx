@@ -12,6 +12,8 @@ import { getEdgeFunctionHeaders } from "@/lib/edge-function-auth";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import CarouselSlidePreview, { parseCarouselContent } from "@/components/CarouselSlidePreview";
+import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 const platforms = [
   { key: "linkedin", label: "LinkedIn", icon: Linkedin },
   { key: "youtube", label: "YouTube", icon: Youtube },
