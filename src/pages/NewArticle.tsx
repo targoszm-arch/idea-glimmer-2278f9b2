@@ -41,6 +41,8 @@ const NewArticle = () => {
   const [generatedMetaDescription, setGeneratedMetaDescription] = useState("");
   const [authorName, setAuthorName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showCreditsDialog, setShowCreditsDialog] = useState(false);
+  const { credits, hasEnough, deductLocally, redirectToPayment } = useCredits();
 
   const [aiSettings, setAiSettings] = useState<{
     tone_key: string;
