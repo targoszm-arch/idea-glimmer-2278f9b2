@@ -11,6 +11,8 @@ import { Loader2, Plus, Trash2, Sparkles, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { generateTemplate, templateTypes, type TemplateItem, type TemplateType } from "@/lib/infographic-templates";
+import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 
 const sampleData: Record<TemplateType, TemplateItem[]> = {
   stats: [
