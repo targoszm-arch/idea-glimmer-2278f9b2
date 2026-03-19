@@ -69,6 +69,8 @@ export default function HeyGenPanel() {
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
+  const [showCreditsDialog, setShowCreditsDialog] = useState(false);
+  const { credits, hasEnough, deductLocally } = useCredits();
 
   useEffect(() => {
     return () => {
