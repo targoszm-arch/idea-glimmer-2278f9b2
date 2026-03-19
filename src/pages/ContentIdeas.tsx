@@ -37,6 +37,8 @@ const ContentIdeas = () => {
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [schedulingId, setSchedulingId] = useState<string | null>(null);
   const [generatingArticleId, setGeneratingArticleId] = useState<string | null>(null);
+  const [showCreditsDialog, setShowCreditsDialog] = useState(false);
+  const { credits, hasEnough, deductLocally } = useCredits();
   const [aiSettings, setAiSettings] = useState<{
     app_description: string;
     app_audience: string;
