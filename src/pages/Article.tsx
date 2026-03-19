@@ -44,7 +44,7 @@ const Article = () => {
       const { data, error } = await supabase.from("articles").select("*").eq("id", id).single();
       if (error || !data) {
         toast({ title: "Article not found", variant: "destructive" });
-        navigate("/");
+        navigate("/dashboard");
         return;
       }
       setArticle(data as ArticleType);
