@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { PenSquare, Filter, Loader2 } from "lucide-react";
+import { PenSquare, Filter, Loader2, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import ArticleCard from "@/components/ArticleCard";
@@ -12,7 +12,62 @@ const Dashboard = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "published">("all");
+  const [syncing, setSyncing] = useState(false);
   const location = useLocation();
+
+  const handleSyncFramer = async () => {
+    setSyncing(true);
+    try {
+      // Get all published articles and push each to Framer
+      const { data: articles, error } = await supabase
+        .from("articles")
+        .select("id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at")
+        .eq("status", "published");
+
+      if (error) throw error;
+      if (!articles?.length) {
+        toast({ title: "No published articles", description: "Publish some articles first." });
+        setSyncing(false);
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      let synced = 0;
+      let failed = 0;
+      for (const article of articles) {
+        try {
+          const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/publish-to-framer`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              article_id: article.id,
+              title: article.title,
+              slug: article.slug,
+              content: article.content,
+              excerpt: article.excerpt,
+              meta_description: article.meta_description,
+              category: article.category,
+              cover_image_url: article.cover_image_url,
+              framer_item_id: (article as any).framer_item_id ?? null,
+            }),
+          });
+          if (res.ok) synced++;
+          else failed++;
+        } catch { failed++; }
+      }
+
+      toast({
+        title: `Synced ${synced} article${synced !== 1 ? "s" : ""} to Framer`,
+        description: failed > 0 ? `${failed} failed — check Supabase logs.` : "All articles synced successfully.",
+      });
+    } catch (err: any) {
+      toast({ title: "Framer sync failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     fetchArticles();
