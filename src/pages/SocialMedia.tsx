@@ -634,6 +634,10 @@ const SocialMedia = () => {
     }
 
     if (generatingPostId) return;
+    if (!hasEnough("generate_social_post")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setGeneratingPostId(idea.id);
     setExpandedPostId(idea.id);
     setStreamingContent("");
