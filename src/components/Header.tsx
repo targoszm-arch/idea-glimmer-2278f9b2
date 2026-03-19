@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut, Coins } from "lucide-react";
+import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut, Coins, HelpCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCredits } from "@/hooks/use-credits";
+import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const navItems = [
   { label: "Library", href: "/", icon: Library },
