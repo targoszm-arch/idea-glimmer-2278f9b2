@@ -64,9 +64,10 @@ export async function syncArticles(collection: any, category: string): Promise<n
       [F.metaDesc]: a.meta_description ?? "",
       [F.pubDate]:  a.created_at ?? "",
     }
-    // Pass URL directly — Framer downloads & hosts automatically, just like Make CMS Sync
+    // Supabase Storage gives absolute public URLs — pass directly as image src
+    // Framer CMS accepts { src: "https://..." } for image fields in addItems
     if (a.cover_image_url) {
-      fieldData[F.image] = { url: a.cover_image_url }
+      fieldData[F.image] = a.cover_image_url
     }
     return { id: a.id, slug: a.slug, fieldData }
   })
