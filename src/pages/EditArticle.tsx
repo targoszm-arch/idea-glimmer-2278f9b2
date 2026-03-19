@@ -345,6 +345,7 @@ const EditArticle = () => {
   }
 
   return (
+    <>
     <PageLayout hideFooter>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <div className="mb-6 flex items-center justify-between">
