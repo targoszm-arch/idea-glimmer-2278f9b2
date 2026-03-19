@@ -1,10 +1,9 @@
-name: Supabase Deploy
+name: Supabase Deploy Functions
 
 on:
   push:
     branches: [ main ]
     paths:
-      - 'supabase/migrations/**'
       - 'supabase/functions/**'
       - '.github/workflows/supabase-deploy.yml'
   workflow_dispatch:
@@ -18,14 +17,6 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.30.4
-
-      - run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_CLI_LOGIN_TOKEN }}
-
-      - run: supabase db push
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_CLI_LOGIN_TOKEN }}
 
       - run: |
           for fn in framer-sync-articles framer-probe make-webhook; do
