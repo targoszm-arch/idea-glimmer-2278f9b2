@@ -1,5 +1,6 @@
 {
-  "id": "787f11",
+  "id": "f50fe8",
   "name": "Skill Studio Blog Sync",
-  "modes": ["configureManagedCollection", "syncManagedCollection"]
+  "modes": ["configureManagedCollection", "syncManagedCollection"],
+  "icon": "/icon.svg"
 }
