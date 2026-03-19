@@ -298,6 +298,10 @@ const SocialMedia = () => {
 
   const handleGenerateMultipageReel = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
+    if (!hasEnough("generate_social_post")) {
+      setShowCreditsDialog(true);
+      return;
+    }
     setGeneratingPostId(idea.id);
     setExpandedPostId(idea.id);
     setStreamingContent("");
