@@ -11,13 +11,13 @@ type Article = {
 type Status = "idle" | "loading" | "syncing" | "success" | "error"
 
 const FIELDS = [
-  { id: "a1b2c3", name: "Title", type: "string" as const },
-  { id: "d4e5f6", name: "Body", type: "formattedText" as const },
-  { id: "7a8b9c", name: "Excerpt", type: "string" as const },
-  { id: "0d1e2f", name: "Category", type: "string" as const },
-  { id: "3a4b5c", name: "Cover Image", type: "image" as const },
-  { id: "6d7e8f", name: "Meta Description", type: "string" as const },
-  { id: "9a0b1c", name: "Published Date", type: "date" as const },
+  { id: "fldaaa", name: "Title", type: "string" as const },
+  { id: "fldbbb", name: "Body", type: "formattedText" as const },
+  { id: "fldccc", name: "Excerpt", type: "string" as const },
+  { id: "fldddd", name: "Category", type: "string" as const },
+  { id: "fldeee", name: "Cover Image", type: "image" as const },
+  { id: "fldfff", name: "Meta Description", type: "string" as const },
+  { id: "fldggg", name: "Published Date", type: "date" as const },
 ] as const
 
 // ── Managed Collection modes (called by Framer automatically) ──────────────
@@ -51,15 +51,15 @@ async function doSync(collection: any, category: string): Promise<{ count: numbe
 
   const items = articles.map((article) => {
     const fieldData: Record<string, any> = {
-      a1b2c3: article.title,
-      d4e5f6: article.content,
-      "7a8b9c": article.excerpt,
-      "0d1e2f": article.category,
-      "6d7e8f": article.meta_description,
-      "9a0b1c": article.created_at,
+      fldaaa: article.title,
+      fldbbb: article.content,
+      fldccc: article.excerpt,
+      fldddd: article.category,
+      fldfff: article.meta_description,
+      fldggg: article.created_at,
     }
     if (article.cover_image_url && !article.cover_image_url.startsWith("data:")) {
-      fieldData["3a4b5c"] = article.cover_image_url
+      fieldData.fldeee = article.cover_image_url
     }
     return { id: article.id, slug: article.slug, fieldData }
   })
