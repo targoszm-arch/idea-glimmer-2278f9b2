@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut, Coins, HelpCircle } from "lucide-react";
+import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut, Coins, HelpCircle, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import { useCredits, CREDIT_COSTS, STRIPE_URLS } from "@/hooks/use-credits";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const navItems = [
@@ -19,7 +19,7 @@ const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const { signOut } = useAuth();
-  const { credits, loading: creditsLoading, redirectToPayment } = useCredits();
+  const { credits, loading: creditsLoading } = useCredits();
 
   return (
     <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -53,14 +53,12 @@ const Header = () => {
         <div className="flex items-center gap-3">
           {/* Credits badge + help */}
           <div className="inline-flex items-center gap-1">
-            <button
-              onClick={redirectToPayment}
-              className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent/80"
-              title="Buy more credits"
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground"
             >
               <Coins className="h-4 w-4 text-primary" />
               {creditsLoading ? "…" : credits ?? 0}
-            </button>
+            </span>
 
             <Popover>
               <PopoverTrigger asChild>
@@ -88,9 +86,16 @@ const Header = () => {
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 pt-3 border-t border-border">
-                  <button onClick={redirectToPayment} className="text-primary hover:underline text-xs font-medium">
-                    Buy more credits →
+                <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+                  <button onClick={() => window.open(STRIPE_URLS.topUp100, "_blank")} className="block text-primary hover:underline text-xs font-medium">
+                    Buy 100 credits — €25 →
+                  </button>
+                  <button onClick={() => window.open(STRIPE_URLS.topUp200, "_blank")} className="block text-primary hover:underline text-xs font-medium">
+                    Buy 200 credits — €50 →
+                  </button>
+                  <button onClick={() => window.open(STRIPE_URLS.customerPortal, "_blank")} className="flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline text-xs">
+                    <ExternalLink className="h-3 w-3" />
+                    Manage Billing
                   </button>
                 </div>
               </PopoverContent>

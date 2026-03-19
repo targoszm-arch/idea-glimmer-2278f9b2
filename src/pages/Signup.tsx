@@ -37,7 +37,7 @@ const Signup = () => {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Skill Studio AI <span className="text-primary">ContentLab</span>
           </h1>
-          <p className="text-sm text-muted-foreground">Create your account</p>
+          <p className="text-sm text-muted-foreground">Create your account — €49 plan includes 200 credits</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
