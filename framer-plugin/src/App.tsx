@@ -176,7 +176,7 @@ export default function App() {
 
       {/* Source picker */}
       <select style={{ ...s.select, width: "100%", boxSizing: "border-box" }}>
-        <option>Articles from ContentLab API</option>
+        <option>ContentLab — Blog Articles</option>
       </select>
 
       {/* API Key */}
