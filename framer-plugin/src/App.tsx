@@ -8,6 +8,7 @@ type Article = {
   cover_image_url: string | null; created_at: string
 }
 
+// Field IDs — 6 hex chars, start with letter
 const F = {
   title:    "fldaaa",
   body:     "fldbbb",
@@ -30,14 +31,16 @@ const FIELDS = [
 
 export async function configureManagedCollection() {
   const collection = await framer.getManagedCollection()
-  if (!collection) return
+  if (!collection) { framer.notify("No collection found"); return }
   await collection.setFields(FIELDS)
-  framer.notify("Skill Studio: Collection ready ✓")
+  framer.notify("ContentLab: Collection configured ✓")
 }
 
 export async function syncManagedCollection() {
   const collection = await framer.getManagedCollection()
-  if (!collection) return
+  if (!collection) { framer.notify("No collection found"); return }
+  // Ensure fields are always set before syncing
+  await collection.setFields(FIELDS)
   try {
     const count = await syncArticles(collection, "all")
     framer.notify(count > 0 ? `Synced ${count} article(s) ✓` : "No articles to sync.")
@@ -51,24 +54,28 @@ export async function syncArticles(collection: any, category: string): Promise<n
   const res = await fetch(`${SYNC_ENDPOINT}?status=published${param}`, {
     headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, apikey: SUPABASE_ANON_KEY },
   })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
   const { articles } = await res.json() as { articles: Article[] }
   if (!articles?.length) return 0
 
-  const items = articles.map((a) => {
-    const fieldData: Record<string, any> = {
+  const items = articles.map((a) => ({
+    id: a.id,
+    slug: a.slug,
+    fieldData: {
       [F.title]:    { type: "string",        value: a.title ?? "" },
       [F.body]:     { type: "formattedText", value: a.content ?? "" },
       [F.excerpt]:  { type: "string",        value: a.excerpt ?? "" },
       [F.category]: { type: "string",        value: a.category ?? "" },
       [F.metaDesc]: { type: "string",        value: a.meta_description ?? "" },
       [F.pubDate]:  { type: "date",          value: a.created_at ?? "" },
-    }
-    // Supabase Storage URL is absolute public HTTPS — Framer downloads & hosts it
-    // ImageFieldDataEntryInput: { type: "image", value: string | null }
-    fieldData[F.image] = { type: "image", value: a.cover_image_url ?? null }
-    return { id: a.id, slug: a.slug, fieldData }
-  })
+      [F.image]:    { type: "image",         value: a.cover_image_url ?? null },
+    },
+  }))
+
+  // Check permissions before calling addItems
+  if (!framer.isAllowedTo("ManagedCollection.addItems")) {
+    throw new Error("Plugin does not have permission to add items")
+  }
 
   await collection.addItems(items)
   return items.length
@@ -97,6 +104,8 @@ export default function App() {
     try {
       const collection = await framer.getManagedCollection()
       if (!collection) throw new Error("No collection — add plugin via CMS → Add Plugin first.")
+      // Always re-set fields to ensure IDs match
+      await collection.setFields(FIELDS)
       const count = await syncArticles(collection, selectedCategory)
       setLastSync(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))
       setStatus("success")
@@ -117,8 +126,8 @@ export default function App() {
           <path d="M5 5h10v3.5H8.5V10H14v3H8.5v2H5V5z" fill="white"/>
         </svg>
         <div style={{ flex: 1 }}>
-          <div style={s.title}>Skill Studio</div>
-          <div style={s.sub}>ContentLab → Framer CMS</div>
+          <div style={s.title}>ContentLab</div>
+          <div style={s.sub}>Skill Studio AI → Framer CMS</div>
         </div>
         {totalCount !== null && <div style={s.badge}>{totalCount} articles</div>}
       </div>
