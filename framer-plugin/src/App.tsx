@@ -8,7 +8,8 @@ type Article = {
   cover_image_url: string | null; created_at: string
 }
 
-// Field IDs — 6 hex chars, start with letter
+const SIGNUP_URL = "https://contentlab.skillstudio.ai/signup"
+
 const F = {
   title:    "fldaaa",
   body:     "fldbbb",
@@ -31,15 +32,14 @@ const FIELDS = [
 
 export async function configureManagedCollection() {
   const collection = await framer.getManagedCollection()
-  if (!collection) { framer.notify("No collection found"); return }
+  if (!collection) return
   await collection.setFields(FIELDS)
   framer.notify("ContentLab: Collection configured ✓")
 }
 
 export async function syncManagedCollection() {
   const collection = await framer.getManagedCollection()
-  if (!collection) { framer.notify("No collection found"); return }
-  // Ensure fields are always set before syncing
+  if (!collection) return
   await collection.setFields(FIELDS)
   try {
     const count = await syncArticles(collection, "all")
@@ -72,17 +72,15 @@ export async function syncArticles(collection: any, category: string): Promise<n
     },
   }))
 
-  // Check permissions before calling addItems
-  if (!framer.isAllowedTo("ManagedCollection.addItems")) {
-    throw new Error("Plugin does not have permission to add items")
-  }
-
   await collection.addItems(items)
   return items.length
 }
 
-// ── UI ──────────────────────────────────────────────────────────────────────
+// ── UI ───────────────────────────────────────────────────────────────────────
+type Screen = "onboard" | "sync"
+
 export default function App() {
+  const [screen, setScreen] = useState<Screen>("onboard")
   const [status, setStatus] = useState<"idle"|"syncing"|"success"|"error">("idle")
   const [message, setMessage] = useState("")
   const [categories, setCategories] = useState<string[]>([])
@@ -95,7 +93,12 @@ export default function App() {
       headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, apikey: SUPABASE_ANON_KEY },
     })
       .then(r => r.json())
-      .then(d => { setCategories(d.categories ?? []); setTotalCount(d.count ?? null) })
+      .then(d => {
+        setCategories(d.categories ?? [])
+        setTotalCount(d.count ?? null)
+        // If articles exist, skip onboarding
+        if ((d.count ?? 0) > 0) setScreen("sync")
+      })
       .catch(() => {})
   }, [])
 
@@ -104,7 +107,6 @@ export default function App() {
     try {
       const collection = await framer.getManagedCollection()
       if (!collection) throw new Error("No collection — add plugin via CMS → Add Plugin first.")
-      // Always re-set fields to ensure IDs match
       await collection.setFields(FIELDS)
       const count = await syncArticles(collection, selectedCategory)
       setLastSync(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))
@@ -118,12 +120,47 @@ export default function App() {
 
   const syncing = status === "syncing"
 
+  // ── Onboarding screen ──────────────────────────────────────────────────────
+  if (screen === "onboard") {
+    return (
+      <main style={s.root}>
+        {/* Logo */}
+        <div style={s.logoWrap}>
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+            <rect width="48" height="48" rx="12" fill="#EEF2FF"/>
+            <text x="24" y="32" textAnchor="middle" fontSize="22" fontWeight="bold" fontFamily="system-ui" fill="#2563EB">CL</text>
+          </svg>
+        </div>
+
+        <div style={s.onboardTitle}>ContentLab</div>
+        <div style={s.onboardSub}>
+          Connect your ContentLab collection set to sync articles to Framer.
+        </div>
+
+        <a href={SIGNUP_URL} target="_blank" rel="noreferrer" style={s.visitLink}>
+          Visit ContentLab Website →
+        </a>
+
+        <div style={s.divider}/>
+
+        <div style={s.onboardDesc}>
+          Already have an account? Click below to start syncing your published articles directly into this Framer CMS collection.
+        </div>
+
+        <button style={s.nextBtn} onClick={() => setScreen("sync")}>
+          Get Started →
+        </button>
+      </main>
+    )
+  }
+
+  // ── Sync screen ────────────────────────────────────────────────────────────
   return (
     <main style={s.root}>
       <div style={s.header}>
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-          <rect width="20" height="20" rx="5" fill="#0066FF"/>
-          <path d="M5 5h10v3.5H8.5V10H14v3H8.5v2H5V5z" fill="white"/>
+          <rect width="20" height="20" rx="5" fill="#2563EB"/>
+          <text x="10" y="14" textAnchor="middle" fontSize="9" fontWeight="bold" fontFamily="system-ui" fill="white">CL</text>
         </svg>
         <div style={{ flex: 1 }}>
           <div style={s.title}>ContentLab</div>
@@ -152,25 +189,32 @@ export default function App() {
       {lastSync && <div style={s.meta}>Last synced at {lastSync}</div>}
 
       <div style={s.divider}/>
-      <p style={s.hint}>First time? Add via <strong>CMS → Add Plugin</strong>, then sync.</p>
+      <a href={SIGNUP_URL} target="_blank" rel="noreferrer" style={{ ...s.visitLink, fontSize: 11 }}>
+        Visit ContentLab Website →
+      </a>
     </main>
   )
 }
 
 const s: Record<string, React.CSSProperties> = {
-  root:    { fontFamily: "system-ui,sans-serif", padding: 16, display: "flex", flexDirection: "column", gap: 10, background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", minHeight: "100vh", boxSizing: "border-box" },
-  header:  { display: "flex", alignItems: "center", gap: 10 },
-  title:   { fontWeight: 700, fontSize: 13 },
-  sub:     { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)" },
-  badge:   { marginLeft: "auto", background: "var(--framer-color-bg-secondary,#f0f0f0)", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" },
-  divider: { height: 1, background: "var(--framer-color-divider,#eee)" },
-  label:   { fontSize: 11, fontWeight: 600, color: "var(--framer-color-text-secondary,#666)", textTransform: "uppercase", letterSpacing: "0.05em" },
-  select:  { width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--framer-color-divider,#ddd)", background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", fontSize: 13 },
-  btn:     { background: "#0066FF", color: "#fff", border: "none", borderRadius: 8, padding: "10px 0", fontSize: 13, fontWeight: 600, cursor: "pointer", width: "100%" },
-  btnOff:  { opacity: 0.5, cursor: "not-allowed" },
-  msg:     { fontSize: 12, borderRadius: 6, padding: "8px 10px" },
-  msgOk:   { background: "#e6f4ea", color: "#1a6b35" },
-  msgErr:  { background: "#fdecea", color: "#8b1a1a" },
-  meta:    { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)", textAlign: "center" },
-  hint:    { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)", lineHeight: 1.5, margin: 0 },
+  root:         { fontFamily: "system-ui,sans-serif", padding: 20, display: "flex", flexDirection: "column", gap: 12, background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", minHeight: "100vh", boxSizing: "border-box", alignItems: "stretch" },
+  logoWrap:     { display: "flex", justifyContent: "center", marginTop: 8 },
+  onboardTitle: { textAlign: "center", fontWeight: 700, fontSize: 16 },
+  onboardSub:   { textAlign: "center", fontSize: 13, color: "var(--framer-color-text-secondary,#555)", lineHeight: 1.5 },
+  visitLink:    { textAlign: "center", color: "#2563EB", fontSize: 13, textDecoration: "none", cursor: "pointer" },
+  onboardDesc:  { fontSize: 12, color: "var(--framer-color-text-secondary,#666)", lineHeight: 1.6, textAlign: "center" },
+  nextBtn:      { background: "#2563EB", color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%", marginTop: 4 },
+  header:       { display: "flex", alignItems: "center", gap: 10 },
+  title:        { fontWeight: 700, fontSize: 13 },
+  sub:          { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)" },
+  badge:        { marginLeft: "auto", background: "var(--framer-color-bg-secondary,#f0f0f0)", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" },
+  divider:      { height: 1, background: "var(--framer-color-divider,#eee)" },
+  label:        { fontSize: 11, fontWeight: 600, color: "var(--framer-color-text-secondary,#666)", textTransform: "uppercase", letterSpacing: "0.05em" },
+  select:       { width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--framer-color-divider,#ddd)", background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", fontSize: 13 },
+  btn:          { background: "#2563EB", color: "#fff", border: "none", borderRadius: 8, padding: "10px 0", fontSize: 13, fontWeight: 600, cursor: "pointer", width: "100%" },
+  btnOff:       { opacity: 0.5, cursor: "not-allowed" },
+  msg:          { fontSize: 12, borderRadius: 6, padding: "8px 10px" },
+  msgOk:        { background: "#e6f4ea", color: "#1a6b35" },
+  msgErr:       { background: "#fdecea", color: "#8b1a1a" },
+  meta:         { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)", textAlign: "center" },
 }
