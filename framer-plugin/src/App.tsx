@@ -50,10 +50,11 @@ export async function syncManagedCollection() {
   }
 }
 
-export async function syncArticles(collection: any, category: string): Promise<number> {
+export async function syncArticles(collection: any, category: string, apiKey?: string): Promise<number> {
   const param = category !== "all" ? `&category=${encodeURIComponent(category)}` : ""
+  const key = apiKey || SUPABASE_ANON_KEY
   const res = await fetch(`${SYNC_ENDPOINT}?status=published${param}`, {
-    headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, apikey: SUPABASE_ANON_KEY },
+    headers: { Authorization: `Bearer ${key}`, apikey: SUPABASE_ANON_KEY },
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
   const { articles } = await res.json() as { articles: Article[] }
@@ -98,16 +99,17 @@ export default function App() {
         setSavedKey(key)
         setApiKey(key)
         setScreen("sync")
-        loadArticleCount()
+        loadArticleCount(trimmed)
       } else {
         setScreen("onboard")
       }
     })
   }, [])
 
-  function loadArticleCount() {
+  function loadArticleCount(key?: string) {
+    const k = key || savedKey || SUPABASE_ANON_KEY
     fetch(`${SYNC_ENDPOINT}?status=published`, {
-      headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, apikey: SUPABASE_ANON_KEY },
+      headers: { Authorization: `Bearer ${k}`, apikey: SUPABASE_ANON_KEY },
     })
       .then(r => r.json())
       .then(d => { setCategories(d.categories ?? []); setTotalCount(d.count ?? null) })
@@ -131,7 +133,7 @@ export default function App() {
       const collection = await framer.getManagedCollection()
       if (!collection) throw new Error("No collection — add plugin via CMS → Add Plugin first.")
       await collection.setFields(FIELDS)
-      const count = await syncArticles(collection, selectedCategory)
+      const count = await syncArticles(collection, selectedCategory, savedKey)
       setLastSync(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))
       setStatus("success")
       setMessage(count === 0 ? "No articles found." : `${count} article${count !== 1 ? "s" : ""} synced.`)

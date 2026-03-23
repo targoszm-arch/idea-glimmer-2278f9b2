@@ -1,50 +1,74 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { requireAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
-  // Exception: the Framer plugin calls this with the anon key — it is a
-  // read-only endpoint that only ever returns *published* articles.
-  // We still validate the token is a legitimate Supabase session; we just
-  // always force status = "published" so callers can never read drafts.
   const authHeader = req.headers.get("Authorization") ?? "";
   const token = authHeader.replace("Bearer ", "").trim();
+
   if (!token) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  // Verify it's a valid Supabase token (anon or user JWT both accepted here
-  // because Framer plugin users are not logged-in to your app).
-  // The key protection is that status is HARDCODED to "published" below.
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  // Check if token is a ContentLab API key (starts with cl_)
+  let userId: string | null = null;
+
+  if (token.startsWith("cl_")) {
+    // Validate against api_keys table
+    const { data: keyData } = await adminSupabase
+      .from("api_keys")
+      .select("user_id")
+      .eq("key", token)
+      .single();
+
+    if (!keyData) {
+      return new Response(JSON.stringify({ error: "Invalid API key" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    userId = keyData.user_id;
+
+    // Update last_used_at
+    await adminSupabase.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("key", token);
+  } else {
+    // Fall back to Supabase JWT (anon key for dev)
+    const anonSupabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user } } = await anonSupabase.auth.getUser();
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    userId = user.id;
+  }
 
   try {
     const url = new URL(req.url);
-    const since = url.searchParams.get("since");
     const categoryFilter = url.searchParams.get("category");
 
-    // ── SECURITY: status is ALWAYS "published" — never trust the caller ──────
-    let query = supabase
+    let query = adminSupabase
       .from("articles")
-      .select("id, title, slug, content, excerpt, meta_description, category, cover_image_url, status, created_at, updated_at")
-      .eq("status", "published")          // ← hardcoded, not from query param
+      .select("id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, updated_at")
+      .eq("status", "published")
+      .eq("user_id", userId)
       .order("updated_at", { ascending: false })
       .limit(500);
 
-    if (since) query = query.gte("updated_at", since);
     if (categoryFilter && categoryFilter !== "all") {
       query = query.ilike("category", categoryFilter);
     }
@@ -52,11 +76,11 @@ serve(async (req) => {
     const { data, error } = await query;
     if (error) throw error;
 
-    // Return distinct categories for the plugin's category picker
-    const catResult = await supabase
+    const catResult = await adminSupabase
       .from("articles")
       .select("category")
       .eq("status", "published")
+      .eq("user_id", userId)
       .not("category", "is", null);
 
     const categories = [...new Set(
@@ -68,7 +92,6 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("framer-sync-articles error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
