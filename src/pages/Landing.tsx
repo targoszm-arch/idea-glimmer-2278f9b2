@@ -33,7 +33,7 @@ const Landing = () => {
       <header className="border-b border-border bg-background/95 backdrop-blur">
         <div className="container flex h-16 items-center justify-between">
           <span className="flex items-center gap-2 text-xl font-bold tracking-tight">
-            <img src={contentLabLogo} alt="ContentLab Logo" className="h-8 w-auto" />
+            <img src={contentLabLogo} alt="ContentLab Logo" className="h-12 w-auto" />
             Skill Studio AI <span className="text-primary">ContentLab</span>
           </span>
           <div className="flex items-center gap-3">
