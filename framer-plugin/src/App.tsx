@@ -66,7 +66,7 @@ export async function syncArticles(collection: any, category: string): Promise<n
     }
     // Supabase Storage URL is absolute public HTTPS — Framer downloads & hosts it
     if (a.cover_image_url) {
-      fieldData[F.image] = { type: "image", value: a.cover_image_url }
+      fieldData[F.image] = a.cover_image_url  // image field takes raw string URL, no wrapper
     }
     return { id: a.id, slug: a.slug, fieldData }
   })
