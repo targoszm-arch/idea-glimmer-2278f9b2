@@ -20,6 +20,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Integrations from "./pages/Integrations";
 import APIKey from "./pages/APIKey";
+import PaymentSuccess from "./pages/PaymentSuccess";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/social" element={<ProtectedRoute><SocialMedia /></ProtectedRoute>} />
             <Route path="/brand" element={<ProtectedRoute><BrandAssets /></ProtectedRoute>} />
             <Route path="/framer-plugin-setup" element={<ProtectedRoute><FramerPlugin /></ProtectedRoute>} />
+            <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/settings/api-key" element={<ProtectedRoute><APIKey /></ProtectedRoute>} />
             <Route path="/settings/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
