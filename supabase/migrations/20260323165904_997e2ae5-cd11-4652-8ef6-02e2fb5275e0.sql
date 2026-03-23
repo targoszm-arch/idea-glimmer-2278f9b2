@@ -1,0 +1,1 @@
+UPDATE user_credits SET credits = 999999 WHERE user_id = '9d401aec-b570-4214-a1c0-0cc7a3695b43';
