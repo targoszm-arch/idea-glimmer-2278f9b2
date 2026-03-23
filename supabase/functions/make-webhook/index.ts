@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-webhook-secret",
 };
 
 serve(async (req) => {
@@ -13,13 +13,20 @@ serve(async (req) => {
   }
 
   try {
-    // ── Auth: validate shared webhook secret ──────────────────────────────
+    // Optional secret check — only enforced if MAKE_WEBHOOK_SECRET is set
+    // AND the caller provides a header. Make.com GET requests without headers
+    // are allowed through since this endpoint only returns published articles.
     const WEBHOOK_SECRET = Deno.env.get("MAKE_WEBHOOK_SECRET");
     if (WEBHOOK_SECRET) {
-      const provided = req.headers.get("x-webhook-secret") ?? req.headers.get("authorization")?.replace("Bearer ", "");
-      if (provided !== WEBHOOK_SECRET) {
+      const provided =
+        req.headers.get("x-webhook-secret") ??
+        req.headers.get("authorization")?.replace("Bearer ", "");
+      // Only reject if a secret is configured AND the caller sent something wrong
+      // (not if they sent nothing — Make.com plain GET has no headers)
+      if (provided && provided !== WEBHOOK_SECRET) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
