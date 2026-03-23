@@ -87,7 +87,7 @@ export default function Integrations() {
     const { data } = await supabase.from("user_integrations" as any).select("platform, platform_user_name, platform_user_id");
     if (data) {
       const map: Record<string, Integration | null> = { framer: null, notion: null, shopify: null, intercom: null, google: null };
-      for (const item of data) map[item.platform] = item as Integration;
+      for (const item of data as any[]) map[item.platform] = item as Integration;
       setConnected(map as Record<Platform, Integration | null>);
     }
     setLoading(false);
