@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut, Coins, HelpCircle, ExternalLink, Plug } from "lucide-react";
+import contentLabLogo from "@/assets/ContentLab_Logo.png";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,7 +27,8 @@ const Header = () => {
     <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="container flex h-14 items-center justify-between px-6">
         <div className="flex items-center gap-8">
-          <Link to="/dashboard" className="text-xl font-bold tracking-tight text-foreground">
+          <Link to="/dashboard" className="flex items-center gap-2 text-xl font-bold tracking-tight text-foreground">
+            <img src={contentLabLogo} alt="ContentLab Logo" className="h-7 w-auto" />
             Skill Studio AI <span className="text-primary">ContentLab</span>
           </Link>
           <nav className="hidden md:flex items-center gap-1">
