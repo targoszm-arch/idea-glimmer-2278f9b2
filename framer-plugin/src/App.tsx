@@ -255,7 +255,7 @@ const s: Record<string, React.CSSProperties> = {
   visitLink:     { textAlign: "center", color: "#2563EB", fontSize: 13, textDecoration: "none", cursor: "pointer" },
   divider:       { height: 1, background: "var(--framer-color-divider,#eee)" },
   selectWrap:    { width: "100%" },
-  select:        { width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid var(--framer-color-divider,#ddd)", background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", fontSize: 13 },
+  select:        { width: "100%", padding: "8px 10px", height: 36, borderRadius: 8, border: "1px solid var(--framer-color-divider,#ddd)", background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", fontSize: 13, appearance: "auto" },
   fieldRow:      { display: "flex", alignItems: "center", gap: 10 },
   fieldLabel:    { fontSize: 13, color: "var(--framer-color-text-secondary,#555)", width: 56, flexShrink: 0 },
   input:         { flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--framer-color-divider,#ddd)", background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", fontSize: 13, outline: "none" },
