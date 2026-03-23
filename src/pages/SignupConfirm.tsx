@@ -1,16 +1,30 @@
 import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
-// Stripe checkout URL with success redirect back to ContentLab
-const STRIPE_URL = "https://buy.stripe.com/bJe6oH2v92vRbJG9J17EQ0f?success_url=" + 
-  encodeURIComponent(window.location.origin + "/framer-success") +
-  "&cancel_url=" + encodeURIComponent(window.location.origin + "/signup");
+const STRIPE_BASE = "https://buy.stripe.com/bJe6oH2v92vRbJG9J17EQ0f";
 
 const SignupConfirm = () => {
   useEffect(() => {
-    // Small delay so Supabase session is established, then go to Stripe
-    const t = setTimeout(() => {
-      window.location.href = STRIPE_URL;
-    }, 1500);
+    const redirect = async () => {
+      // Get the user's email from the session to prefill Stripe
+      const { data: { session } } = await supabase.auth.getSession();
+      const email = session?.user?.email ?? "";
+      const userId = session?.user?.id ?? "";
+
+      // Pass email + client_reference_id (user ID) to Stripe
+      // client_reference_id lets the webhook identify the user
+      const params = new URLSearchParams({
+        prefilled_email: email,
+        client_reference_id: userId,
+        success_url: `${window.location.origin}/payment-success`,
+        cancel_url: `${window.location.origin}/signup`,
+      });
+
+      window.location.href = `${STRIPE_BASE}?${params.toString()}`;
+    };
+
+    // Small delay to ensure session is fully established
+    const t = setTimeout(redirect, 1000);
     return () => clearTimeout(t);
   }, []);
 
@@ -29,8 +43,7 @@ const SignupConfirm = () => {
           </p>
         </div>
         <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
-          <div className="h-full bg-primary animate-[grow_1.5s_ease-in-out_forwards] rounded-full" 
-               style={{width: "0%", animation: "grow 1.5s ease-in-out forwards"}}/>
+          <div className="h-full bg-primary rounded-full" style={{width: "0%", animation: "grow 1s ease-in-out forwards"}}/>
         </div>
       </div>
       <style>{`@keyframes grow { from { width: 0% } to { width: 100% } }`}</style>
