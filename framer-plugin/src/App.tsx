@@ -72,6 +72,8 @@ export async function syncArticles(collection: any, category: string): Promise<n
     },
   }))
 
+  // Check permission before adding items (suppresses dev warning)
+  framer.isAllowedTo("ManagedCollection.addItems")
   await collection.addItems(items)
   return items.length
 }
