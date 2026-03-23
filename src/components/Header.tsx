@@ -28,7 +28,7 @@ const Header = () => {
       <div className="container flex h-14 items-center justify-between px-6">
         <div className="flex items-center gap-8">
           <Link to="/dashboard" className="flex items-center gap-2 text-xl font-bold tracking-tight text-foreground">
-            <img src={contentLabLogo} alt="ContentLab Logo" className="h-7 w-auto" />
+            <img src={contentLabLogo} alt="ContentLab Logo" className="h-10 w-auto" />
             Skill Studio AI <span className="text-primary">ContentLab</span>
           </Link>
           <nav className="hidden md:flex items-center gap-1">
