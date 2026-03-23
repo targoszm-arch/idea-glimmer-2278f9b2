@@ -15,7 +15,7 @@ if (didSync) {
     // Close the plugin immediately after background sync — this ends the "polling"
     framer.closePlugin("Synchronization successful", { variant: "success" })
 } else {
-    framer.showUI({ width: 310, height: 420 })
+    framer.showUI({ width: 380, height: 500 })
     const root = document.getElementById("root")
     if (!root) throw new Error("Root element not found")
     createRoot(root).render(
