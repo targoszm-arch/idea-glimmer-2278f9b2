@@ -278,7 +278,7 @@ const EditArticle = () => {
 
   // Load which platforms the user has connected
   useEffect(() => {
-    supabase.from("user_integrations").select("platform").then(({ data }) => {
+    supabase.from("user_integrations" as any).select("platform").then(({ data }) => {
       setConnectedPlatforms((data || []).map((d: any) => d.platform));
     });
   }, []);
