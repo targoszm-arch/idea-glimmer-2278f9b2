@@ -174,12 +174,10 @@ export default function App() {
 
       <div style={s.divider}/>
 
-      {/* Source picker — static, just for UI match */}
-      <div style={s.selectWrap}>
-        <select style={s.select}>
-          <option>Articles from ContentLab API</option>
-        </select>
-      </div>
+      {/* Source picker */}
+      <select style={{ ...s.select, width: "100%", boxSizing: "border-box" }}>
+        <option>Articles from ContentLab API</option>
+      </select>
 
       {/* API Key */}
       <div style={s.fieldRow}>
@@ -193,12 +191,6 @@ export default function App() {
         />
       </div>
       {keyError && <div style={s.errText}>{keyError}</div>}
-
-      {/* Locale */}
-      <div style={s.fieldRow}>
-        <span style={s.fieldLabel}>Locale</span>
-        <input style={s.input} type="text" defaultValue="en" readOnly />
-      </div>
 
       <button style={s.nextBtn} onClick={handleNext}>Next</button>
 
