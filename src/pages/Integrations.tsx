@@ -54,7 +54,7 @@ const PLATFORMS = [
 export default function Integrations() {
   const { toast } = useToast();
   const [connected, setConnected] = useState<Record<Platform, Integration | null>>({
-    notion: null, shopify: null, intercom: null, google: null,
+    framer: null, notion: null, shopify: null, intercom: null, google: null,
   });
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<Platform | null>(null);
@@ -84,7 +84,7 @@ export default function Integrations() {
 
   async function loadIntegrations() {
     setLoading(true);
-    const { data } = await supabase.from("user_integrations").select("platform, platform_user_name, platform_user_id");
+    const { data } = await supabase.from("user_integrations" as any).select("platform, platform_user_name, platform_user_id");
     if (data) {
       const map: Record<string, Integration | null> = { framer: null, notion: null, shopify: null, intercom: null, google: null };
       for (const item of data) map[item.platform] = item as Integration;
@@ -118,7 +118,7 @@ export default function Integrations() {
   }
 
   async function disconnectPlatform(platform: Platform) {
-    await supabase.from("user_integrations").delete().eq("platform", platform);
+    await supabase.from("user_integrations" as any).delete().eq("platform", platform);
     setConnected(prev => ({ ...prev, [platform]: null }));
     toast({ title: "Disconnected", description: `${platform} has been disconnected.` });
   }
