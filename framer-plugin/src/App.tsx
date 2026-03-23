@@ -9,6 +9,7 @@ type Article = {
 }
 
 const SIGNUP_URL = "https://contentlab.skillstudio.ai/signup"
+const PLUGIN_DATA_KEY = "contentlab_api_key"
 
 const F = {
   title:    "fldaaa",
@@ -72,17 +73,17 @@ export async function syncArticles(collection: any, category: string): Promise<n
     },
   }))
 
-  // Check permission before adding items (suppresses dev warning)
   framer.isAllowedTo("ManagedCollection.addItems")
   await collection.addItems(items)
   return items.length
 }
 
-// ── UI ───────────────────────────────────────────────────────────────────────
-type Screen = "onboard" | "sync"
-
+// ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("onboard")
+  const [screen, setScreen] = useState<"loading"|"onboard"|"sync">("loading")
+  const [apiKey, setApiKey] = useState("")
+  const [savedKey, setSavedKey] = useState("")
+  const [keyError, setKeyError] = useState("")
   const [status, setStatus] = useState<"idle"|"syncing"|"success"|"error">("idle")
   const [message, setMessage] = useState("")
   const [categories, setCategories] = useState<string[]>([])
@@ -91,18 +92,38 @@ export default function App() {
   const [lastSync, setLastSync] = useState<string | null>(null)
 
   useEffect(() => {
+    // Check if API key already saved
+    framer.getPluginData(PLUGIN_DATA_KEY).then(key => {
+      if (key) {
+        setSavedKey(key)
+        setApiKey(key)
+        setScreen("sync")
+        loadArticleCount()
+      } else {
+        setScreen("onboard")
+      }
+    })
+  }, [])
+
+  function loadArticleCount() {
     fetch(`${SYNC_ENDPOINT}?status=published`, {
       headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, apikey: SUPABASE_ANON_KEY },
     })
       .then(r => r.json())
-      .then(d => {
-        setCategories(d.categories ?? [])
-        setTotalCount(d.count ?? null)
-        // If articles exist, skip onboarding
-        if ((d.count ?? 0) > 0) setScreen("sync")
-      })
+      .then(d => { setCategories(d.categories ?? []); setTotalCount(d.count ?? null) })
       .catch(() => {})
-  }, [])
+  }
+
+  async function handleNext() {
+    const trimmed = apiKey.trim()
+    if (!trimmed) { setKeyError("Please enter your API key"); return }
+    // Save key to plugin data
+    await framer.setPluginData(PLUGIN_DATA_KEY, trimmed)
+    setSavedKey(trimmed)
+    setKeyError("")
+    setScreen("sync")
+    loadArticleCount()
+  }
 
   async function handleSync() {
     setStatus("syncing"); setMessage("")
@@ -120,50 +141,81 @@ export default function App() {
     }
   }
 
-  const syncing = status === "syncing"
-
-  // ── Onboarding screen ──────────────────────────────────────────────────────
-  if (screen === "onboard") {
-    return (
-      <main style={s.root}>
-        {/* Logo */}
-        <div style={s.logoWrap}>
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-            <rect width="48" height="48" rx="12" fill="#EEF2FF"/>
-            <text x="24" y="32" textAnchor="middle" fontSize="22" fontWeight="bold" fontFamily="system-ui" fill="#2563EB">CL</text>
-          </svg>
-        </div>
-
-        <div style={s.onboardTitle}>ContentLab</div>
-        <div style={s.onboardSub}>
-          Connect your ContentLab collection set to sync articles to Framer.
-        </div>
-
-        <a href={SIGNUP_URL} target="_blank" rel="noreferrer" style={s.visitLink}>
-          Visit ContentLab Website →
-        </a>
-
-        <div style={s.divider}/>
-
-        <div style={s.onboardDesc}>
-          Already have an account? Click below to start syncing your published articles directly into this Framer CMS collection.
-        </div>
-
-        <button style={s.nextBtn} onClick={() => setScreen("sync")}>
-          Get Started →
-        </button>
-      </main>
-    )
+  function handleDisconnect() {
+    framer.setPluginData(PLUGIN_DATA_KEY, "")
+    setSavedKey("")
+    setApiKey("")
+    setScreen("onboard")
+    setStatus("idle")
+    setMessage("")
   }
 
-  // ── Sync screen ────────────────────────────────────────────────────────────
+  const syncing = status === "syncing"
+
+  // ── Loading ──────────────────────────────────────────────────────────────
+  if (screen === "loading") return <main style={s.root}><div style={s.loading}>Loading…</div></main>
+
+  // ── Onboarding ───────────────────────────────────────────────────────────
+  if (screen === "onboard") return (
+    <main style={s.root}>
+      {/* Logo */}
+      <div style={s.logoWrap}>
+        <img src="/icon.png" width={52} height={52} style={{ borderRadius: 12 }} alt="ContentLab" />
+      </div>
+
+      <div style={s.onboardTitle}>ContentLab</div>
+      <div style={s.onboardSub}>
+        Connect your ContentLab collection set to sync articles to Framer.
+      </div>
+
+      <a href={SIGNUP_URL} target="_blank" rel="noreferrer" style={s.visitLink}>
+        Visit ContentLab Website →
+      </a>
+
+      <div style={s.divider}/>
+
+      {/* Source picker — static, just for UI match */}
+      <div style={s.selectWrap}>
+        <select style={s.select}>
+          <option>Articles from ContentLab API</option>
+        </select>
+      </div>
+
+      {/* API Key */}
+      <div style={s.fieldRow}>
+        <span style={s.fieldLabel}>API Key</span>
+        <input
+          style={{ ...s.input, ...(keyError ? s.inputErr : {}) }}
+          type="text"
+          placeholder="Enter your API key"
+          value={apiKey}
+          onChange={e => { setApiKey(e.target.value); setKeyError("") }}
+        />
+      </div>
+      {keyError && <div style={s.errText}>{keyError}</div>}
+
+      {/* Locale */}
+      <div style={s.fieldRow}>
+        <span style={s.fieldLabel}>Locale</span>
+        <input style={s.input} type="text" defaultValue="en" readOnly />
+      </div>
+
+      <button style={s.nextBtn} onClick={handleNext}>Next</button>
+
+      <p style={s.hint}>
+        Don't have an account?{" "}
+        <a href={SIGNUP_URL} target="_blank" rel="noreferrer" style={{ color: "#2563EB" }}>
+          Sign up free →
+        </a>
+      </p>
+    </main>
+  )
+
+  // ── Sync screen ──────────────────────────────────────────────────────────
   return (
     <main style={s.root}>
       <div style={s.header}>
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-          <rect width="20" height="20" rx="5" fill="#2563EB"/>
-          <text x="10" y="14" textAnchor="middle" fontSize="9" fontWeight="bold" fontFamily="system-ui" fill="white">CL</text>
-        </svg>
+        <img src="/icon.png" width={24} height={24} style={{ borderRadius: 6, flexShrink: 0 }} alt="" />
         <div style={{ flex: 1 }}>
           <div style={s.title}>ContentLab</div>
           <div style={s.sub}>Skill Studio AI → Framer CMS</div>
@@ -191,32 +243,44 @@ export default function App() {
       {lastSync && <div style={s.meta}>Last synced at {lastSync}</div>}
 
       <div style={s.divider}/>
-      <a href={SIGNUP_URL} target="_blank" rel="noreferrer" style={{ ...s.visitLink, fontSize: 11 }}>
-        Visit ContentLab Website →
-      </a>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <a href={SIGNUP_URL} target="_blank" rel="noreferrer" style={{ ...s.visitLink, fontSize: 11 }}>
+          Visit ContentLab →
+        </a>
+        <button onClick={handleDisconnect} style={s.disconnectBtn}>Disconnect</button>
+      </div>
     </main>
   )
 }
 
 const s: Record<string, React.CSSProperties> = {
-  root:         { fontFamily: "system-ui,sans-serif", padding: 20, display: "flex", flexDirection: "column", gap: 12, background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", minHeight: "100vh", boxSizing: "border-box", alignItems: "stretch" },
-  logoWrap:     { display: "flex", justifyContent: "center", marginTop: 8 },
-  onboardTitle: { textAlign: "center", fontWeight: 700, fontSize: 16 },
-  onboardSub:   { textAlign: "center", fontSize: 13, color: "var(--framer-color-text-secondary,#555)", lineHeight: 1.5 },
-  visitLink:    { textAlign: "center", color: "#2563EB", fontSize: 13, textDecoration: "none", cursor: "pointer" },
-  onboardDesc:  { fontSize: 12, color: "var(--framer-color-text-secondary,#666)", lineHeight: 1.6, textAlign: "center" },
-  nextBtn:      { background: "#2563EB", color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%", marginTop: 4 },
-  header:       { display: "flex", alignItems: "center", gap: 10 },
-  title:        { fontWeight: 700, fontSize: 13 },
-  sub:          { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)" },
-  badge:        { marginLeft: "auto", background: "var(--framer-color-bg-secondary,#f0f0f0)", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" },
-  divider:      { height: 1, background: "var(--framer-color-divider,#eee)" },
-  label:        { fontSize: 11, fontWeight: 600, color: "var(--framer-color-text-secondary,#666)", textTransform: "uppercase", letterSpacing: "0.05em" },
-  select:       { width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--framer-color-divider,#ddd)", background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", fontSize: 13 },
-  btn:          { background: "#2563EB", color: "#fff", border: "none", borderRadius: 8, padding: "10px 0", fontSize: 13, fontWeight: 600, cursor: "pointer", width: "100%" },
-  btnOff:       { opacity: 0.5, cursor: "not-allowed" },
-  msg:          { fontSize: 12, borderRadius: 6, padding: "8px 10px" },
-  msgOk:        { background: "#e6f4ea", color: "#1a6b35" },
-  msgErr:       { background: "#fdecea", color: "#8b1a1a" },
-  meta:         { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)", textAlign: "center" },
+  root:          { fontFamily: "system-ui,sans-serif", padding: 20, display: "flex", flexDirection: "column", gap: 12, background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", minHeight: "100vh", boxSizing: "border-box" },
+  loading:       { textAlign: "center", color: "#999", marginTop: 40 },
+  logoWrap:      { display: "flex", justifyContent: "center", marginTop: 8 },
+  onboardTitle:  { textAlign: "center", fontWeight: 700, fontSize: 16 },
+  onboardSub:    { textAlign: "center", fontSize: 13, color: "var(--framer-color-text-secondary,#555)", lineHeight: 1.5 },
+  visitLink:     { textAlign: "center", color: "#2563EB", fontSize: 13, textDecoration: "none", cursor: "pointer" },
+  divider:       { height: 1, background: "var(--framer-color-divider,#eee)" },
+  selectWrap:    { width: "100%" },
+  select:        { width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid var(--framer-color-divider,#ddd)", background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", fontSize: 13 },
+  fieldRow:      { display: "flex", alignItems: "center", gap: 10 },
+  fieldLabel:    { fontSize: 13, color: "var(--framer-color-text-secondary,#555)", width: 56, flexShrink: 0 },
+  input:         { flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--framer-color-divider,#ddd)", background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", fontSize: 13, outline: "none" },
+  inputErr:      { borderColor: "#e53e3e" },
+  errText:       { fontSize: 11, color: "#e53e3e", marginTop: -6 },
+  nextBtn:       { background: "var(--framer-color-bg,#fff)", color: "var(--framer-color-text,#111)", border: "1px solid var(--framer-color-divider,#ddd)", borderRadius: 8, padding: "10px 0", fontSize: 14, fontWeight: 500, cursor: "pointer", width: "100%" },
+  hint:          { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)", textAlign: "center", lineHeight: 1.5, margin: 0 },
+  header:        { display: "flex", alignItems: "center", gap: 10 },
+  title:         { fontWeight: 700, fontSize: 13 },
+  sub:           { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)" },
+  badge:         { marginLeft: "auto", background: "var(--framer-color-bg-secondary,#f0f0f0)", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" },
+  label:         { fontSize: 11, fontWeight: 600, color: "var(--framer-color-text-secondary,#666)", textTransform: "uppercase", letterSpacing: "0.05em" },
+  btn:           { background: "#2563EB", color: "#fff", border: "none", borderRadius: 8, padding: "10px 0", fontSize: 13, fontWeight: 600, cursor: "pointer", width: "100%" },
+  btnOff:        { opacity: 0.5, cursor: "not-allowed" },
+  msg:           { fontSize: 12, borderRadius: 6, padding: "8px 10px" },
+  msgOk:         { background: "#e6f4ea", color: "#1a6b35" },
+  msgErr:        { background: "#fdecea", color: "#8b1a1a" },
+  meta:          { fontSize: 11, color: "var(--framer-color-text-tertiary,#999)", textAlign: "center" },
+  disconnectBtn: { background: "none", border: "none", fontSize: 11, color: "#999", cursor: "pointer", padding: 0 },
 }
