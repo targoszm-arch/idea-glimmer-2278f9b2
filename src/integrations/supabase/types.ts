@@ -63,7 +63,9 @@ export type Database = {
           id: string
           intercom_article_id: string | null
           meta_description: string
+          notion_page_id: string | null
           reading_time_minutes: number
+          shopify_article_id: string | null
           slug: string
           status: string
           title: string
@@ -81,7 +83,9 @@ export type Database = {
           id?: string
           intercom_article_id?: string | null
           meta_description?: string
+          notion_page_id?: string | null
           reading_time_minutes?: number
+          shopify_article_id?: string | null
           slug: string
           status?: string
           title: string
@@ -99,7 +103,9 @@ export type Database = {
           id?: string
           intercom_article_id?: string | null
           meta_description?: string
+          notion_page_id?: string | null
           reading_time_minutes?: number
+          shopify_article_id?: string | null
           slug?: string
           status?: string
           title?: string
@@ -320,6 +326,48 @@ export type Database = {
           plan?: string
           plan_started_at?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_integrations: {
+        Row: {
+          access_token: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          platform: string
+          platform_user_id: string | null
+          platform_user_name: string | null
+          refresh_token: string | null
+          token_expires_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          platform: string
+          platform_user_id?: string | null
+          platform_user_name?: string | null
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          platform?: string
+          platform_user_id?: string | null
+          platform_user_name?: string | null
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
