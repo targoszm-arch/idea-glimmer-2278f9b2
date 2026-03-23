@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { PenSquare, Share2, Video, BarChart3, Zap, ArrowRight, Check } from "lucide-react";
 import { motion } from "framer-motion";
+import contentLabLogo from "@/assets/ContentLab_Logo.png";
 
 const features = [
   { icon: PenSquare, title: "AI Article Generation", desc: "Generate SEO-optimised articles with your brand voice and tone in seconds." },
@@ -31,7 +32,8 @@ const Landing = () => {
       {/* Nav */}
       <header className="border-b border-border bg-background/95 backdrop-blur">
         <div className="container flex h-16 items-center justify-between">
-          <span className="text-xl font-bold tracking-tight">
+          <span className="flex items-center gap-2 text-xl font-bold tracking-tight">
+            <img src={contentLabLogo} alt="ContentLab Logo" className="h-8 w-auto" />
             Skill Studio AI <span className="text-primary">ContentLab</span>
           </span>
           <div className="flex items-center gap-3">
