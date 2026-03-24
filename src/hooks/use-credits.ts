@@ -52,7 +52,7 @@ export const useCredits = () => {
         .insert({ user_id: user.id, credits: 20, plan: "free" })
         .select("credits, plan")
         .single();
-      setCredits(inserted?.credits ?? 10);
+      setCredits(inserted?.credits ?? 20);
       setPlan(inserted?.plan ?? "free");
     } else {
       setCredits(data.credits);
