@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut, Coins, HelpCircle, ExternalLink, Plug, Key } from "lucide-react";
+import { Link as RouterLink } from "react-router-dom";
+import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut, Coins, HelpCircle, ExternalLink, Plug, Key, UserCircle } from "lucide-react";
 import contentLabLogo from "@/assets/ContentLab_Logo.png";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
@@ -15,7 +16,6 @@ const navItems = [
   { label: "Brand", href: "/brand", icon: Palette },
   { label: "AI Settings", href: "/settings", icon: Settings },
   { label: "Integrations", href: "/settings/integrations", icon: Plug },
-  { label: "API Key", href: "/settings/api-key", icon: Key },
 ];
 
 const Header = () => {
@@ -112,13 +112,18 @@ const Header = () => {
             <PenSquare className="h-4 w-4" />
             Create
           </Link>
-          <button
-            onClick={() => signOut()}
-            className="hidden sm:inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-            title="Sign out"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
+          <div className="hidden sm:flex items-center gap-1">
+            <Link to="/profile"
+              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+              title="My Profile">
+              <UserCircle className="h-4 w-4" />
+            </Link>
+            <button onClick={() => signOut()}
+              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+              title="Sign out">
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
           <button
             className="md:hidden rounded-lg p-2 text-muted-foreground hover:bg-secondary"
             onClick={() => setMobileOpen(!mobileOpen)}
