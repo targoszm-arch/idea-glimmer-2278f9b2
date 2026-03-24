@@ -49,8 +49,26 @@ serve(async (req) => {
       Accept: "application/json",
     };
 
-    // ACTION: list_templates
+    // ACTION: list_templates — filter by allowed template IDs from heygen_templates table
     if (action === "list_templates") {
+      // Fetch allowed template IDs from Supabase
+      const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const { data: allowedTemplates, error: dbError } = await supabaseAdmin
+        .from("heygen_templates")
+        .select("template_id, name, description, sort_order")
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
+
+      if (dbError) throw new Error(`DB error: ${dbError.message}`);
+
+      // If no templates configured, return empty list
+      if (!allowedTemplates?.length) {
+        return new Response(JSON.stringify({ data: { templates: [] } }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Fetch all templates from HeyGen
       const resp = await fetch(`${HEYGEN_BASE}/v2/templates`, { headers: heygenHeaders });
       if (!resp.ok) {
         const t = await resp.text();
@@ -58,7 +76,16 @@ serve(async (req) => {
         throw new Error(`HeyGen API error (${resp.status}): ${t}`);
       }
       const data = await resp.json();
-      return new Response(JSON.stringify(data), {
+
+      // Filter to only allowed template IDs
+      const allowedIds = new Set(allowedTemplates.map((t: any) => t.template_id));
+      const filtered = (data?.data?.templates ?? []).filter((t: any) => allowedIds.has(t.template_id));
+
+      // Sort by our custom sort_order
+      const sortMap = new Map(allowedTemplates.map((t: any) => [t.template_id, t.sort_order ?? 0]));
+      filtered.sort((a: any, b: any) => (sortMap.get(a.template_id) ?? 0) - (sortMap.get(b.template_id) ?? 0));
+
+      return new Response(JSON.stringify({ data: { templates: filtered } }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
