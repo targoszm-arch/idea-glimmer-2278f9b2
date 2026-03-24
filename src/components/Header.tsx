@@ -7,7 +7,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCredits, CREDIT_COSTS, STRIPE_URLS, TOP_UP_OPTIONS } from "@/hooks/use-credits";
 import UpgradeModal from "@/components/UpgradeModal";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useState } from "react";
 
 const navItems = [
   { label: "Library", href: "/dashboard", icon: Library },
@@ -166,7 +165,6 @@ const Header = () => {
         )}
       </AnimatePresence>
     </header>
-  );
     </>
   );
 };

@@ -44,7 +44,7 @@ const MANAGE_SUBSCRIPTION_URL = "https://billing.stripe.com/p/login/fZu8wOchogNB
 
 const Profile = () => {
   const { user } = useAuth();
-  const { credits, plan } = useCredits();
+  const { credits } = useCredits();
 
   // Profile
   const [name, setName] = useState("");
