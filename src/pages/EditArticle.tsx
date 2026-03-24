@@ -304,6 +304,12 @@ const EditArticle = () => {
         }),
       });
       const data = await res.json();
+      // Handle plugin-managed mode gracefully
+      if (data.error === "plugin_managed") {
+        toast({ title: "Framer syncs via plugin", description: data.message });
+        setIsSyncingFramer(false);
+        return;
+      }
       if (!res.ok) throw new Error(data.error || "Framer sync failed");
       if (data.framer_item_id) setFramerItemId(data.framer_item_id);
       toast({ title: `Article ${data.action ?? "synced"} in Framer CMS!` });

@@ -18,7 +18,6 @@ const Dashboard = () => {
   const handleSyncFramer = async () => {
     setSyncing(true);
     try {
-      // Get all published articles and push each to Framer
       const { data: articles, error } = await supabase
         .from("articles")
         .select("id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at")
@@ -53,6 +52,16 @@ const Dashboard = () => {
               framer_item_id: (article as any).framer_item_id ?? null,
             }),
           });
+          const data = await res.json();
+          // If plugin-managed, stop the loop and inform user
+          if (data.error === "plugin_managed") {
+            toast({ 
+              title: "Framer syncs via plugin", 
+              description: "Your Framer integration uses the plugin. Open Framer and click Sync in the ContentLab plugin."
+            });
+            setSyncing(false);
+            return;
+          }
           if (res.ok) synced++;
           else failed++;
         } catch { failed++; }

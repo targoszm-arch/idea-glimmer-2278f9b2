@@ -88,19 +88,30 @@ serve(async (req) => {
       .eq("platform", "framer")
       .single();
 
-    // Prefer DB integration, fall back to global env vars
+    // Check if this is a plugin-managed integration (no server-side push possible)
+    const isPluginManaged = integration?.access_token === "plugin-managed" 
+      && !(integration?.metadata as any)?.api_key;
+
+    if (isPluginManaged) {
+      return new Response(JSON.stringify({
+        error: "plugin_managed",
+        message: "Your Framer integration is managed by the plugin. Articles sync automatically when you use the Framer plugin's Sync button."
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Resolve credentials from DB or env
     const FRAMER_PROJECT_URL = (integration?.metadata as any)?.project_url
       ?? integration?.platform_user_name
       ?? env("FRAMER_PROJECT_URL");
     const FRAMER_API_KEY = (integration?.metadata as any)?.api_key
-      ?? (integration?.access_token !== "plugin-managed" ? integration?.access_token : null)
+      ?? (integration?.access_token && integration.access_token !== "plugin-managed" ? integration.access_token : null)
       ?? env("FRAMER_API_TOKEN");
     const FRAMER_COLLECTION_ID = (integration?.metadata as any)?.collection_id
       ?? env("FRAMER_COLLECTION_ID");
 
     if (!FRAMER_PROJECT_URL || !FRAMER_API_KEY) {
       return new Response(JSON.stringify({
-        error: "Framer is not connected. Go to Settings → Integrations or set FRAMER_PROJECT_URL/FRAMER_API_TOKEN secrets."
+        error: "Framer credentials not configured. Set FRAMER_PROJECT_URL and FRAMER_API_TOKEN secrets, or use the Framer plugin for syncing."
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     if (!FRAMER_COLLECTION_ID) {
