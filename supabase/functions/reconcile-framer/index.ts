@@ -94,8 +94,10 @@ serve(async (req) => {
     const FRAMER_API_KEY = (integration.metadata as any)?.api_key ?? integration.access_token;
     const FRAMER_COLLECTION_ID = (integration.metadata as any)?.collection_id ?? env("FRAMER_COLLECTION_ID");
 
-    if (!FRAMER_PROJECT_URL || !FRAMER_API_KEY || !FRAMER_COLLECTION_ID) {
-      throw new Error("Framer integration is incomplete. Please reconnect in Settings → Integrations.");
+    if (!FRAMER_PROJECT_URL || !FRAMER_API_KEY || FRAMER_API_KEY === "plugin-managed" || !FRAMER_COLLECTION_ID) {
+      return new Response(JSON.stringify({ ok: true, message: "Skipped — Framer uses plugin-based sync." }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Fetch all article slugs from DB
