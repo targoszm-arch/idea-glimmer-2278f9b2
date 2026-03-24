@@ -5,7 +5,7 @@ serve(async (req) => {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  const frontendBase = "https://contentlab.skillstudio.ai/settings/integrations";
+  const frontendBase = "https://content-lab.ie/settings/integrations";
 
   if (!code || !state) return Response.redirect(`${frontendBase}?error=missing_params&platform=google`);
 
@@ -13,7 +13,7 @@ serve(async (req) => {
     const { user_id } = JSON.parse(atob(state));
     const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")!;
     const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
-    const REDIRECT_URI = "https://contentlab.skillstudio.ai/integrations/google/callback";
+    const REDIRECT_URI = "https://content-lab.ie/integrations/google/callback";
 
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
