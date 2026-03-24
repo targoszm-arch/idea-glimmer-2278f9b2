@@ -1,41 +1,48 @@
 
 
-## Fix: Correct credits for free users
+## Fix Framer Edge Functions: Build Error + Auto-fetch Credentials
 
-### What went wrong
-I incorrectly set 200 credits for mandy.1983@hotmail.com. Free trial users should get 20 credits, not 200.
+### Problems
+
+1. **Build error**: All three Framer functions use `npm:framer-api@0.1.2` which Deno cannot resolve. Must switch to `https://esm.sh/framer-api@0.1.2`.
+
+2. **Duplicate auth block in `publish-to-framer`**: Lines 84-95 redeclare `authHeader`, `user`, and `authError` — causing a runtime crash. Must remove.
+
+3. **`delete-from-framer` and `reconcile-framer` use hardcoded env vars** (`FRAMER_PROJECT_URL`, `FRAMER_API_KEY`, `FRAMER_COLLECTION_ID`) instead of reading the user's saved credentials from `user_integrations`. Only `publish-to-framer` reads from the DB.
 
 ### Changes
 
-1. **Migration: Fix mandy.1983@hotmail.com back to free with 20 credits**
-```sql
-UPDATE user_credits 
-SET credits = 20, plan = 'free', 
-    stripe_payment_status = 'unpaid',
-    updated_at = now()
-WHERE user_id = 'a0e6acd3-b7c5-490f-b3fe-de3900a4425c';
+#### 1. `supabase/functions/publish-to-framer/index.ts`
+- Remove duplicate auth block (lines 84-95)
+- Replace both `npm:framer-api@0.1.2` imports with `https://esm.sh/framer-api@0.1.2`
+
+#### 2. `supabase/functions/delete-from-framer/index.ts`
+- Replace hardcoded env var lookups (lines 83-85) with a DB lookup from `user_integrations` using the authenticated user's ID (same pattern as publish-to-framer)
+- Replace `npm:framer-api@0.1.2` with `https://esm.sh/framer-api@0.1.2`
+
+#### 3. `supabase/functions/reconcile-framer/index.ts`
+- Replace hardcoded env var lookups (lines 79-81) with a DB lookup from `user_integrations` using the authenticated user's ID
+- Replace `npm:framer-api@0.1.2` with `https://esm.sh/framer-api@0.1.2`
+
+### Credential resolution pattern (applied to all 3 functions)
+
+```typescript
+const adminSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+const { data: integration } = await adminSupabase
+  .from("user_integrations")
+  .select("access_token, platform_user_name, metadata")
+  .eq("user_id", user.id)
+  .eq("platform", "framer")
+  .single();
+
+if (!integration) {
+  throw new Error("Framer not connected. Go to Settings → Integrations.");
+}
+
+const FRAMER_PROJECT_URL = integration.metadata?.project_url ?? integration.platform_user_name;
+const FRAMER_API_KEY = integration.metadata?.api_key ?? integration.access_token;
+const FRAMER_COLLECTION_ID = integration.metadata?.collection_id ?? env("FRAMER_COLLECTION_ID");
 ```
 
-2. **Migration: Update the `handle_new_user_credits` trigger function** to give new users 20 credits instead of 10:
-```sql
-CREATE OR REPLACE FUNCTION public.handle_new_user_credits()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'public' AS $$
-BEGIN
-  INSERT INTO public.user_credits (user_id, credits, plan)
-  VALUES (NEW.id, 20, 'free')
-  ON CONFLICT (user_id) DO NOTHING;
-  RETURN NEW;
-END;
-$$;
-```
-
-3. **`src/hooks/use-credits.ts`** — Update the fallback insert from 10 to 20 credits (line ~50):
-```ts
-.insert({ user_id: user.id, credits: 20, plan: "free" })
-```
-And update the fallback default on line ~52:
-```ts
-setCredits(inserted?.credits ?? 20);
-```
+This means each user's own Framer credentials (saved via the Integrations page) are used automatically — no global env vars needed.
 
