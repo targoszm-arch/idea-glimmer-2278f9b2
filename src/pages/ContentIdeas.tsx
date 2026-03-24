@@ -226,7 +226,9 @@ const ContentIdeas = () => {
         const slug = articleTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").substring(0, 64).replace(/-+$/, "");
         const excerpt = cleanContent.replace(/<[^>]*>/g, "").slice(0, 200);
 
+const { data: { user: currentUser } } = await supabase.auth.getUser();
         const { data: articleData, error: saveError } = await supabase.from("articles").insert({
+          user_id: currentUser?.id,
           title: metaTitle || articleTitle,
           slug,
           content: cleanContent,

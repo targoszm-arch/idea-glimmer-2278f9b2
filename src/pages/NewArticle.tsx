@@ -266,6 +266,7 @@ const NewArticle = () => {
       const { data, error } = await supabase
         .from("articles")
         .insert({
+          user_id: user.id,
           title,
           slug,
           content,
