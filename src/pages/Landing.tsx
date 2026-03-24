@@ -175,7 +175,7 @@ const Landing = () => {
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="container text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Skill Studio AI ContentLab. All rights reserved.
+          © {new Date().getFullYear()} ContentLab. All rights reserved.
         </div>
       </footer>
     </div>
