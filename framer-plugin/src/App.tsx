@@ -80,7 +80,7 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
       [F.category]: { type: "string",        value: a.category ?? "" },
       [F.metaDesc]: { type: "string",        value: a.meta_description ?? "" },
       [F.pubDate]:  { type: "date",          value: a.created_at ?? "" },
-      [F.image]:    { type: "image",         value: a.cover_image_url ? { url: a.cover_image_url } : null },
+      ...(a.cover_image_url ? { [F.image]: { type: "image" as const, value: a.cover_image_url } } : {}),
     },
   }))
 
