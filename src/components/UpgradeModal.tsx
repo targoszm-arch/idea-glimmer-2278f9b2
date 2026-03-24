@@ -1,5 +1,6 @@
 import { X, Zap } from "lucide-react";
 import { STRIPE_URLS } from "@/hooks/use-credits";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Props {
   open: boolean;
@@ -8,7 +9,13 @@ interface Props {
 }
 
 export default function UpgradeModal({ open, onClose, reason }: Props) {
+  const { user } = useAuth();
   if (!open) return null;
+
+  const upgradeUrl = `${STRIPE_URLS.upgrade}?${new URLSearchParams({
+    prefilled_email: user?.email ?? "",
+    client_reference_id: user?.id ?? "",
+  }).toString()}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -39,7 +46,7 @@ export default function UpgradeModal({ open, onClose, reason }: Props) {
           </ul>
         </div>
 
-        <a href={STRIPE_URLS.upgrade} target="_blank" rel="noreferrer"
+        <a href={upgradeUrl} target="_blank" rel="noreferrer"
           className="block w-full text-center bg-primary text-white font-semibold py-3 rounded-xl hover:bg-primary/90 transition-colors mb-3">
           Upgrade Now →
         </a>

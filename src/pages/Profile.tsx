@@ -211,7 +211,7 @@ const Profile = () => {
               Manage Subscription
             </a>
             {plan === "free" && (
-              <a href={STRIPE_URLS.upgrade} target="_blank" rel="noreferrer"
+              <a href={`${STRIPE_URLS.upgrade}?${new URLSearchParams({ prefilled_email: user?.email ?? "", client_reference_id: user?.id ?? "" }).toString()}`} target="_blank" rel="noreferrer"
                 className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-medium hover:bg-yellow-600">
                 ⚡ Upgrade Plan
               </a>
@@ -224,7 +224,7 @@ const Profile = () => {
             {plan === "free" ? (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 text-sm text-yellow-800">
                 You need an active subscription to top up credits.{" "}
-                <a href={STRIPE_URLS.upgrade} target="_blank" rel="noreferrer" className="font-semibold underline">
+                <a href={`${STRIPE_URLS.upgrade}?${new URLSearchParams({ prefilled_email: user?.email ?? "", client_reference_id: user?.id ?? "" }).toString()}`} target="_blank" rel="noreferrer" className="font-semibold underline">
                   Upgrade now →
                 </a>
               </div>
