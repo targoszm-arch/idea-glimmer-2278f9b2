@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Plus, Play, Pause, Trash2, Edit, MoreVertical, Clock, Zap, ChevronRight, Check } from "lucide-react";
+import { Plus, Play, Pause, Trash2, Edit, Clock, Zap, ChevronRight, Check, Loader2, FileText, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -84,7 +85,15 @@ function nextRunFromCron(cron: string): string {
 
 export default function Automations({ embedded = false }: { embedded?: boolean }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [automations, setAutomations] = useState<Automation[]>([]);
+  const [runState, setRunState] = useState<{
+    automationId: string;
+    automationName: string;
+    stage: "triggering" | "generating" | "saving" | "publishing" | "done" | "error";
+    articleId: string | null;
+    error: string | null;
+  } | null>(null);
   const [runs, setRuns] = useState<Record<string, AutomationRun>>({});
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -93,20 +102,37 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
 
   useEffect(() => { if (user) { loadAutomations(); loadConnectedPlatforms(); } }, [user]);
 
-  async function runNow(automationId: string) {
+  async function runNow(automationId: string, automationName: string) {
+    setRunState({ automationId, automationName, stage: "triggering", articleId: null, error: null });
     try {
       const { data: { session } } = await supabase.auth.getSession();
+
+      // Simulate stage progression for UX
+      await new Promise(r => setTimeout(r, 600));
+      setRunState(s => s ? { ...s, stage: "generating" } : s);
+
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/run-automations`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
         body: JSON.stringify({ automation_id: automationId, time: new Date().toISOString() }),
       });
+
+      setRunState(s => s ? { ...s, stage: "saving" } : s);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
-      toast.success("Automation triggered! Check Library for the new article.");
-      setTimeout(loadAutomations, 2000);
+
+      const result = data.results?.[0];
+      if (result?.status === "failed") throw new Error(result.error || "Generation failed");
+
+      const articleId = result?.article_id ?? null;
+
+      setRunState(s => s ? { ...s, stage: "publishing" } : s);
+      await new Promise(r => setTimeout(r, 500));
+
+      setRunState(s => s ? { ...s, stage: "done", articleId } : s);
+      setTimeout(loadAutomations, 1000);
     } catch (e: any) {
-      toast.error(`Run failed: ${e.message}`);
+      setRunState(s => s ? { ...s, stage: "error", error: e.message } : s);
     }
   }
 
@@ -211,8 +237,8 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={() => runNow(a.id)}
-                      className="p-1.5 rounded-lg hover:bg-green-50 text-muted-foreground hover:text-green-600" title="Run now">
+                    <button onClick={() => runNow(a.id, a.name)}
+                      className="p-1.5 rounded-lg hover:bg-green-50 text-muted-foreground hover:text-green-600 transition-colors" title="Run now">
                       <Zap className="w-4 h-4" />
                     </button>
                     <button onClick={() => toggleActive(a.id, a.is_active)}
@@ -234,6 +260,93 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
           })}
         </div>
       )}
+
+      {/* Run Now Progress Modal */}
+      <AnimatePresence>
+        {runState && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+            >
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm">{runState.automationName}</div>
+                  <div className="text-xs text-muted-foreground">Running automation</div>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-5">
+                {[
+                  { key: "triggering", label: "Triggering automation" },
+                  { key: "generating", label: "Generating article with AI" },
+                  { key: "saving",     label: "Saving to Library" },
+                  { key: "publishing", label: "Publishing to destinations" },
+                  { key: "done",       label: "Done!" },
+                ].map(({ key, label }) => {
+                  const stages = ["triggering","generating","saving","publishing","done"];
+                  const currentIdx = stages.indexOf(runState.stage);
+                  const thisIdx = stages.indexOf(key);
+                  const isDone = runState.stage === "done" ? true : thisIdx < currentIdx;
+                  const isActive = thisIdx === currentIdx && runState.stage !== "done";
+                  const isPending = thisIdx > currentIdx;
+                  return (
+                    <div key={key} className={`flex items-center gap-3 text-sm ${isPending ? "opacity-30" : ""}`}>
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                        isDone ? "bg-green-100" : isActive ? "bg-primary/10" : "bg-muted"
+                      }`}>
+                        {isDone ? <Check className="w-3 h-3 text-green-600" /> :
+                         isActive ? <Loader2 className="w-3 h-3 text-primary animate-spin" /> :
+                         <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />}
+                      </div>
+                      <span className={isDone ? "text-foreground" : isActive ? "text-foreground font-medium" : "text-muted-foreground"}>
+                        {label}
+                      </span>
+                    </div>
+                  );
+                })}
+
+                {runState.stage === "error" && (
+                  <div className="mt-2 p-3 bg-red-50 rounded-lg text-xs text-red-600">
+                    ⚠ {runState.error}
+                  </div>
+                )}
+              </div>
+
+              {runState.stage === "done" ? (
+                <div className="flex gap-2">
+                  {runState.articleId && (
+                    <button
+                      onClick={() => { setRunState(null); navigate(`/edit/${runState.articleId}`); }}
+                      className="flex-1 flex items-center justify-center gap-2 bg-primary text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-primary/90"
+                    >
+                      <FileText className="w-4 h-4" /> View Article <ArrowRight className="w-3 h-3" />
+                    </button>
+                  )}
+                  <button onClick={() => setRunState(null)}
+                    className="flex-1 py-2.5 text-sm border border-border rounded-lg hover:bg-secondary">
+                    Close
+                  </button>
+                </div>
+              ) : runState.stage === "error" ? (
+                <button onClick={() => setRunState(null)}
+                  className="w-full py-2.5 text-sm border border-border rounded-lg hover:bg-secondary">
+                  Dismiss
+                </button>
+              ) : (
+                <div className="text-center text-xs text-muted-foreground">
+                  This may take 30–60 seconds…
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {showNew && (
