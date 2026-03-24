@@ -1,6 +1,6 @@
 import { framer } from "framer-plugin"
 import { useState, useEffect } from "react"
-import { SYNC_ENDPOINT, SUPABASE_ANON_KEY, SUPABASE_URL } from "./config"
+import { SYNC_ENDPOINT, SUPABASE_ANON_KEY, REGISTER_ENDPOINT } from "./config"
 
 type Article = {
   id: string; title: string; slug: string; content: string
@@ -125,7 +125,35 @@ export default function App() {
     setSavedKey(trimmed)
     setKeyError("")
     setScreen("sync")
-    loadArticleCount()
+
+    // Auto-register: capture collection ID and project info, send to backend
+    try {
+      const collection = await framer.getManagedCollection()
+      const collectionId = collection?.id ?? null
+
+      let projectName: string | null = null
+      try {
+        const info = await (framer as any).getProjectInfo?.()
+        projectName = info?.name ?? null
+      } catch { /* getProjectInfo may not be available */ }
+
+      await fetch(REGISTER_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${trimmed}`,
+          apikey: SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          collection_id: collectionId,
+          project_name: projectName,
+        }),
+      })
+    } catch (e) {
+      console.warn("Auto-register failed (non-blocking):", e)
+    }
+
+    loadArticleCount(trimmed)
   }
 
   async function handleSync() {
