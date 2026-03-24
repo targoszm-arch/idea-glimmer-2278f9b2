@@ -178,6 +178,44 @@ serve(async (req) => {
         console.log(`Generated content length: ${content.length} chars`);
         if (!content || content.length < 100) throw new Error("Generated content too short or empty");
 
+        // Convert any markdown to HTML if content is not already HTML
+        const isHtml = content.trim().startsWith("<");
+        if (!isHtml) {
+          // Basic markdown to HTML conversion
+          content = content
+            // Headers
+            .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+            .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+            .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+            // Bold and italic
+            .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+            .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+            .replace(/\*(.+?)\*/g, "<em>$1</em>")
+            // Markdown tables → HTML tables
+            .replace(/(\|.+\|
+)([\|\-: ]+\|
+)((?:\|.+\|
+)*)/gm, (match) => {
+              const rows = match.trim().split("\n").filter(r => r.trim());
+              const headers = rows[0].split("|").filter(c => c.trim()).map(c => `<th>${c.trim()}</th>`).join("");
+              const bodyRows = rows.slice(2).map(r =>
+                "<tr>" + r.split("|").filter(c => c.trim()).map(c => `<td>${c.trim()}</td>`).join("") + "</tr>"
+              ).join("\n");
+              return `<table><thead><tr>${headers}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+            })
+            // Unordered lists
+            .replace(/^[-*] (.+)$/gm, "<li>$1</li>")
+            .replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`)
+            // Ordered lists
+            .replace(/^\d+\. (.+)$/gm, "<li>$1</li>")
+            // Paragraphs — wrap lone lines
+            .replace(/^(?!<)(.+)$/gm, "<p>$1</p>")
+            // Clean up empty paragraphs
+            .replace(/<p><\/p>/g, "")
+            .replace(/<p>(<h[1-6]>)/g, "$1")
+            .replace(/(<\/h[1-6]>)<\/p>/g, "$1");
+        }
+
         // Extract title and meta from content
         const titleMatch = content.match(/<h1[^>]*>(.*?)<\/h1>/i);
         const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, "") : topic.slice(0, 80);
