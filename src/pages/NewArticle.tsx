@@ -18,6 +18,8 @@ import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
 import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 import EditorToolbar from "@/components/EditorToolbar";
 import AIAssistantPanel from "@/components/AIAssistantPanel";
+import UpgradeModal from "@/components/UpgradeModal";
+import { useUpgrade } from "@/hooks/use-upgrade";
 import { supabase } from "@/lib/supabase";
 import { TONE_PRESETS } from "@/lib/tones";
 import { streamAI } from "@/lib/ai-stream";
@@ -309,6 +311,7 @@ const NewArticle = () => {
 
   return (
     <>
+    <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
     <PageLayout hideFooter>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="mb-6 flex items-center justify-between">
@@ -485,4 +488,5 @@ const NewArticle = () => {
   );
 };
 
+// UpgradeModal is rendered via showUpgrade state
 export default NewArticle;

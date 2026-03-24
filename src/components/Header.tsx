@@ -4,8 +4,10 @@ import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogO
 import contentLabLogo from "@/assets/ContentLab_Logo.png";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCredits, CREDIT_COSTS, STRIPE_URLS } from "@/hooks/use-credits";
+import { useCredits, CREDIT_COSTS, STRIPE_URLS, TOP_UP_OPTIONS } from "@/hooks/use-credits";
+import UpgradeModal from "@/components/UpgradeModal";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useState } from "react";
 
 const navItems = [
   { label: "Library", href: "/dashboard", icon: Library },
@@ -19,11 +21,14 @@ const navItems = [
 
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const location = useLocation();
   const { signOut } = useAuth();
   const { credits, loading: creditsLoading } = useCredits();
 
   return (
+    <>
+    <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
     <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 w-full">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 flex h-14 items-center justify-between gap-4">
 
@@ -53,7 +58,7 @@ const Header = () => {
 
           {/* Credits */}
           <div className="flex items-center gap-1">
-            <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-sm font-semibold text-accent-foreground">
+            <span onClick={() => { if ((credits ?? 0) === 0) setShowUpgrade(true); }} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold cursor-pointer ${(credits ?? 1) === 0 ? "bg-red-100 text-red-700 animate-pulse" : "bg-accent text-accent-foreground"}`}>
               <Coins className="h-3.5 w-3.5 text-primary" />
               {creditsLoading ? "…" : credits ?? 0}
             </span>
@@ -82,12 +87,9 @@ const Header = () => {
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 pt-3 border-t border-border space-y-1.5">
-                  <button onClick={() => window.open(STRIPE_URLS.topUp100, "_blank")} className="block text-primary hover:underline text-xs font-medium">
-                    Buy 100 credits — €25 →
-                  </button>
-                  <button onClick={() => window.open(STRIPE_URLS.topUp200, "_blank")} className="block text-primary hover:underline text-xs font-medium">
-                    Buy 200 credits — €50 →
+                <div className="mt-3 pt-3 border-t border-border space-y-2">
+                  <button onClick={() => setShowUpgrade(true)} className="block w-full text-center bg-primary text-white rounded-lg py-1.5 text-xs font-semibold hover:bg-primary/90">
+                    ⚡ Get More Credits
                   </button>
                   <button onClick={() => window.open(STRIPE_URLS.customerPortal, "_blank")} className="flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline text-xs">
                     <ExternalLink className="h-3 w-3" /> Manage Billing
@@ -164,6 +166,8 @@ const Header = () => {
         )}
       </AnimatePresence>
     </header>
+  );
+    </>
   );
 };
 

@@ -3,14 +3,48 @@ import { User, Key, CreditCard, RefreshCw, Copy, Check, ExternalLink, Lock, Coin
 import PageLayout from "@/components/PageLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCredits, STRIPE_URLS } from "@/hooks/use-credits";
+import { useCredits, STRIPE_URLS, TOP_UP_OPTIONS } from "@/hooks/use-credits";
 import { toast } from "sonner";
+
+
+function TopUpSelector() {
+  const [selected, setSelected] = useState("");
+  const option = TOP_UP_OPTIONS.find(o => o.value === selected);
+
+  return (
+    <div className="flex gap-2">
+      <select
+        value={selected}
+        onChange={e => setSelected(e.target.value)}
+        className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+      >
+        <option value="">Select amount…</option>
+        {TOP_UP_OPTIONS.map(o => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+      <a
+        href={option?.url ?? "#"}
+        target="_blank"
+        rel="noreferrer"
+        onClick={e => { if (!option) e.preventDefault(); }}
+        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+          option
+            ? "bg-primary text-white hover:bg-primary/90"
+            : "bg-muted text-muted-foreground cursor-not-allowed"
+        }`}
+      >
+        Buy
+      </a>
+    </div>
+  );
+}
 
 const MANAGE_SUBSCRIPTION_URL = "https://billing.stripe.com/p/login/fZu8wOchogNB3VC08K1sQ00";
 
 const Profile = () => {
   const { user } = useAuth();
-  const { credits } = useCredits();
+  const { credits, plan } = useCredits();
 
   // Profile
   const [name, setName] = useState("");
@@ -176,14 +210,27 @@ const Profile = () => {
               <ExternalLink className="w-4 h-4" />
               Manage Subscription
             </a>
-            <a href={STRIPE_URLS.topUp100} target="_blank" rel="noreferrer"
-              className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-secondary">
-              Buy 100 credits — €25
-            </a>
-            <a href={STRIPE_URLS.topUp200} target="_blank" rel="noreferrer"
-              className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-secondary">
-              Buy 200 credits — €50
-            </a>
+            {plan === "free" && (
+              <a href={STRIPE_URLS.upgrade} target="_blank" rel="noreferrer"
+                className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-medium hover:bg-yellow-600">
+                ⚡ Upgrade Plan
+              </a>
+            )}
+          </div>
+
+          {/* Top up credits */}
+          <div className="pt-3 border-t border-border">
+            <div className="text-sm font-medium text-foreground mb-2">Top Up Credits</div>
+            {plan === "free" ? (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 text-sm text-yellow-800">
+                You need an active subscription to top up credits.{" "}
+                <a href={STRIPE_URLS.upgrade} target="_blank" rel="noreferrer" className="font-semibold underline">
+                  Upgrade now →
+                </a>
+              </div>
+            ) : (
+              <TopUpSelector />
+            )}
           </div>
         </section>
 
