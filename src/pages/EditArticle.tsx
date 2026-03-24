@@ -176,22 +176,30 @@ const EditArticle = () => {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
 
-    // Attempt Framer CMS cleanup — must complete before deleting from Supabase
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (token && framerItemId) {
-        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-from-framer`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ framer_item_id: framerItemId, slug: articleSlug }),
+    // Attempt Framer CMS cleanup
+    if (framerItemId) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (token) {
+          const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-from-framer`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ framer_item_id: framerItemId, slug: articleSlug }),
+          });
+          const data = await res.json();
+          if (!res.ok || data.error) {
+            throw new Error(data.error || "Framer delete failed");
+          }
+        }
+      } catch (e: any) {
+        toast({
+          title: "Framer cleanup failed",
+          description: `The article was removed from ContentLab but may still exist in Framer CMS. Open the ContentLab plugin in Framer and sync to remove it. Error: ${e.message}`,
+          variant: "destructive"
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Framer delete failed");
+        // Still proceed with deleting from ContentLab
       }
-    } catch (e: any) {
-      // Show error but still allow deleting from ContentLab
-      toast({ title: "Warning", description: `Framer cleanup failed: ${e.message}. Article will still be deleted from ContentLab.`, variant: "destructive" });
     }
 
     const { error } = await supabase.from("articles").delete().eq("id", id);
