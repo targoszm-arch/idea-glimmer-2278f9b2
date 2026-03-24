@@ -129,29 +129,54 @@ serve(async (req) => {
           }),
         });
 
-        if (!generateResp.ok) throw new Error(`Article generation failed: ${generateResp.status}`);
+        if (!generateResp.ok) {
+          const errText = await generateResp.text();
+          throw new Error(`Article generation failed: ${generateResp.status} - ${errText.slice(0, 200)}`);
+        }
 
-        // Stream response to text
+        // Read full SSE stream with a buffer to handle split chunks
         const reader = generateResp.body!.getReader();
+        const decoder = new TextDecoder();
         let content = "";
+        let buffer = "";
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          const chunk = new TextDecoder().decode(value);
-          // Parse SSE
-          for (const line of chunk.split("\n")) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6);
-              if (data === "[DONE]") continue;
-              try {
-                const parsed = JSON.parse(data);
-                content += parsed.choices?.[0]?.delta?.content || "";
-              } catch {}
-            }
+          buffer += decoder.decode(value, { stream: true });
+
+          // Process complete lines from buffer
+          const lines = buffer.split("\n");
+          // Keep last incomplete line in buffer
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data: ")) continue;
+            const data = trimmed.slice(6);
+            if (data === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(data);
+              const delta = parsed.choices?.[0]?.delta?.content;
+              if (delta) content += delta;
+            } catch { /* skip malformed lines */ }
           }
         }
 
-        if (!content) throw new Error("No content generated");
+        // Process any remaining buffer content
+        if (buffer.trim().startsWith("data: ")) {
+          const data = buffer.trim().slice(6);
+          if (data !== "[DONE]") {
+            try {
+              const parsed = JSON.parse(data);
+              const delta = parsed.choices?.[0]?.delta?.content;
+              if (delta) content += delta;
+            } catch {}
+          }
+        }
+
+        console.log(`Generated content length: ${content.length} chars`);
+        if (!content || content.length < 100) throw new Error("Generated content too short or empty");
 
         // Extract title and meta from content
         const titleMatch = content.match(/<h1[^>]*>(.*?)<\/h1>/i);
