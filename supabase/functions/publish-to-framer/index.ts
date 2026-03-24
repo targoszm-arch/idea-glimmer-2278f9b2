@@ -77,22 +77,8 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
     }
 
-
     // Get Framer credentials from user's integration settings (user_integrations table)
     const adminSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
-    // Auth check to get user
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    }
-    const anonSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } }
-    });
-    const { data: { user }, error: authError } = await anonSupabase.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    }
 
     // Fetch this user's Framer integration from DB
     const { data: integration, error: intError } = await adminSupabase
@@ -122,7 +108,7 @@ serve(async (req) => {
     // Diagnostics
     const url = new URL(req.url);
     if (req.method === "GET" || url.searchParams.get("debug") === "1") {
-      const { connect } = await import("npm:framer-api@0.1.2");
+      const { connect } = await import("https://esm.sh/framer-api@0.1.2");
       const framer = await connect(FRAMER_PROJECT_URL, FRAMER_API_KEY);
       try {
         const collections = await framer.getCollections();
@@ -154,7 +140,7 @@ serve(async (req) => {
       throw new Error("title and slug are required");
     }
 
-    const { connect } = await import("npm:framer-api@0.1.2");
+    const { connect } = await import("https://esm.sh/framer-api@0.1.2");
     const framer = await connect(FRAMER_PROJECT_URL, FRAMER_API_KEY);
 
     try {

@@ -268,6 +268,36 @@ export type Database = {
         }
         Relationships: []
       }
+      heygen_templates: {
+        Row: {
+          active: boolean
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string | null
+          sort_order: number | null
+          template_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string | null
+          sort_order?: number | null
+          template_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string | null
+          sort_order?: number | null
+          template_id?: string
+        }
+        Relationships: []
+      }
       social_post_ideas: {
         Row: {
           created_at: string
@@ -278,6 +308,7 @@ export type Database = {
           status: string
           title_suggestion: string
           topic: string
+          user_id: string
         }
         Insert: {
           created_at?: string
@@ -288,6 +319,7 @@ export type Database = {
           status?: string
           title_suggestion: string
           topic: string
+          user_id: string
         }
         Update: {
           created_at?: string
@@ -298,6 +330,7 @@ export type Database = {
           status?: string
           title_suggestion?: string
           topic?: string
+          user_id?: string
         }
         Relationships: [
           {
