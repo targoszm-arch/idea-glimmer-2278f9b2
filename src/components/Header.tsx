@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut, Coins, HelpCircle, ExternalLink, Plug } from "lucide-react";
+import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut, Coins, HelpCircle, ExternalLink, Plug, Key } from "lucide-react";
 import contentLabLogo from "@/assets/ContentLab_Logo.png";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
