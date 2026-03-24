@@ -1,11 +1,11 @@
-import { Key, useState } from "react";
-import { Key, Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut, Coins, HelpCircle, ExternalLink, Plug } from "lucide-react";
+import { useState } from "react";
+import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut, Coins, HelpCircle, ExternalLink, Plug, Key } from "lucide-react";
 import contentLabLogo from "@/assets/ContentLab_Logo.png";
-import { Key, motion, AnimatePresence } from "framer-motion";
-import { Key, Link, useLocation } from "react-router-dom";
-import { Key, useAuth } from "@/contexts/AuthContext";
-import { Key, useCredits, CREDIT_COSTS, STRIPE_URLS } from "@/hooks/use-credits";
-import { Key, Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { motion, AnimatePresence } from "framer-motion";
+import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCredits, CREDIT_COSTS, STRIPE_URLS } from "@/hooks/use-credits";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const navItems = [
   { label: "Library", href: "/dashboard", icon: Library },

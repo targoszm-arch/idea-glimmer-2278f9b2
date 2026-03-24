@@ -50,6 +50,33 @@ export type Database = {
         }
         Relationships: []
       }
+      api_keys: {
+        Row: {
+          created_at: string | null
+          id: string
+          key: string
+          last_used_at: string | null
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          key?: string
+          last_used_at?: string | null
+          name?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          key?: string
+          last_used_at?: string | null
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       articles: {
         Row: {
           author_name: string
@@ -307,6 +334,8 @@ export type Database = {
           id: string
           plan: string
           plan_started_at: string
+          stripe_customer_id: string | null
+          stripe_payment_status: string | null
           updated_at: string
           user_id: string
         }
@@ -316,6 +345,8 @@ export type Database = {
           id?: string
           plan?: string
           plan_started_at?: string
+          stripe_customer_id?: string | null
+          stripe_payment_status?: string | null
           updated_at?: string
           user_id: string
         }
@@ -325,6 +356,8 @@ export type Database = {
           id?: string
           plan?: string
           plan_started_at?: string
+          stripe_customer_id?: string | null
+          stripe_payment_status?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -377,6 +410,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_api_key_for_user: { Args: { p_user_id: string }; Returns: string }
       deduct_credits: {
         Args: { p_action: string; p_amount: number; p_user_id: string }
         Returns: boolean
