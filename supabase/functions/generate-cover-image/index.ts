@@ -28,7 +28,7 @@ serve(async (req) => {
     }
 
 
-    const { prompt, brand_assets = { logos: [], visuals: [] } } = await req.json();
+    const { prompt } = await req.json();
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
@@ -46,7 +46,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "dall-e-3",
-        prompt: `A photorealistic, editorial-quality photograph suitable as a blog cover image. Shot with a DSLR camera, natural lighting, shallow depth of field, realistic textures and colors. The image should look like a genuine stock photo taken by a professional photographer — NOT AI-generated, NOT illustrated, NOT cartoonish, NOT 3D rendered. No text, no watermarks, no logos.${brand_assets.logos?.length > 0 ? ` Subtly incorporate brand identity elements.` : ""} Subject: ${prompt}`,
+        prompt: `A photorealistic, editorial-quality photograph suitable as a blog cover image. Shot with a DSLR camera, natural lighting, shallow depth of field, realistic textures and colors. The image should look like a genuine stock photo taken by a professional photographer — NOT AI-generated, NOT illustrated, NOT cartoonish, NOT 3D rendered. No text, no watermarks, no logos. Subject: ${prompt}`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

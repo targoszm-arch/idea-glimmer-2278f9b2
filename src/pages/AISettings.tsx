@@ -7,7 +7,7 @@ import { TONE_PRESETS } from "@/lib/tones";
 import { toast } from "@/hooks/use-toast";
 
 const AISettings = () => {
-  const [selectedTone, setSelectedTone] = useState("informative");
+  const [selectedTone, setSelectedTone] = useState("");
   const [appDescription, setAppDescription] = useState("");
   const [appAudience, setAppAudience] = useState("");
   const [referenceUrls, setReferenceUrls] = useState<string[]>([]);
@@ -26,7 +26,7 @@ const AISettings = () => {
 
       if (data && !error) {
         setSettingsId(data.id);
-        setSelectedTone(data.tone_key || "informative");
+        setSelectedTone(data.tone_key || "");
         setAppDescription(data.app_description || "");
         setAppAudience(data.app_audience || "");
         setReferenceUrls(data.reference_urls || []);
@@ -104,10 +104,11 @@ const AISettings = () => {
 
           {/* Tone & Voice */}
           <section className="mb-8 rounded-xl border border-border bg-card p-6">
-            <h2 className="mb-1 text-lg font-bold text-foreground">Tone and Voice</h2>
+            <h2 className="mb-1 text-lg font-bold text-foreground">Your Content's Tone and Voice</h2>
             <p className="mb-5 text-sm text-muted-foreground">
               Select the default tone and voice for your articles
             </p>
+            {!selectedTone && <p className="mb-3 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">No tone selected — please choose one below</p>}
 
             <div className="grid gap-3 sm:grid-cols-2">
               {TONE_PRESETS.map((tone) => {
@@ -139,14 +140,14 @@ const AISettings = () => {
 
           {/* App Description */}
           <section className="mb-8 rounded-xl border border-border bg-card p-6">
-            <h2 className="mb-1 text-lg font-bold text-foreground">App Description</h2>
+            <h2 className="mb-1 text-lg font-bold text-foreground">Platform Description</h2>
             <p className="mb-4 text-sm text-muted-foreground">
               Provide a description of your app that will be used by AI to better understand your content
             </p>
             <textarea
               value={appDescription}
               onChange={(e) => setAppDescription(e.target.value.slice(0, 800))}
-              placeholder="e.g., A B2B SaaS project management tool for remote teams..."
+              placeholder="Describe your product or platform so AI understands what you do..."
               rows={3}
               className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
@@ -155,14 +156,14 @@ const AISettings = () => {
 
           {/* App Audience */}
           <section className="mb-8 rounded-xl border border-border bg-card p-6">
-            <h2 className="mb-1 text-lg font-bold text-foreground">App Audience</h2>
+            <h2 className="mb-1 text-lg font-bold text-foreground">Your Target Audience</h2>
             <p className="mb-4 text-sm text-muted-foreground">
               Describe your target audience to help AI generate more relevant content
             </p>
             <textarea
               value={appAudience}
               onChange={(e) => setAppAudience(e.target.value.slice(0, 800))}
-              placeholder="e.g., Product managers, startup founders, and engineering leads..."
+              placeholder="Describe who your content is for..."
               rows={3}
               className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />

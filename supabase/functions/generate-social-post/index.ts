@@ -9,18 +9,18 @@ const corsHeaders = {
 const PLAIN_TEXT_RULE = `\n\nIMPORTANT: Output plain text only. Do NOT use any markdown formatting whatsoever — no #, ##, ###, **, *, -, bullet dashes, or any other markdown syntax. Use line breaks, spacing, and numbered lists (1. 2. 3.) for structure instead.`;
 
 const platformPrompts: Record<string, string> = {
-  linkedin: `Generate a professional LinkedIn post for Skill Studio AI.
+  linkedin: `Generate a professional LinkedIn post for this brand.
 Structure:
 - Attention-grabbing hook (1-2 lines)
 - Problem statement (2-3 lines)  
-- Solution/insight with Skill Studio AI positioning (3-5 lines)
+- Solution/insight with the brand's positioning (3-5 lines)
 - Key takeaway or stat
 - Clear CTA (e.g. "Comment below", "DM me", "Check the link in comments")
 - 3-5 relevant hashtags
 
 Keep it under 1,300 characters. Use line breaks for readability. Write in first person as a thought leader.${PLAIN_TEXT_RULE}`,
 
-  youtube: `Generate YouTube video content for Skill Studio AI.
+  youtube: `Generate YouTube video content for this brand.
 Structure:
 
 TITLE
@@ -43,7 +43,7 @@ A detailed script outline with:
 THUMBNAIL CONCEPT
 A brief description of an engaging thumbnail idea${PLAIN_TEXT_RULE}`,
 
-  twitter: `Generate a Twitter/X thread for Skill Studio AI.
+  twitter: `Generate a Twitter/X thread for this brand.
 Structure:
 Tweet 1: Hook tweet that stops the scroll (under 280 chars)
 Tweets 2-8: Each tweet covers one key point (each under 280 chars)
@@ -56,7 +56,7 @@ etc.
 
 Make it punchy, use data points, and create curiosity gaps between tweets.${PLAIN_TEXT_RULE}`,
 
-  instagram_carousel: `Generate an Instagram carousel post for Skill Studio AI.
+  instagram_carousel: `Generate an Instagram carousel post for this brand.
 You MUST output valid JSON (and nothing else) with this exact structure:
 {
   "caption": "The Instagram caption with CTA and hashtags (under 2200 chars)",
@@ -83,7 +83,7 @@ Rules:
 - accent_text is for stats, numbers, or key phrases to highlight
 - Output ONLY valid JSON, no markdown, no code fences, no explanation`,
 
-  instagram_reel: `Generate an Instagram Reel script for Skill Studio AI.
+  instagram_reel: `Generate an Instagram Reel script for this brand.
 Structure:
 
 HOOK (first 3 seconds)
@@ -106,7 +106,7 @@ Recommended trending audio style or original audio approach
 CTA
 Specific call to action (save, share, comment, link in bio)${PLAIN_TEXT_RULE}`,
 
-  instagram_reel_multipage: `Generate a multipage Instagram Reel (swipeable image carousel designed as a Reel) for Skill Studio AI.
+  instagram_reel_multipage: `Generate a multipage Instagram Reel (swipeable image carousel designed as a Reel) for this brand.
 This is NOT a video — it's a series of static slides designed to be posted as a carousel Reel.
 
 Structure:
@@ -175,7 +175,6 @@ serve(async (req) => {
       app_description = "",
       app_audience = "",
       reference_urls = [],
-      brand_assets = { logos: [], visuals: [] },
     } = await req.json();
 
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
@@ -188,23 +187,13 @@ serve(async (req) => {
     if (app_description) contextBlock += `\nApp/Product context: ${app_description}`;
     if (app_audience) contextBlock += `\nTarget audience: ${app_audience}`;
     if (reference_urls.length > 0) contextBlock += `\nIMPORTANT — Reference posts/content the user likes (study these for tone, structure, hooks, and style): ${reference_urls.join(", ")}. Analyse these links and generate content that matches their style, format, and engagement patterns.`;
-    if (brand_assets.logos?.length > 0) contextBlock += `\n\nBRAND ASSETS — The brand has these logos available: ${brand_assets.logos.map((l: any) => l.name).join(", ")}. Reference and incorporate the brand identity in content recommendations. When suggesting visuals, include instructions to overlay/include the brand logo.`;
-    if (brand_assets.visuals?.length > 0) contextBlock += `\n\nVISUAL LIBRARY — The brand has ${brand_assets.visuals.length} visual assets available. When suggesting visuals or image prompts for slides/posts, recommend using these brand visuals where appropriate instead of generic stock images. Available visuals: ${brand_assets.visuals.map((v: any) => v.name).join(", ")}.`;
 
-    const systemPrompt = `You are an expert B2B social media content strategist writing for Skill Studio AI, an AI‑native learning platform for enterprises in regulated and complex industries.
-
-Product positioning:
-Skill Studio AI helps training, L&D, compliance, and enablement teams design, generate, deliver, and measure engaging training at scale. It combines:
-- An AI training studio: script assistance, AI avatar videos, interactive quizzes, scenarios, and skills assessments.
-- An LMS‑compatible delivery layer: built‑in LMS plus SCORM‑ready modules that plug into existing LMS platforms.
-- A skills and compliance intelligence layer: dashboards, audit trails, skills views, multi‑language delivery.
-
-Never describe Skill Studio AI as "just" a conversion tool. Emphasise outcomes: faster training creation, higher engagement, better skills data, and stronger audit‑readiness.
-
+    const systemPrompt = `You are an expert social media content strategist.
+${contextBlock ? `\nBRAND CONTEXT:\n${contextBlock}\n` : ""}
 Tone: ${tone}. Clear, confident, practical. Avoid hype.
 ${tone_description ? `Tone details: ${tone_description}` : ""}
-${contextBlock}
 
+CRITICAL: Write content that represents THIS user's brand and product — not any other company. Use the brand context above to inform the voice, positioning, and messaging. If no context is provided, write in a general professional tone.
 CRITICAL: Write the content directly. No meta-commentary. No disclaimers. No citation brackets.
 
 ${platformPrompt}`;
