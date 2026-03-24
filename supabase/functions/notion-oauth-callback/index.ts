@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const REDIRECT_URI = "https://contentlab.skillstudio.ai/integrations/notion/callback";
+const REDIRECT_URI = "https://rnshobvpqegttrpaowxe.supabase.co/functions/v1/notion-oauth-callback";
 
 serve(async (req) => {
   const url = new URL(req.url);

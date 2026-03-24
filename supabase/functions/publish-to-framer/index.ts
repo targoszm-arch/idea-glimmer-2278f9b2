@@ -83,7 +83,11 @@ serve(async (req) => {
     const FRAMER_COLLECTION_ID = env("FRAMER_COLLECTION_ID");
 
     if (!FRAMER_PROJECT_URL || !FRAMER_API_KEY) {
-      throw new Error("Missing FRAMER_PROJECT_URL and/or FRAMER_API_KEY (or FRAMER_API_TOKEN)");
+      throw new Error("Framer is not configured. Set FRAMER_PROJECT_URL (full URL like https://xxx.framer.website) and FRAMER_API_KEY in Supabase Edge Function secrets.");
+    }
+    // Validate URL format
+    if (!FRAMER_PROJECT_URL.startsWith("https://")) {
+      throw new Error(`Invalid FRAMER_PROJECT_URL: must be a full URL starting with https://, got: ${FRAMER_PROJECT_URL}`);
     }
     if (!FRAMER_COLLECTION_ID) {
       throw new Error("Missing FRAMER_COLLECTION_ID");

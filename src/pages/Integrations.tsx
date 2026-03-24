@@ -19,6 +19,7 @@ type Integration = {
   platform_user_id: string | null;
 };
 
+// comingSoon flag hides connect button and shows badge instead
 const PLATFORMS = [
   {
     id: "framer" as Platform,
@@ -94,10 +95,12 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
   }
 
   async function connectPlatform(platform: Platform) {
+    const p = PLATFORMS.find(pl => pl.id === platform);
+    if ((p as any)?.comingSoon) return;
     if (platform === "framer") {
       // Framer uses Supabase secrets (FRAMER_PROJECT_URL, FRAMER_API_KEY, FRAMER_COLLECTION_ID)
       // Direct user to documentation
-      window.open("https://supabase.com/dashboard/project/rnshobvpqegttrpaowxe/settings/functions", "_blank");
+      window.open("https://www.framer.com/marketplace/", "_blank");
       return;
     }
     setConnecting(platform);
@@ -144,6 +147,7 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
             const integration = connected[platform.id];
             const isConnected = !!integration;
             const isConnecting = connecting === platform.id;
+            const isComingSoon = !!(platform as any).comingSoon;
 
             return (
               <Card key={platform.id}>
@@ -156,7 +160,11 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
                       <div>
                         <CardTitle className="text-base flex items-center gap-2">
                           {platform.name}
-                          {isConnected ? (
+                          {isComingSoon ? (
+                            <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50 text-xs">
+                              Coming Soon
+                            </Badge>
+                          ) : isConnected ? (
                             <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs">
                               <CheckCircle className="w-3 h-3 mr-1" /> Connected
                             </Badge>
@@ -182,6 +190,10 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
                             Disconnect
                           </Button>
                         </>
+                      ) : isComingSoon ? (
+                        <Button size="sm" disabled variant="outline" className="text-muted-foreground">
+                          Coming Soon
+                        </Button>
                       ) : (
                         <Button size="sm" onClick={() => connectPlatform(platform.id)} disabled={isConnecting || (platform.id === "shopify" && !shopifyDomain.trim())}>
                           {isConnecting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Connecting…</> : "Connect"}

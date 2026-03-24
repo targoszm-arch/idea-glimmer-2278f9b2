@@ -213,7 +213,7 @@ export default function App() {
         <img src="/icon.png" width={24} height={24} style={{ borderRadius: 6, flexShrink: 0 }} alt="" />
         <div style={{ flex: 1 }}>
           <div style={s.title}>ContentLab</div>
-          <div style={s.sub}>Skill Studio AI → Framer CMS</div>
+          <div style={s.sub}>ContentLab → Framer CMS</div>
         </div>
         {totalCount !== null && <div style={s.badge}>{totalCount} articles</div>}
       </div>
@@ -239,6 +239,12 @@ export default function App() {
 
       <div style={s.divider}/>
 
+      <div style={{ fontSize: 11, color: "var(--framer-color-text-tertiary,#999)" }}>
+        <div style={{ marginBottom: 4, fontWeight: 600 }}>API Key</div>
+        <div style={{ fontFamily: "monospace", background: "var(--framer-color-bg-secondary,#f5f5f5)", borderRadius: 6, padding: "4px 8px", fontSize: 10, wordBreak: "break-all" }}>
+          {savedKey || "No key saved"}
+        </div>
+      </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <a href={SIGNUP_URL} target="_blank" rel="noreferrer" style={{ ...s.visitLink, fontSize: 11 }}>
           Visit ContentLab →

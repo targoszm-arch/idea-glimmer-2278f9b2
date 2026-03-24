@@ -22,7 +22,7 @@ serve(async (req) => {
     }
 
     const NOTION_CLIENT_ID = Deno.env.get("NOTION_CLIENT_ID");
-    const REDIRECT_URI = Deno.env.get("NOTION_REDIRECT_URI") ?? "https://contentlab.skillstudio.ai/integrations/notion/callback";
+    const REDIRECT_URI = Deno.env.get("NOTION_REDIRECT_URI") ?? "https://rnshobvpqegttrpaowxe.supabase.co/functions/v1/notion-oauth-callback";
 
     if (!NOTION_CLIENT_ID) throw new Error("NOTION_CLIENT_ID not configured");
 
