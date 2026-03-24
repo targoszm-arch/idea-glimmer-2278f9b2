@@ -99,7 +99,7 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/run-automations`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ automation_id: automationId }),
+        body: JSON.stringify({ automation_id: automationId, time: new Date().toISOString() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");

@@ -13,16 +13,27 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 
   try {
-    // Find all active automations due to run
-    const { data: automations, error } = await adminSupabase
-      .from("automations")
-      .select("*")
-      .eq("is_active", true)
-      .lte("next_run_at", new Date().toISOString());
+    // Parse body — supports heartbeat tick ({time}) or specific run ({automation_id})
+    let body: any = {};
+    try { body = await req.json(); } catch {}
+    const specificId = body.automation_id ?? null;
 
+    let query = adminSupabase.from("automations").select("*");
+
+    if (specificId) {
+      // Run Now: run a specific automation regardless of next_run_at
+      query = query.eq("id", specificId);
+    } else {
+      // Heartbeat: run all due active automations
+      query = query.eq("is_active", true).lte("next_run_at", new Date().toISOString());
+    }
+
+    const { data: automations, error } = await query;
     if (error) throw error;
     if (!automations?.length) {
-      return new Response(JSON.stringify({ ran: 0 }), { headers: { ...cors, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ ran: 0, message: "No automations due" }), {
+        headers: { ...cors, "Content-Type": "application/json" }
+      });
     }
 
     const results = [];
