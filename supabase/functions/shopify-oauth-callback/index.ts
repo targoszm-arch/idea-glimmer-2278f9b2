@@ -6,7 +6,7 @@ serve(async (req) => {
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
-  const frontendBase = "https://contentlab.skillstudio.ai/settings/integrations";
+  const frontendBase = "https://content-lab.ie/settings/integrations";
 
   if (error) return Response.redirect(`${frontendBase}?error=${encodeURIComponent(error)}&platform=shopify`);
   if (!code || !state) return Response.redirect(`${frontendBase}?error=missing_params&platform=shopify`);
