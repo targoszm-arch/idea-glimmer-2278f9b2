@@ -4,16 +4,20 @@ import { STRIPE_URLS, TOP_UP_OPTIONS } from "@/hooks/use-credits";
 
 interface Props {
   open: boolean;
-  onClose: () => void;
+  onOpenChange?: (open: boolean) => void;
+  onClose?: () => void;
+  creditsNeeded?: number;
+  creditsAvailable?: number;
 }
 
-export default function UpgradeModal({ open, onClose }: Props) {
+export default function UpgradeModal({ open, onOpenChange, onClose }: Props) {
+  const handleClose = () => { onOpenChange?.(false); onClose?.(); };
   if (!open) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200">
-        <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+        <button onClick={handleClose} className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">
           <X className="w-4 h-4" />
         </button>
 
@@ -63,10 +67,11 @@ export default function UpgradeModal({ open, onClose }: Props) {
           <p className="text-xs text-gray-400 mt-2 text-center">Upgrade first to unlock top-ups</p>
         </div>
 
-        <button onClick={onClose} className="block w-full text-center text-sm text-gray-400 hover:text-gray-600 mt-3">
+        <button onClick={handleClose} className="block w-full text-center text-sm text-gray-400 hover:text-gray-600 mt-3">
           Maybe later
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

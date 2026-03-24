@@ -5,10 +5,12 @@ import { TOP_UP_OPTIONS } from "@/hooks/use-credits";
 
 interface Props {
   open: boolean;
-  onClose: () => void;
+  onOpenChange?: (open: boolean) => void;
+  onClose?: () => void;
 }
 
-export default function TopUpModal({ open, onClose }: Props) {
+export default function TopUpModal({ open, onOpenChange, onClose }: Props) {
+  const handleClose = () => { onOpenChange?.(false); onClose?.(); };
   const [selected, setSelected] = useState("");
   const option = TOP_UP_OPTIONS.find(o => o.value === selected);
 
@@ -17,7 +19,7 @@ export default function TopUpModal({ open, onClose }: Props) {
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200">
-        <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+        <button onClick={handleClose} className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">
           <X className="w-4 h-4" />
         </button>
 
@@ -60,10 +62,11 @@ export default function TopUpModal({ open, onClose }: Props) {
         >
           {option ? `Top Up ${option.label} →` : "Select an amount above"}
         </a>
-        <button onClick={onClose} className="block w-full text-center text-sm text-gray-400 hover:text-gray-600">
+        <button onClick={handleClose} className="block w-full text-center text-sm text-gray-400 hover:text-gray-600">
           Maybe later
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
