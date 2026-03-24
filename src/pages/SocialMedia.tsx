@@ -164,6 +164,7 @@ const SocialMedia = () => {
       if (result.ideas && Array.isArray(result.ideas)) {
         const { data, error } = await supabase.from("social_post_ideas").insert(
           result.ideas.map((idea: any) => ({
+            user_id: user?.id,
             platform,
             topic: idea.topic || niche || aiSettings?.app_description || "",
             title_suggestion: idea.title,
