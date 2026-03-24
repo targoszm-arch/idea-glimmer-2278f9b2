@@ -93,23 +93,24 @@ export default function App() {
   const [lastSync, setLastSync] = useState<string | null>(null)
 
   useEffect(() => {
-    // Check if API key already saved
+    // ONLY skip onboarding if a saved API key exists
     framer.getPluginData(PLUGIN_DATA_KEY).then(key => {
-      if (key) {
-        setSavedKey(key)
-        setApiKey(key)
+      if (key && key.trim()) {
+        setSavedKey(key.trim())
+        setApiKey(key.trim())
         setScreen("sync")
-        loadArticleCount(trimmed)
+        loadArticleCount(key.trim())
       } else {
         setScreen("onboard")
       }
     })
   }, [])
 
-  function loadArticleCount(key?: string) {
-    const k = key || savedKey || SUPABASE_ANON_KEY
+  function loadArticleCount(key: string) {
+    // Only fetch if we have a real API key — never fall back to anon key
+    if (!key || !key.startsWith("cl_")) return
     fetch(`${SYNC_ENDPOINT}?status=published`, {
-      headers: { Authorization: `Bearer ${k}`, apikey: SUPABASE_ANON_KEY },
+      headers: { Authorization: `Bearer ${key}`, apikey: SUPABASE_ANON_KEY },
     })
       .then(r => r.json())
       .then(d => { setCategories(d.categories ?? []); setTotalCount(d.count ?? null) })
