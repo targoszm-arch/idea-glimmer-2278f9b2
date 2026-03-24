@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import CarouselSlidePreview, { parseCarouselContent } from "@/components/CarouselSlidePreview";
 import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import { useAuth } from "@/contexts/AuthContext";
 import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 const platforms = [
   { key: "linkedin", label: "LinkedIn", icon: Linkedin },
@@ -48,6 +49,7 @@ type SocialPost = {
 };
 
 const SocialMedia = () => {
+  const { user } = useAuth();
   const [platform, setPlatform] = useState<Platform>("linkedin");
   const [niche, setNiche] = useState("");
   const [ideas, setIdeas] = useState<SocialPostIdea[]>([]);
@@ -263,6 +265,7 @@ const SocialMedia = () => {
       setVideoProgressPercent(100);
 
       const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
+        user_id: user?.id,
         platform: idea.platform,
         topic: idea.topic,
         title: idea.title_suggestion,
@@ -328,6 +331,7 @@ const SocialMedia = () => {
       },
       onDone: async () => {
         const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
+        user_id: user?.id,
           platform: idea.platform,
           topic: idea.topic,
           title: idea.title_suggestion,
@@ -598,6 +602,7 @@ const SocialMedia = () => {
       setVideoProgressPercent(100);
 
       const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
+        user_id: user?.id,
         platform: idea.platform,
         topic: idea.topic,
         title: idea.title_suggestion,
@@ -668,6 +673,7 @@ const SocialMedia = () => {
       },
       onDone: async () => {
         const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
+        user_id: user?.id,
           platform: idea.platform,
           topic: idea.topic,
           title: idea.title_suggestion,

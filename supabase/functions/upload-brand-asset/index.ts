@@ -133,6 +133,7 @@ serve(async (req) => {
     const { data: asset, error: insertError } = await supabase
       .from("brand_assets")
       .insert({
+        user_id: user.id,
         name,
         type,
         file_url: urlData.publicUrl,

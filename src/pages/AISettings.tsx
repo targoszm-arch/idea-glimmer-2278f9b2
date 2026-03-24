@@ -3,10 +3,12 @@ import { Settings, Save, Loader2, Plus, X, Check } from "lucide-react";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 import { TONE_PRESETS } from "@/lib/tones";
 import { toast } from "@/hooks/use-toast";
 
 const AISettings = () => {
+  const { user } = useAuth();
   const [selectedTone, setSelectedTone] = useState("");
   const [appDescription, setAppDescription] = useState("");
   const [appAudience, setAppAudience] = useState("");
@@ -22,7 +24,7 @@ const AISettings = () => {
         .from("ai_settings")
         .select("*")
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (data && !error) {
         setSettingsId(data.id);
@@ -40,6 +42,7 @@ const AISettings = () => {
     const tone = TONE_PRESETS.find((t) => t.key === selectedTone) || TONE_PRESETS[0];
 
     const payload = {
+      user_id: user?.id,
       tone_key: tone.key,
       tone_label: tone.label,
       tone_description: tone.description,

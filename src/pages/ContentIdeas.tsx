@@ -116,6 +116,7 @@ const ContentIdeas = () => {
       if (result.ideas && Array.isArray(result.ideas)) {
         const { error } = await supabase.from("content_ideas").insert(
           result.ideas.map((idea: any) => ({
+            user_id: currentUser?.id,
             topic: idea.topic || (nicheRef.current?.value ?? "") || aiSettings?.app_description || "",
             title_suggestion: idea.title,
             description: idea.description || "",

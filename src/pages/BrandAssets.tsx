@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 type BrandAsset = {
@@ -39,6 +40,7 @@ const BrandAssets = () => {
   const [previewAsset, setPreviewAsset] = useState<BrandAsset | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchAssets();
@@ -46,9 +48,11 @@ const BrandAssets = () => {
 
   const fetchAssets = async () => {
     setLoading(true);
+    if (!user) return;
     const { data, error } = await supabase
       .from("brand_assets")
       .select("*")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     if (data && !error) setAssets(data as BrandAsset[]);
     setLoading(false);
