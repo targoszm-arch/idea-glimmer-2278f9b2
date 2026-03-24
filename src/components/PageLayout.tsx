@@ -12,7 +12,7 @@ const PageLayout = ({ children, hideFooter = false, className }: PageLayoutProps
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className={cn("flex-1 container py-8", className)}>
+      <main className={cn("flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 py-6", className)}>
         {children}
       </main>
       {!hideFooter && <Footer />}
