@@ -59,6 +59,15 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
   const { articles } = await res.json() as { articles: Article[] }
+
+  // ── Reconcile: remove Framer items that no longer exist in ContentLab ──
+  const contentLabIds = new Set((articles ?? []).map((a: Article) => a.id))
+  const framerItemIds = await collection.getItemIds()
+  const toRemove = framerItemIds.filter((id: string) => !contentLabIds.has(id))
+  if (toRemove.length > 0) {
+    await collection.removeItems(toRemove)
+  }
+
   if (!articles?.length) return 0
 
   const items = articles.map((a) => ({
