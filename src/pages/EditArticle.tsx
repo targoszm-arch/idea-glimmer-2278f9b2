@@ -176,17 +176,22 @@ const EditArticle = () => {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
 
-    // Attempt Framer CMS cleanup — fire and forget, never block deletion
-    if (framerItemId) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        const token = session?.access_token;
-        if (!token) return;
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-from-framer`, {
+    // Attempt Framer CMS cleanup — must complete before deleting from Supabase
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (token && framerItemId) {
+        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-from-framer`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ framer_item_id: framerItemId, slug: articleSlug }),
-        }).catch(e => console.warn("Framer cleanup failed:", e));
-      });
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Framer delete failed");
+      }
+    } catch (e: any) {
+      // Show error but still allow deleting from ContentLab
+      toast({ title: "Warning", description: `Framer cleanup failed: ${e.message}. Article will still be deleted from ContentLab.`, variant: "destructive" });
     }
 
     const { error } = await supabase.from("articles").delete().eq("id", id);

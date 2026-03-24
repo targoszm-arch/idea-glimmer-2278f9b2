@@ -56,8 +56,15 @@ if (OrigWS) {
     }
     return new OrigWS(fixedUrl);
   };
+  // framer-api calls ws.postMessage(); Deno WebSocket uses ws.send()
+  const OrigProto = OrigWS.prototype;
+  if (!OrigProto.postMessage) {
+    OrigProto.postMessage = function(data: unknown) {
+      this.send(typeof data === "string" ? data : JSON.stringify(data));
+    };
+  }
   Object.setPrototypeOf(globalThis.WebSocket, OrigWS);
-  globalThis.WebSocket.prototype = OrigWS.prototype;
+  globalThis.WebSocket.prototype = OrigProto;
 }
 
 serve(async (req) => {

@@ -23,15 +23,23 @@ if (OrigWS) {
         ? `ws://${raw.slice("http://".length)}`
         : raw;
     const sanitize = (p: string) => (WS_PROTOCOL_TOKEN.test(p) ? p : undefined);
+    let ws: WebSocket;
     if (Array.isArray(protocols)) {
       const cleaned = protocols.map(sanitize).filter(Boolean) as string[];
-      return cleaned.length ? new OrigWS(fixedUrl, cleaned) : new OrigWS(fixedUrl);
-    }
-    if (typeof protocols === "string") {
+      ws = cleaned.length ? new OrigWS(fixedUrl, cleaned) : new OrigWS(fixedUrl);
+    } else if (typeof protocols === "string") {
       const cleaned = sanitize(protocols);
-      return cleaned ? new OrigWS(fixedUrl, cleaned) : new OrigWS(fixedUrl);
+      ws = cleaned ? new OrigWS(fixedUrl, cleaned) : new OrigWS(fixedUrl);
+    } else {
+      ws = new OrigWS(fixedUrl);
     }
-    return new OrigWS(fixedUrl);
+    // framer-api calls postMessage; Deno WebSocket uses send()
+    if (!(ws as any).postMessage) {
+      (ws as any).postMessage = (data: unknown) => ws.send(
+        typeof data === "string" ? data : JSON.stringify(data)
+      );
+    }
+    return ws;
   };
   Object.setPrototypeOf(globalThis.WebSocket, OrigWS);
   globalThis.WebSocket.prototype = OrigWS.prototype;
@@ -104,60 +112,38 @@ serve(async (req) => {
       });
     }
 
-    // Use Framer REST API directly instead of framer-api SDK (avoids WebSocket issues)
+    const { connect } = await import("https://esm.sh/framer-api@0.1.2");
+    const framer = await connect(FRAMER_PROJECT_URL, FRAMER_API_KEY);
+
     try {
-      const base = FRAMER_PROJECT_URL.replace(/\/$/, "");
-      const headers = {
-        "Authorization": `Bearer ${FRAMER_API_KEY}`,
-        "Content-Type": "application/json",
-      };
-
-      // Get collection items to find the one to delete
-      const itemsResp = await fetch(
-        `${base}/api/collections/${FRAMER_COLLECTION_ID}/items`,
-        { headers }
-      );
-
-      if (!itemsResp.ok) {
-        console.warn("Framer items fetch failed:", itemsResp.status);
-        return new Response(
-          JSON.stringify({ ok: true, message: "Framer cleanup skipped — could not fetch items" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      const collections = await framer.getCollections();
+      const collection = collections.find((c: any) => c.id === FRAMER_COLLECTION_ID);
+      if (!collection) {
+        throw new Error(`Collection ${FRAMER_COLLECTION_ID} not found`);
       }
-
-      const itemsData = await itemsResp.json();
-      const items = itemsData.items ?? itemsData ?? [];
 
       let resolvedId = framer_item_id;
       if (!resolvedId && slug) {
-        const found = items.find((it: any) => it.slug === slug || it.fieldData?.slug?.value === slug);
-        resolvedId = found?.id;
+        const items = await collection.getItems();
+        const found = items.find((it: any) => it.slug === slug);
+        if (found?.id) {
+          resolvedId = found.id;
+        } else {
+          return new Response(
+            JSON.stringify({ ok: true, message: "No matching item found in Framer" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
-      if (!resolvedId) {
-        return new Response(
-          JSON.stringify({ ok: true, message: "No matching Framer item found" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Delete the item
-      const deleteResp = await fetch(
-        `${base}/api/collections/${FRAMER_COLLECTION_ID}/items/${resolvedId}`,
-        { method: "DELETE", headers }
-      );
+      await collection.removeItems([resolvedId]);
 
       return new Response(
-        JSON.stringify({ ok: true, removed: resolvedId, status: deleteResp.status }),
+        JSON.stringify({ ok: true, removed: resolvedId }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-    } catch (framerErr) {
-      console.warn("Framer delete failed (non-fatal):", framerErr);
-      return new Response(
-        JSON.stringify({ ok: true, message: "Framer cleanup failed but article will be deleted" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    } finally {
+      await framer.disconnect();
     }
   } catch (error) {
     console.error("delete-from-framer error:", error);
