@@ -123,18 +123,16 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
     toast({ title: "Disconnected", description: `${platform} has been disconnected.` });
   }
 
-  const Wrapper = embedded ? ({ children }: { children: React.ReactNode }) => <>{children}</> : PageLayout;
-
   if (loading) return (
-    <Wrapper>
+    <PageLayout>
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
-    </Wrapper>
+    </PageLayout>
   );
 
   return (
-    <Wrapper>
+    <PageLayout>
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold">Integrations</h1>
@@ -220,6 +218,6 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
           </p>
         </div>
       </div>
-    </Wrapper>
+    </PageLayout>
   );
 }

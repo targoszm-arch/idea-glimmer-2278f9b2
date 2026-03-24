@@ -114,6 +114,7 @@ const ContentIdeas = () => {
 
       const result = await resp.json();
       if (result.ideas && Array.isArray(result.ideas)) {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
         const { error } = await supabase.from("content_ideas").insert(
           result.ideas.map((idea: any) => ({
             user_id: currentUser?.id,
