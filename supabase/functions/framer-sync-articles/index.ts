@@ -63,7 +63,7 @@ serve(async (req) => {
 
     let query = adminSupabase
       .from("articles")
-      .select("id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, updated_at")
+      .select("id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, updated_at, reading_time_minutes, author_name")
       .eq("status", "published")
       .eq("user_id", userId)
       .order("updated_at", { ascending: false })

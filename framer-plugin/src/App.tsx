@@ -29,7 +29,9 @@ const FIELDS = [
   { id: F.category, name: "Category",         type: "string" as const },
   { id: F.metaDesc, name: "Meta Description", type: "string" as const },
   { id: F.pubDate,  name: "Published Date",   type: "date" as const },
-  { id: F.image,    name: "Cover Image",      type: "image" as const },
+  { id: F.image,       name: "Cover Image",      type: "image" as const },
+  { id: F.readingTime, name: "Reading Time (min)", type: "number" as const },
+  { id: F.author,      name: "Author",             type: "string" as const },
 ]
 
 export async function configureManagedCollection() {
@@ -81,6 +83,8 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
       [F.metaDesc]: { type: "string",        value: a.meta_description ?? "" },
       [F.pubDate]:  { type: "date",          value: a.created_at ?? "" },
       ...(a.cover_image_url ? { [F.image]: { type: "image" as const, value: a.cover_image_url } } : {}),
+      ...(a.reading_time_minutes != null ? { [F.readingTime]: { type: "number" as const, value: a.reading_time_minutes } } : {}),
+      ...(a.author_name ? { [F.author]: { type: "string" as const, value: a.author_name } } : {}),
     },
   }))
 
@@ -287,6 +291,26 @@ export default function App() {
         <div style={{ fontFamily: "monospace", background: "var(--framer-color-bg-secondary,#f5f5f5)", borderRadius: 6, padding: "4px 8px", fontSize: 10, wordBreak: "break-all" }}>
           {savedKey || "No key saved"}
         </div>
+      </div>
+
+      <div style={{ fontSize: 11 }}>
+        <div style={{ fontWeight: 600, marginBottom: 5, color: "var(--framer-color-text,#111)" }}>Field Mapping</div>
+        {([
+          ["Title", "string"],
+          ["Body", "rich text"],
+          ["Excerpt", "string"],
+          ["Category", "string"],
+          ["Meta Description", "string"],
+          ["Published Date", "date"],
+          ["Cover Image", "image"],
+          ["Reading Time (min)", "number"],
+          ["Author", "string"],
+        ] as [string, string][]).map(([name, type]) => (
+          <div key={name} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: "1px solid var(--framer-color-divider,#eee)" }}>
+            <span style={{ color: "var(--framer-color-text,#111)" }}>{name}</span>
+            <span style={{ color: "var(--framer-color-text-secondary,#888)" }}>{type}</span>
+          </div>
+        ))}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <a href={SIGNUP_URL} target="_blank" rel="noreferrer" style={{ ...s.visitLink, fontSize: 11 }}>
