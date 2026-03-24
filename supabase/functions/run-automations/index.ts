@@ -18,6 +18,8 @@ serve(async (req) => {
     try { body = await req.json(); } catch {}
     const specificId = body.automation_id ?? null;
 
+    console.log("run-automations triggered at", new Date().toISOString(), "specificId:", specificId);
+
     let query = adminSupabase.from("automations").select("*");
 
     if (specificId) {
@@ -29,7 +31,11 @@ serve(async (req) => {
     }
 
     const { data: automations, error } = await query;
-    if (error) throw error;
+    if (error) {
+      console.error("Query error:", error);
+      throw error;
+    }
+    console.log(`Found ${automations?.length ?? 0} automations to run`);
     if (!automations?.length) {
       return new Response(JSON.stringify({ ran: 0, message: "No automations due" }), {
         headers: { ...cors, "Content-Type": "application/json" }
