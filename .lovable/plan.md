@@ -1,17 +1,25 @@
-## Plan: Add ContentLab Logo to Header and Landing Page
 
-The uploaded logo will be placed before the "Skill Studio AI ContentLab" text in two locations:
 
-### Steps
+## Fix: Remove duplicate `Key` imports in Header.tsx
 
-1. **Copy logo to project** — Copy `user-uploads://ContentLab_Logo.png` to `src/assets/ContentLab_Logo.png`
-2. **Update Header component** (`src/components/Header.tsx`)
-  - Import the logo image
-  - Add an `<img>` tag (height ~28px) before the text on line 30
-3. **Update Landing page** (`src/pages/Landing.tsx`)
-  - Import the logo image
-  - Add an `<img>` tag (height ~32px) before the text on line 34-35
+The build is broken because every import line in `Header.tsx` (lines 1-8) has a spurious `Key, ` prefix, causing "Duplicate identifier 'Key'" errors.
 
-Both will render the logo inline with the brand name using `flex items-center gap-2`.
+### What happened
+A previous edit accidentally prepended `Key, ` to every import statement in the file.
 
-To be used everywhere across the platform 
+### Fix (single file edit)
+**`src/components/Header.tsx`** — Replace lines 1-8 with the correct imports:
+
+```tsx
+import { useState } from "react";
+import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut, Coins, HelpCircle, ExternalLink, Plug } from "lucide-react";
+import contentLabLogo from "@/assets/ContentLab_Logo.png";
+import { motion, AnimatePresence } from "framer-motion";
+import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCredits, CREDIT_COSTS, STRIPE_URLS } from "@/hooks/use-credits";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+```
+
+This removes the duplicate `Key` identifier from all 8 import lines and will resolve the build failure.
+
