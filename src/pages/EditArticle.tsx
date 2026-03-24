@@ -29,6 +29,7 @@ const EditArticle = () => {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState<"draft" | "published">("draft");
+  const [previewMode, setPreviewMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showAssistant, setShowAssistant] = useState(false);
@@ -751,11 +752,37 @@ const EditArticle = () => {
               
             </div>
 
-            <div className="rounded-xl border border-border bg-card">
-              <EditorToolbar editor={editor} />
-              <div className="rounded-b-xl overflow-hidden">
-                <EditorContent editor={editor} />
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
+              {/* Edit / Preview toggle */}
+              <div className="flex items-center border-b border-border">
+                <button
+                  onClick={() => setPreviewMode(false)}
+                  className={`px-4 py-2.5 text-sm font-medium transition-colors ${!previewMode ? "text-primary border-b-2 border-primary -mb-px bg-background" : "text-muted-foreground hover:text-foreground"}`}>
+                  Edit
+                </button>
+                <button
+                  onClick={() => setPreviewMode(true)}
+                  className={`px-4 py-2.5 text-sm font-medium transition-colors ${previewMode ? "text-primary border-b-2 border-primary -mb-px bg-background" : "text-muted-foreground hover:text-foreground"}`}>
+                  Preview
+                </button>
+                {!previewMode && <div className="flex-1"><EditorToolbar editor={editor} /></div>}
               </div>
+              {previewMode ? (
+                <div className="px-6 py-6 min-h-[400px]">
+                  {coverImageUrl && (
+                    <img src={coverImageUrl} alt={title} className="w-full h-56 object-cover rounded-xl mb-6" />
+                  )}
+                  <h1 className="text-3xl font-bold text-foreground mb-4">{title || "Untitled"}</h1>
+                  <article
+                    className="prose prose-sm sm:prose max-w-none text-foreground prose-headings:text-foreground prose-a:text-primary prose-strong:text-foreground"
+                    dangerouslySetInnerHTML={{ __html: editor?.getHTML() || "" }}
+                  />
+                </div>
+              ) : (
+                <div className="rounded-b-xl overflow-hidden">
+                  <EditorContent editor={editor} />
+                </div>
+              )}
             </div>
           </div>
 

@@ -102,6 +102,50 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
 
   useEffect(() => { if (user) { loadAutomations(); loadConnectedPlatforms(); } }, [user]);
 
+  async function publishPreviewArticle() {
+    if (!previewArticle) return;
+    setPublishing(true);
+    try {
+      // Set article to published
+      await supabase.from("articles" as any).update({ status: "published" }).eq("id", previewArticle.id);
+
+      // Publish to destinations
+      const { data: { session } } = await supabase.auth.getSession();
+      const destinations = previewArticle.automation.publish_destinations || [];
+      for (const dest of destinations) {
+        try {
+          if (dest === "wordpress") {
+            await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wordpress-publish`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+              body: JSON.stringify({ action: "publish", article_id: previewArticle.id }),
+            });
+          } else if (dest === "framer") {
+            const a = previewArticle;
+            await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/publish-to-framer`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+              body: JSON.stringify({ article_id: a.id, title: a.title }),
+            });
+          }
+        } catch (destErr) { console.warn(`Failed to publish to ${dest}`, destErr); }
+      }
+      toast.success("Article approved and published!");
+      setPreviewArticle(null);
+      loadAutomations();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+    setPublishing(false);
+  }
+
+  async function discardPreviewArticle() {
+    if (!previewArticle) return;
+    await supabase.from("articles" as any).delete().eq("id", previewArticle.id);
+    toast.success("Article discarded.");
+    setPreviewArticle(null);
+  }
+
   async function runNow(automationId: string, automationName: string) {
     setRunState({ automationId, automationName, stage: "triggering", articleId: null, error: null });
     try {
@@ -131,6 +175,18 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
 
       setRunState(s => s ? { ...s, stage: "done", articleId } : s);
       setTimeout(loadAutomations, 1000);
+
+      // If preview enabled, fetch article content and show preview modal
+      const automation = automations.find(a => a.id === automationId);
+      if (articleId && (automation as any)?.preview_before_publish) {
+        const { data: art } = await supabase.from("articles" as any).select("id, title, content, cover_image_url").eq("id", articleId).single();
+        if (art && automation) {
+          setTimeout(() => {
+            setRunState(null);
+            setPreviewArticle({ id: (art as any).id, title: (art as any).title, content: (art as any).content, cover_image_url: (art as any).cover_image_url, automation });
+          }, 800);
+        }
+      }
     } catch (e: any) {
       setRunState(s => s ? { ...s, stage: "error", error: e.message } : s);
     }
@@ -348,6 +404,49 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
         )}
       </AnimatePresence>
 
+      {/* Article Preview Modal */}
+      <AnimatePresence>
+        {previewArticle && (
+          <div className="fixed inset-0 z-50 flex flex-col bg-white">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+              <div>
+                <h2 className="font-bold text-lg">Preview Article</h2>
+                <p className="text-xs text-muted-foreground">Review before publishing to {previewArticle.automation.publish_destinations?.join(", ") || "Library"}</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={discardPreviewArticle}
+                  className="px-4 py-2 text-sm border border-border rounded-lg text-destructive hover:bg-red-50 hover:border-red-200">
+                  🗑 Discard
+                </button>
+                <button onClick={() => { setPreviewArticle(null); navigate(`/edit/${previewArticle.id}`); }}
+                  className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-secondary">
+                  ✏️ Edit
+                </button>
+                <button onClick={publishPreviewArticle} disabled={publishing}
+                  className="px-5 py-2 text-sm bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2">
+                  {publishing ? <><Loader2 className="w-4 h-4 animate-spin" />Publishing…</> : "✓ Approve & Publish"}
+                </button>
+              </div>
+            </div>
+            {/* Article preview */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="max-w-3xl mx-auto px-6 py-8">
+                {previewArticle.cover_image_url && (
+                  <img src={previewArticle.cover_image_url} alt={previewArticle.title}
+                    className="w-full h-64 object-cover rounded-xl mb-8" />
+                )}
+                <h1 className="text-4xl font-bold mb-6 text-foreground">{previewArticle.title}</h1>
+                <article
+                  className="prose prose-sm sm:prose max-w-none text-foreground prose-headings:text-foreground prose-a:text-primary prose-strong:text-foreground"
+                  dangerouslySetInnerHTML={{ __html: previewArticle.content }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {showNew && (
           <AutomationForm
@@ -393,6 +492,7 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
   // Step 3: Publish
   const [destinations, setDestinations] = useState<string[]>(["library"]);
   const [notifyEmail, setNotifyEmail] = useState("");
+  const [previewBeforePublish, setPreviewBeforePublish] = useState(false);
 
   function toggleDest(id: string) {
     if (id === "library") return; // always on
@@ -421,6 +521,7 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
           : {},
         publish_destinations: destinations.filter(d => d !== "library"),
         notify_email: notifyEmail.trim() || null,
+        preview_before_publish: previewBeforePublish,
         is_active: true,
       };
 
@@ -625,6 +726,13 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
                   })}
                 </div>
               </div>
+              <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-border hover:border-primary/40 transition-colors">
+                <input type="checkbox" checked={previewBeforePublish} onChange={e => setPreviewBeforePublish(e.target.checked)} className="rounded w-4 h-4" />
+                <div>
+                  <div className="text-sm font-medium">Preview before publishing</div>
+                  <div className="text-xs text-muted-foreground">Review and approve each article before it goes live</div>
+                </div>
+              </label>
               <div>
                 <label className="text-sm font-medium block mb-1">Email Notification <span className="font-normal text-muted-foreground">(optional)</span></label>
                 <input type="email" value={notifyEmail} onChange={e => setNotifyEmail(e.target.value)}
