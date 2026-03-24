@@ -1,6 +1,6 @@
 import { framer } from "framer-plugin"
 import { useState, useEffect } from "react"
-import { SYNC_ENDPOINT, SUPABASE_ANON_KEY } from "./config"
+import { SYNC_ENDPOINT, SUPABASE_ANON_KEY, SUPABASE_URL } from "./config"
 
 type Article = {
   id: string; title: string; slug: string; content: string
