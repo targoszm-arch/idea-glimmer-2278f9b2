@@ -25,6 +25,7 @@ export type Database = {
           tone_key: string
           tone_label: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           app_audience?: string
@@ -36,6 +37,7 @@ export type Database = {
           tone_key?: string
           tone_label?: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           app_audience?: string
@@ -47,6 +49,7 @@ export type Database = {
           tone_key?: string
           tone_label?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -97,6 +100,7 @@ export type Database = {
           status: string
           title: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           author_name?: string
@@ -117,6 +121,7 @@ export type Database = {
           status?: string
           title: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           author_name?: string
@@ -137,6 +142,7 @@ export type Database = {
           status?: string
           title?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -148,6 +154,7 @@ export type Database = {
           id: string
           name: string
           type: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -156,6 +163,7 @@ export type Database = {
           id?: string
           name?: string
           type?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -164,6 +172,7 @@ export type Database = {
           id?: string
           name?: string
           type?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -197,6 +206,7 @@ export type Database = {
           strategy: string
           title_suggestion: string
           topic: string
+          user_id: string | null
         }
         Insert: {
           article_id?: string | null
@@ -209,6 +219,7 @@ export type Database = {
           strategy?: string
           title_suggestion: string
           topic: string
+          user_id?: string | null
         }
         Update: {
           article_id?: string | null
@@ -221,6 +232,7 @@ export type Database = {
           strategy?: string
           title_suggestion?: string
           topic?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -305,6 +317,7 @@ export type Database = {
           platform: string
           title: string
           topic: string
+          user_id: string | null
           video_url: string | null
         }
         Insert: {
@@ -314,6 +327,7 @@ export type Database = {
           platform: string
           title?: string
           topic: string
+          user_id?: string | null
           video_url?: string | null
         }
         Update: {
@@ -323,6 +337,7 @@ export type Database = {
           platform?: string
           title?: string
           topic?: string
+          user_id?: string | null
           video_url?: string | null
         }
         Relationships: []
