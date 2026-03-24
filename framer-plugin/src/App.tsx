@@ -13,14 +13,16 @@ import { PLUGIN_DATA_KEY } from "./constants"
 const SIGNUP_URL = "https://content-lab.ie/signup"
 
 const F = {
-  title:    "fldaaa",
-  body:     "fldbbb",
-  excerpt:  "fldccc",
-  category: "fldddd",
-  metaDesc: "fldeee",
-  pubDate:  "fldfff",
-  image:    "fldggg",
-}
+  title:       "fldaaa",
+  body:        "fldbbb",
+  excerpt:     "fldccc",
+  category:    "fldddd",
+  metaDesc:    "fldeee",
+  pubDate:     "fldfff",
+  image:       "fldggg",
+  readingTime: "fldhhh",
+  author:      "fldiii",
+} as const
 
 const FIELDS = [
   { id: F.title,    name: "Title",            type: "string" as const },
@@ -94,6 +96,102 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
 }
 
 // ── App ───────────────────────────────────────────────────────────────────────
+
+const FIELD_DEFS = [
+  { key: "title",       label: "Title",              type: "string" },
+  { key: "body",        label: "Body (Rich Text)",   type: "formattedText" },
+  { key: "excerpt",     label: "Excerpt",            type: "string" },
+  { key: "category",    label: "Category",           type: "string" },
+  { key: "metaDesc",    label: "Meta Description",   type: "string" },
+  { key: "pubDate",     label: "Published Date",     type: "date" },
+  { key: "image",       label: "Cover Image",        type: "image" },
+  { key: "readingTime", label: "Reading Time (min)", type: "number" },
+  { key: "author",      label: "Author",             type: "string" },
+] as const
+
+const STORAGE_KEY = "contentlab_field_mapping"
+
+function FieldMappingEditor() {
+  const [mapping, setMapping] = React.useState<Record<string, string>>(() => {
+    // Load saved mapping or use defaults from F
+    const saved = framer.getPluginData(STORAGE_KEY)
+    if (saved) { try { return JSON.parse(saved) } catch {} }
+    return Object.fromEntries(FIELD_DEFS.map(f => [f.key, F[f.key as keyof typeof F]]))
+  })
+  const [editing, setEditing] = React.useState(false)
+  const [editingKey, setEditingKey] = React.useState<string | null>(null)
+  const [tempValue, setTempValue] = React.useState("")
+
+  async function saveMapping() {
+    await framer.setPluginData(STORAGE_KEY, JSON.stringify(mapping))
+    framer.notify("Field mapping saved ✓")
+    setEditing(false)
+    setEditingKey(null)
+  }
+
+  function startEdit(key: string, current: string) {
+    setEditingKey(key)
+    setTempValue(current)
+  }
+
+  function commitEdit(key: string) {
+    if (tempValue.trim()) {
+      setMapping(m => ({ ...m, [key]: tempValue.trim() }))
+    }
+    setEditingKey(null)
+  }
+
+  return (
+    <div style={{ fontSize: 11 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+        <div style={{ fontWeight: 600, color: "var(--framer-color-text,#111)" }}>Field Mapping</div>
+        {editing ? (
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={saveMapping} style={{ fontSize: 10, background: "#2563EB", color: "white", border: "none", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>Save</button>
+            <button onClick={() => { setEditing(false); setEditingKey(null) }} style={{ fontSize: 10, background: "none", border: "1px solid #ddd", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>Cancel</button>
+          </div>
+        ) : (
+          <button onClick={() => setEditing(true)} style={{ fontSize: 10, background: "none", border: "1px solid #ddd", borderRadius: 4, padding: "2px 8px", cursor: "pointer", color: "var(--framer-color-text-secondary,#666)" }}>Edit</button>
+        )}
+      </div>
+      <div style={{ color: "var(--framer-color-text-secondary,#888)", marginBottom: 4, fontSize: 10 }}>
+        ContentLab field → Framer CMS field ID
+      </div>
+      {FIELD_DEFS.map(({ key, label, type }) => (
+        <div key={key} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 0", borderBottom: "1px solid var(--framer-color-divider,#eee)" }}>
+          <span style={{ color: "var(--framer-color-text,#111)", flex: 1, minWidth: 0 }}>{label}</span>
+          {editing && editingKey === key ? (
+            <input
+              value={tempValue}
+              onChange={e => setTempValue(e.target.value)}
+              onBlur={() => commitEdit(key)}
+              onKeyDown={e => e.key === "Enter" && commitEdit(key)}
+              autoFocus
+              style={{ fontSize: 10, fontFamily: "monospace", width: 72, padding: "1px 4px", border: "1px solid #2563EB", borderRadius: 3, outline: "none" }}
+            />
+          ) : (
+            <span
+              onClick={() => editing && startEdit(key, mapping[key] || F[key as keyof typeof F])}
+              style={{
+                fontFamily: "monospace",
+                fontSize: 10,
+                color: editing ? "#2563EB" : "var(--framer-color-text-secondary,#888)",
+                cursor: editing ? "pointer" : "default",
+                background: editing ? "#EFF6FF" : "transparent",
+                borderRadius: 3,
+                padding: editing ? "1px 4px" : "0",
+                border: editing ? "1px dashed #93C5FD" : "none",
+              }}
+            >
+              {mapping[key] || F[key as keyof typeof F]}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function App() {
   const [screen, setScreen] = useState<"loading"|"onboard"|"sync">("loading")
   const [apiKey, setApiKey] = useState("")
@@ -293,25 +391,7 @@ export default function App() {
         </div>
       </div>
 
-      <div style={{ fontSize: 11 }}>
-        <div style={{ fontWeight: 600, marginBottom: 5, color: "var(--framer-color-text,#111)" }}>Field Mapping</div>
-        {([
-          ["Title", "string"],
-          ["Body", "rich text"],
-          ["Excerpt", "string"],
-          ["Category", "string"],
-          ["Meta Description", "string"],
-          ["Published Date", "date"],
-          ["Cover Image", "image"],
-          ["Reading Time (min)", "number"],
-          ["Author", "string"],
-        ] as [string, string][]).map(([name, type]) => (
-          <div key={name} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: "1px solid var(--framer-color-divider,#eee)" }}>
-            <span style={{ color: "var(--framer-color-text,#111)" }}>{name}</span>
-            <span style={{ color: "var(--framer-color-text-secondary,#888)" }}>{type}</span>
-          </div>
-        ))}
-      </div>
+      <FieldMappingEditor />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <a href={SIGNUP_URL} target="_blank" rel="noreferrer" style={{ ...s.visitLink, fontSize: 11 }}>
           Visit ContentLab →
