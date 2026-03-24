@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export const STRIPE_URLS = {
   signup:        "https://buy.stripe.com/4gMfZg81854T77Of3E1sQ04", // test
-  upgrade:       "https://buy.stripe.com/eVq28qdls1SH3VCf3E1sQ02",
+  upgrade:       "https://buy.stripe.com/fZu8wOchogNB3VC08K1sQ00",
   topUp25:       "https://buy.stripe.com/6oUcN4gxE0ODgIo2gS1sQ01",
   topUp50:       "https://buy.stripe.com/eVq28qdls1SH3VCf3E1sQ02",
   topUp100:      "https://buy.stripe.com/14AfZg8187d177O6x81sQ03",
