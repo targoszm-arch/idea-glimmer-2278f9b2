@@ -164,6 +164,7 @@ CRITICAL: Output ONLY valid HTML. No Markdown. Every paragraph in <p> tags.
 CRITICAL: Article title in <h1> MUST be under 60 characters.
 CRITICAL: NEVER include citation brackets like [1], [2], [3].
 CRITICAL: NEVER append disclaimers or caveats after the META comments.
+CRITICAL: At the very end, after META comments, add: <!-- COVER_IMAGE_PROMPT: [a vivid 10-15 word photorealistic scene that represents this article's topic] -->
 CRITICAL: Write as a confident subject matter expert for this product/brand.
 
 Tone: ${tone}. ${tone_description ? `Tone details: ${tone_description}` : ""}

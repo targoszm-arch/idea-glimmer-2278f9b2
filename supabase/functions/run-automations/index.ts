@@ -298,6 +298,36 @@ serve(async (req) => {
         if (articleError) throw articleError;
         articleId = article.id;
 
+        // Generate cover image — use AI-suggested prompt from article if present, else use title
+        const coverPromptMatch = finalContent.match(/<!--\s*COVER_IMAGE_PROMPT:\s*(.+?)\s*-->/i);
+        const coverPrompt = coverPromptMatch?.[1]?.trim() || title;
+        try {
+          const imgResp = await fetch(`${supabaseUrl}/functions/v1/generate-cover-image`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({
+              user_id_override: automation.user_id,
+              prompt: coverPrompt,
+            }),
+          });
+          if (imgResp.ok) {
+            const imgData = await imgResp.json();
+            if (imgData.image_url) {
+              await adminSupabase.from("articles")
+                .update({ cover_image_url: imgData.image_url })
+                .eq("id", article.id);
+              console.log(`✓ Cover image generated for article ${article.id}`);
+            }
+          } else {
+            console.warn("Cover image generation failed:", await imgResp.text());
+          }
+        } catch (imgErr) {
+          console.warn("Cover image generation error (non-fatal):", imgErr);
+        }
+
         // Publish to all selected destinations
         const destMap: Record<string, string> = {
           wordpress: "wordpress-publish",
