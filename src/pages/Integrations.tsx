@@ -51,7 +51,7 @@ const PLATFORMS = [
   },
 ];
 
-export default function Integrations() {
+export default function Integrations({ embedded = false }: { embedded?: boolean }) {
   const { toast } = useToast();
   const [connected, setConnected] = useState<Record<Platform, Integration | null>>({
     framer: null, notion: null, shopify: null, intercom: null, google: null,
