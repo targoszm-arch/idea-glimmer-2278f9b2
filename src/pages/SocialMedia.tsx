@@ -13,6 +13,9 @@ import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import CarouselSlidePreview, { parseCarouselContent } from "@/components/CarouselSlidePreview";
 import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import UpgradeModal from "@/components/UpgradeModal";
+import TopUpModal from "@/components/TopUpModal";
+import { useUpgrade } from "@/hooks/use-upgrade";
 import { useAuth } from "@/contexts/AuthContext";
 import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 const platforms = [
@@ -49,6 +52,7 @@ type SocialPost = {
 };
 
 const SocialMedia = () => {
+  const { showUpgrade, setShowUpgrade, showTopUp, setShowTopUp, checkCredits } = useUpgrade();
   const { user } = useAuth();
   const [platform, setPlatform] = useState<Platform>("linkedin");
   const [niche, setNiche] = useState("");
@@ -995,6 +999,8 @@ const SocialMedia = () => {
 
   return (
     <>
+    <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
+    <TopUpModal open={showTopUp} onClose={() => setShowTopUp(false)} />
     <PageLayout>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-3xl font-bold text-foreground mb-2">Social Media Generator</h1>

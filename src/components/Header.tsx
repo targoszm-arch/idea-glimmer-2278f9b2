@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCredits, CREDIT_COSTS, STRIPE_URLS } from "@/hooks/use-credits";
 import UpgradeModal from "@/components/UpgradeModal";
+import TopUpModal from "@/components/TopUpModal";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // New Article removed — Create button does the same job
@@ -19,6 +20,7 @@ const navItems = [
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [showTopUp, setShowTopUp] = useState(false);
   const location = useLocation();
   const { signOut } = useAuth();
   const { credits, loading: creditsLoading, isPaidPlan } = useCredits();
@@ -28,6 +30,7 @@ const Header = () => {
   return (
     <>
     <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
+    <TopUpModal open={showTopUp} onClose={() => setShowTopUp(false)} />
     <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 w-full">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 flex h-14 items-center justify-between gap-4">
 
@@ -67,7 +70,7 @@ const Header = () => {
           {/* Credits */}
           <div className="flex items-center gap-1">
             <span
-              onClick={() => { if ((credits ?? 0) === 0) setShowUpgrade(true); }}
+              onClick={() => { if ((credits ?? 0) === 0) { isPaidPlan ? setShowTopUp(true) : setShowUpgrade(true); } }}
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold cursor-pointer ${
                 (credits ?? 1) === 0 ? "bg-red-100 text-red-700 animate-pulse" : "bg-accent text-accent-foreground"
               }`}>

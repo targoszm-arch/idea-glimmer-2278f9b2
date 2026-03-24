@@ -14,6 +14,9 @@ import { TONE_PRESETS } from "@/lib/tones";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
+import UpgradeModal from "@/components/UpgradeModal";
+import TopUpModal from "@/components/TopUpModal";
+import { useUpgrade } from "@/hooks/use-upgrade";
 import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 
 const strategyColors: Record<string, string> = {
@@ -29,6 +32,7 @@ const strategyDotColors: Record<string, string> = {
 };
 
 const ContentIdeas = () => {
+  const { showUpgrade, setShowUpgrade, showTopUp, setShowTopUp, checkCredits } = useUpgrade();
   const navigate = useNavigate();
   const nicheRef = useRef<HTMLInputElement>(null);
   const [ideas, setIdeas] = useState<ContentIdea[]>([]);
@@ -416,6 +420,8 @@ const { data: { user: currentUser } } = await supabase.auth.getUser();
 
   return (
     <>
+    <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
+    <TopUpModal open={showTopUp} onClose={() => setShowTopUp(false)} />
     <PageLayout>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="mb-8">
