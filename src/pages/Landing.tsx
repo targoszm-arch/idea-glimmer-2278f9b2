@@ -34,7 +34,7 @@ const Landing = () => {
         <div className="container flex h-16 items-center justify-between">
           <span className="flex items-center gap-2 text-xl font-bold tracking-tight">
             <img src={contentLabLogo} alt="ContentLab Logo" className="h-12 w-auto" />
-            Skill Studio AI <span className="text-primary">ContentLab</span>
+            <span className="text-primary">ContentLab</span>
           </span>
           <div className="flex items-center gap-3">
             <Link to="/login" className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
