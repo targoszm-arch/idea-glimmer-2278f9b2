@@ -257,7 +257,6 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
 
@@ -310,7 +309,6 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
         publish_destinations: destinations.filter(d => d !== "library"),
         notify_email: notifyEmail.trim() || null,
         is_active: true,
-        user_id: user?.id,
       };
 
       if (editingId) {
