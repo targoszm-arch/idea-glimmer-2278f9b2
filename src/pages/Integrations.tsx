@@ -51,7 +51,7 @@ const PLATFORMS = [
   },
 ];
 
-export default function Integrations() {
+export default function Integrations({ embedded = false }: { embedded?: boolean }) {
   const { toast } = useToast();
   const [connected, setConnected] = useState<Record<Platform, Integration | null>>({
     framer: null, notion: null, shopify: null, intercom: null, google: null,
@@ -123,16 +123,18 @@ export default function Integrations() {
     toast({ title: "Disconnected", description: `${platform} has been disconnected.` });
   }
 
-  if (loading) const inner = (
-    <div>
-<div className="flex items-center justify-center h-64">
+  const Wrapper = embedded ? ({ children }: { children: React.ReactNode }) => <>{children}</> : PageLayout;
+
+  if (loading) return (
+    <Wrapper>
+      <div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
-    </PageLayout>
+    </Wrapper>
   );
 
   return (
-    <PageLayout>
+    <Wrapper>
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold">Integrations</h1>
@@ -218,6 +220,6 @@ export default function Integrations() {
           </p>
         </div>
       </div>
-    </PageLayout>
+    </Wrapper>
   );
 }
