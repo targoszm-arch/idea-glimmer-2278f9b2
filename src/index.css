@@ -5,6 +5,11 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scrollbar-gutter: stable;
+    overflow-y: scroll;
+  }
+
   :root {
     --background: 0 0% 100%;
     --foreground: 0 0% 9%;
@@ -87,6 +92,11 @@
 }
 
 @layer base {
+  html {
+    scrollbar-gutter: stable;
+    overflow-y: scroll;
+  }
+
   * {
     @apply border-border;
   }

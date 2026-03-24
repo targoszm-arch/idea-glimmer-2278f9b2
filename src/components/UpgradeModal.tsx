@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { X, Zap, Lock } from "lucide-react";
 import { STRIPE_URLS, TOP_UP_OPTIONS } from "@/hooks/use-credits";
 
@@ -9,7 +10,7 @@ interface Props {
 export default function UpgradeModal({ open, onClose }: Props) {
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200">
         <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">

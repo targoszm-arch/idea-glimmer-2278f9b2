@@ -10,9 +10,9 @@ interface PageLayoutProps {
 
 const PageLayout = ({ children, hideFooter = false, className }: PageLayoutProps) => {
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
       <Header />
-      <main className={cn("flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 py-6", className)}>
+      <main className={cn("flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 min-h-[calc(100vh-3.5rem)]", className)}>
         {children}
       </main>
       {!hideFooter && <Footer />}
