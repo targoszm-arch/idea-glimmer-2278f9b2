@@ -5,10 +5,12 @@ import { TOP_UP_OPTIONS } from "@/hooks/use-credits";
 
 interface Props {
   open: boolean;
-  onClose: () => void;
+  onOpenChange?: (open: boolean) => void;
+  onClose?: () => void;
 }
 
-export default function TopUpModal({ open, onClose }: Props) {
+export default function TopUpModal({ open, onOpenChange, onClose }: Props) {
+  const handleClose = () => { onOpenChange?.(false); onClose?.(); };
   const [selected, setSelected] = useState("");
   const option = TOP_UP_OPTIONS.find(o => o.value === selected);
 

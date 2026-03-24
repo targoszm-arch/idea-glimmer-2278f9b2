@@ -4,10 +4,14 @@ import { STRIPE_URLS, TOP_UP_OPTIONS } from "@/hooks/use-credits";
 
 interface Props {
   open: boolean;
-  onClose: () => void;
+  onOpenChange?: (open: boolean) => void;
+  onClose?: () => void;
+  creditsNeeded?: number;
+  creditsAvailable?: number;
 }
 
-export default function UpgradeModal({ open, onClose }: Props) {
+export default function UpgradeModal({ open, onOpenChange, onClose }: Props) {
+  const handleClose = () => { onOpenChange?.(false); onClose?.(); };
   if (!open) return null;
 
   return createPortal(
