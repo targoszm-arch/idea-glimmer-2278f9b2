@@ -1,48 +1,50 @@
 
 
-## Fix Framer Edge Functions: Build Error + Auto-fetch Credentials
+## Remove manual Framer credential inputs — auto-capture from plugin
 
-### Problems
+### Why the API key was there
 
-1. **Build error**: All three Framer functions use `npm:framer-api@0.1.2` which Deno cannot resolve. Must switch to `https://esm.sh/framer-api@0.1.2`.
+The edge functions (`publish-to-framer`, `delete-from-framer`, `reconcile-framer`) use the `framer-api` npm library to push/delete articles server-side. That library requires a **Project URL** and **API Token** to connect to Framer's backend via WebSocket.
 
-2. **Duplicate auth block in `publish-to-framer`**: Lines 84-95 redeclare `authHeader`, `user`, and `authError` — causing a runtime crash. Must remove.
+However, the **Framer Plugin** already syncs articles directly using the Plugin SDK — no API key needed. The plugin calls `collection.addItems()` which works natively inside Framer.
 
-3. **`delete-from-framer` and `reconcile-framer` use hardcoded env vars** (`FRAMER_PROJECT_URL`, `FRAMER_API_KEY`, `FRAMER_COLLECTION_ID`) instead of reading the user's saved credentials from `user_integrations`. Only `publish-to-framer` reads from the DB.
+### The problem
+
+The Framer Plugin SDK does **not** expose the user's API token or project URL. `getProjectInfo()` returns a hashed ID that cannot be used for API access. So there is no way to auto-capture these from inside the plugin.
+
+### Solution: Make the plugin the primary sync method, remove server-side push
+
+Instead of requiring users to manually enter 3 credentials, we restructure so:
+
+1. **The plugin handles all syncing** (pull articles into Framer CMS) — this already works with just the ContentLab API key
+2. **Auto-capture the Collection ID** from the plugin via `getActiveManagedCollection()` and send it to the backend (for reference/display only)
+3. **Remove the 3 manual input fields** (Project URL, API Key, Collection ID) from the Integrations page
+4. **Mark Framer as "connected" automatically** when the plugin registers itself
 
 ### Changes
 
-#### 1. `supabase/functions/publish-to-framer/index.ts`
-- Remove duplicate auth block (lines 84-95)
-- Replace both `npm:framer-api@0.1.2` imports with `https://esm.sh/framer-api@0.1.2`
+#### 1. New edge function: `register-framer-plugin`
+Called by the plugin after API key validation. Receives the collection ID and project name (auto-detected). Upserts `user_integrations` row for `framer` so the Integrations page shows "Connected".
 
-#### 2. `supabase/functions/delete-from-framer/index.ts`
-- Replace hardcoded env var lookups (lines 83-85) with a DB lookup from `user_integrations` using the authenticated user's ID (same pattern as publish-to-framer)
-- Replace `npm:framer-api@0.1.2` with `https://esm.sh/framer-api@0.1.2`
+#### 2. Update `framer-plugin/src/App.tsx`
+After successful API key entry in `handleNext()`:
+- Call `framer.getProjectInfo()` to get project name
+- Read `collection.id` from the managed collection
+- POST these to `register-framer-plugin` with the user's API key for auth
+- This auto-creates the integration record — no manual form needed
 
-#### 3. `supabase/functions/reconcile-framer/index.ts`
-- Replace hardcoded env var lookups (lines 79-81) with a DB lookup from `user_integrations` using the authenticated user's ID
-- Replace `npm:framer-api@0.1.2` with `https://esm.sh/framer-api@0.1.2`
+#### 3. Update `src/pages/Integrations.tsx`
+- Remove the Framer form with 3 input fields (Project URL, API Key, Collection ID)
+- Replace with a simple status card: "Install the Framer plugin to connect" with a download link
+- When connected (via plugin), show the auto-detected project name and collection ID as read-only info
+- Add a "Disconnect" button that removes the integration
 
-### Credential resolution pattern (applied to all 3 functions)
+#### 4. Simplify edge functions
+- `publish-to-framer`, `delete-from-framer`, `reconcile-framer` — these server-side push functions relied on the API key. Since syncing now happens through the plugin, these become optional/deprecated. We keep them but they gracefully skip if no API key is stored (for users who previously configured them manually).
 
-```typescript
-const adminSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-const { data: integration } = await adminSupabase
-  .from("user_integrations")
-  .select("access_token, platform_user_name, metadata")
-  .eq("user_id", user.id)
-  .eq("platform", "framer")
-  .single();
-
-if (!integration) {
-  throw new Error("Framer not connected. Go to Settings → Integrations.");
-}
-
-const FRAMER_PROJECT_URL = integration.metadata?.project_url ?? integration.platform_user_name;
-const FRAMER_API_KEY = integration.metadata?.api_key ?? integration.access_token;
-const FRAMER_COLLECTION_ID = integration.metadata?.collection_id ?? env("FRAMER_COLLECTION_ID");
-```
-
-This means each user's own Framer credentials (saved via the Integrations page) are used automatically — no global env vars needed.
+### Result
+- Zero manual credential entry for Framer
+- Plugin installation auto-registers the connection
+- Integrations page shows connection status without requiring any secrets
+- Existing server-side push still works for users who previously saved credentials
 
