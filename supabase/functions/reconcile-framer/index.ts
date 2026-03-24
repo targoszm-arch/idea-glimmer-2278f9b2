@@ -75,35 +75,41 @@ serve(async (req) => {
       });
     }
 
-    // Framer config
-    const FRAMER_PROJECT_URL = env("FRAMER_PROJECT_URL");
-    const FRAMER_API_KEY = env("FRAMER_API_KEY") ?? env("FRAMER_API_TOKEN");
-    const FRAMER_COLLECTION_ID = env("FRAMER_COLLECTION_ID");
+    // Fetch Framer credentials from user's integration
+    const adminSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: integration, error: intError } = await adminSupabase
+      .from("user_integrations")
+      .select("access_token, platform_user_name, metadata")
+      .eq("user_id", user.id)
+      .eq("platform", "framer")
+      .single();
 
-    console.log("FRAMER_PROJECT_URL:", FRAMER_PROJECT_URL?.slice(0, 30) + "...");
-    console.log("FRAMER_API_KEY source:", env("FRAMER_API_KEY") ? "FRAMER_API_KEY" : "FRAMER_API_TOKEN");
-    console.log("FRAMER_API_KEY length:", FRAMER_API_KEY?.length);
-    console.log("FRAMER_COLLECTION_ID:", FRAMER_COLLECTION_ID);
+    if (intError || !integration) {
+      return new Response(JSON.stringify({ error: "Framer is not connected. Go to Settings → Integrations." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const FRAMER_PROJECT_URL = (integration.metadata as any)?.project_url ?? integration.platform_user_name;
+    const FRAMER_API_KEY = (integration.metadata as any)?.api_key ?? integration.access_token;
+    const FRAMER_COLLECTION_ID = (integration.metadata as any)?.collection_id ?? env("FRAMER_COLLECTION_ID");
 
     if (!FRAMER_PROJECT_URL || !FRAMER_API_KEY || !FRAMER_COLLECTION_ID) {
-      throw new Error("Missing Framer configuration secrets");
+      throw new Error("Framer integration is incomplete. Please reconnect in Settings → Integrations.");
     }
 
     // Fetch all article slugs from DB
-    const supabaseService = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-    const { data: articles, error: dbError } = await supabaseService
+    const { data: articles, error: dbError } = await adminSupabase
       .from("articles")
-      .select("slug");
+      .select("slug")
+      .eq("user_id", user.id);
 
     if (dbError) throw new Error(`DB error: ${dbError.message}`);
 
     const dbSlugs = new Set((articles || []).map((a: any) => a.slug));
 
     // Dynamic import so the WS patch is in place before framer-api captures it
-    const { connect } = await import("npm:framer-api@0.1.2");
+    const { connect } = await import("https://esm.sh/framer-api@0.1.2");
     const framer = await connect(FRAMER_PROJECT_URL, FRAMER_API_KEY);
 
     try {

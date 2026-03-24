@@ -80,15 +80,30 @@ serve(async (req) => {
       );
     }
 
-    const FRAMER_PROJECT_URL = env("FRAMER_PROJECT_URL");
-    const FRAMER_API_KEY = env("FRAMER_API_KEY") ?? env("FRAMER_API_TOKEN");
-    const FRAMER_COLLECTION_ID = env("FRAMER_COLLECTION_ID");
+    // Fetch Framer credentials from user's integration
+    const adminSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: integration, error: intError } = await adminSupabase
+      .from("user_integrations")
+      .select("access_token, platform_user_name, metadata")
+      .eq("user_id", user.id)
+      .eq("platform", "framer")
+      .single();
 
-    if (!FRAMER_PROJECT_URL || !FRAMER_API_KEY || !FRAMER_COLLECTION_ID) {
-      throw new Error("Missing Framer configuration secrets");
+    if (intError || !integration) {
+      return new Response(JSON.stringify({ error: "Framer is not connected. Go to Settings → Integrations." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const { connect } = await import("npm:framer-api@0.1.2");
+    const FRAMER_PROJECT_URL = (integration.metadata as any)?.project_url ?? integration.platform_user_name;
+    const FRAMER_API_KEY = (integration.metadata as any)?.api_key ?? integration.access_token;
+    const FRAMER_COLLECTION_ID = (integration.metadata as any)?.collection_id ?? env("FRAMER_COLLECTION_ID");
+
+    if (!FRAMER_PROJECT_URL || !FRAMER_API_KEY || !FRAMER_COLLECTION_ID) {
+      throw new Error("Framer integration is incomplete. Please reconnect in Settings → Integrations.");
+    }
+
+    const { connect } = await import("https://esm.sh/framer-api@0.1.2");
     const framer = await connect(FRAMER_PROJECT_URL, FRAMER_API_KEY);
 
     try {
