@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.reconcile-framer]
 verify_jwt = false
+
+[functions.register-framer-plugin]
+verify_jwt = false

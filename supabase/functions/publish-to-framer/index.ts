@@ -98,8 +98,11 @@ serve(async (req) => {
     const FRAMER_API_KEY = (integration.metadata as any)?.api_key ?? integration.access_token;
     const FRAMER_COLLECTION_ID = (integration.metadata as any)?.collection_id ?? env("FRAMER_COLLECTION_ID");
 
-    if (!FRAMER_PROJECT_URL || !FRAMER_API_KEY) {
-      throw new Error("Framer integration is incomplete. Please reconnect in Settings → Integrations.");
+    // If connected via plugin only (no API key), server-side push is not available
+    if (!FRAMER_PROJECT_URL || !FRAMER_API_KEY || FRAMER_API_KEY === "plugin-managed") {
+      return new Response(JSON.stringify({
+        error: "Server-side Framer push is not available. Use the Framer plugin to sync articles."
+      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     if (!FRAMER_COLLECTION_ID) {
       throw new Error("Missing FRAMER_COLLECTION_ID");
