@@ -32,7 +32,7 @@ const fileToDataUrl = (file: File) =>
     reader.readAsDataURL(file);
   });
 
-const BrandAssets = () => {
+const BrandAssets = ({ embedded = false }: { embedded?: boolean }) => {
   const [assets, setAssets] = useState<BrandAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -140,9 +140,9 @@ const BrandAssets = () => {
 
   const filtered = assets.filter((a) => a.type === activeTab);
 
-  return (
-    <PageLayout>
-        <div className="flex items-center justify-between mb-8">
+  const inner = (
+    <div>
+<div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Brand Assets</h1>
             <p className="text-muted-foreground mt-1">
@@ -282,8 +282,9 @@ const BrandAssets = () => {
             </motion.div>
           )}
         </AnimatePresence>
-    </PageLayout>
+    </div>
   );
+  return embedded ? inner : <PageLayout>{inner}</PageLayout>;
 };
 
 export default BrandAssets;

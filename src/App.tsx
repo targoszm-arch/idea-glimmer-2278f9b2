@@ -11,6 +11,7 @@ import NewArticle from "./pages/NewArticle";
 import EditArticle from "./pages/EditArticle";
 import ContentIdeas from "./pages/ContentIdeas";
 import AISettings from "./pages/AISettings";
+import Settings from "./pages/Settings";
 import Article from "./pages/Article";
 import SocialMedia from "./pages/SocialMedia";
 import BrandAssets from "./pages/BrandAssets";
@@ -42,17 +43,18 @@ const App = () => (
             <Route path="/new" element={<ProtectedRoute><NewArticle /></ProtectedRoute>} />
             <Route path="/edit/:id" element={<ProtectedRoute><EditArticle /></ProtectedRoute>} />
             <Route path="/ideas" element={<ProtectedRoute><ContentIdeas /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><AISettings /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/article/:id" element={<ProtectedRoute><Article /></ProtectedRoute>} />
             <Route path="/social" element={<ProtectedRoute><SocialMedia /></ProtectedRoute>} />
-            <Route path="/brand" element={<ProtectedRoute><BrandAssets /></ProtectedRoute>} />
+            <Route path="/brand" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/framer-plugin-setup" element={<ProtectedRoute><FramerPlugin /></ProtectedRoute>} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/signup/confirm" element={<SignupConfirm />} />
             <Route path="/settings/api-key" element={<ProtectedRoute><APIKey /></ProtectedRoute>} />
-            <Route path="/settings/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
+            <Route path="/settings/brand" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/settings/integrations" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

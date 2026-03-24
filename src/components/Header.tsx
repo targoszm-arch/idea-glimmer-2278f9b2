@@ -1,21 +1,19 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Palette, LogOut, Coins, HelpCircle, ExternalLink, Plug, UserCircle } from "lucide-react";
+import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, LogOut, Coins, HelpCircle, ExternalLink, UserCircle } from "lucide-react";
 import contentLabLogo from "@/assets/ContentLab_Logo.png";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCredits, CREDIT_COSTS, STRIPE_URLS, TOP_UP_OPTIONS } from "@/hooks/use-credits";
+import { useCredits, CREDIT_COSTS, STRIPE_URLS } from "@/hooks/use-credits";
 import UpgradeModal from "@/components/UpgradeModal";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
+// New Article removed — Create button does the same job
+// Brand, Integrations moved inside Settings tabs
 const navItems = [
-  { label: "Library", href: "/dashboard", icon: Library },
-  { label: "New Article", href: "/new", icon: PenSquare },
-  { label: "Ideas", href: "/ideas", icon: Lightbulb },
-  { label: "Social", href: "/social", icon: Share2 },
-  { label: "Brand", href: "/brand", icon: Palette },
-  { label: "Settings", href: "/settings", icon: Settings },
-  { label: "Integrations", href: "/settings/integrations", icon: Plug },
+  { label: "Library",  href: "/dashboard", icon: Library },
+  { label: "Ideas",    href: "/ideas",     icon: Lightbulb },
+  { label: "Social",   href: "/social",    icon: Share2 },
 ];
 
 const Header = () => {
@@ -24,6 +22,8 @@ const Header = () => {
   const location = useLocation();
   const { signOut } = useAuth();
   const { credits, loading: creditsLoading } = useCredits();
+
+  const isSettingsActive = location.pathname.startsWith("/settings") || location.pathname === "/brand";
 
   return (
     <>
@@ -39,6 +39,15 @@ const Header = () => {
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-0.5 flex-1 min-w-0">
+          {/* Settings icon — first, left of Library */}
+          <Link to="/settings"
+            className={`rounded-md p-1.5 transition-colors shrink-0 ${
+              isSettingsActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+            }`}
+            title="Settings">
+            <Settings className="h-4 w-4" />
+          </Link>
+
           {navItems.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -57,7 +66,11 @@ const Header = () => {
 
           {/* Credits */}
           <div className="flex items-center gap-1">
-            <span onClick={() => { if ((credits ?? 0) === 0) setShowUpgrade(true); }} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold cursor-pointer ${(credits ?? 1) === 0 ? "bg-red-100 text-red-700 animate-pulse" : "bg-accent text-accent-foreground"}`}>
+            <span
+              onClick={() => { if ((credits ?? 0) === 0) setShowUpgrade(true); }}
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold cursor-pointer ${
+                (credits ?? 1) === 0 ? "bg-red-100 text-red-700 animate-pulse" : "bg-accent text-accent-foreground"
+              }`}>
               <Coins className="h-3.5 w-3.5 text-primary" />
               {creditsLoading ? "…" : credits ?? 0}
             </span>
@@ -98,14 +111,14 @@ const Header = () => {
             </Popover>
           </div>
 
-          {/* Create button - desktop only */}
+          {/* Create button */}
           <Link to="/new"
             className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">
             <PenSquare className="h-3.5 w-3.5" />
             Create
           </Link>
 
-          {/* Profile + logout - desktop */}
+          {/* Profile + logout */}
           <div className="hidden md:flex items-center gap-1">
             <Link to="/profile" className="rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="My Profile">
               <UserCircle className="h-4 w-4" />
@@ -132,6 +145,12 @@ const Header = () => {
             className="overflow-hidden border-t border-border md:hidden w-full"
           >
             <nav className="w-full px-4 py-3 flex flex-col gap-1">
+              <Link to="/settings" onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isSettingsActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                }`}>
+                <Settings className="h-4 w-4" /> Settings
+              </Link>
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href;

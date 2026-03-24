@@ -123,9 +123,9 @@ export default function Integrations() {
     toast({ title: "Disconnected", description: `${platform} has been disconnected.` });
   }
 
-  if (loading) return (
-    <PageLayout>
-      <div className="flex items-center justify-center h-64">
+  if (loading) const inner = (
+    <div>
+<div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     </PageLayout>

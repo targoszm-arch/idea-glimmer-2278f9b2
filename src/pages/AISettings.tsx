@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { TONE_PRESETS } from "@/lib/tones";
 import { toast } from "@/hooks/use-toast";
 
-const AISettings = () => {
+const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
   const { user } = useAuth();
   const [selectedTone, setSelectedTone] = useState("");
   const [appDescription, setAppDescription] = useState("");
@@ -83,18 +83,11 @@ const AISettings = () => {
   };
 
   if (loading) {
-    return (
-      <PageLayout className="max-w-3xl">
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </PageLayout>
-    );
+    return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  return (
-    <PageLayout className="max-w-3xl">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+  const inner = (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-3xl">
           <div className="mb-8 flex items-center gap-3">
             <Settings className="h-6 w-6 text-primary" />
             <div>
@@ -233,9 +226,9 @@ const AISettings = () => {
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Save Changes
           </button>
-        </motion.div>
-    </PageLayout>
+    </motion.div>
   );
+  return embedded ? inner : <PageLayout>{inner}</PageLayout>;
 };
 
 export default AISettings;
