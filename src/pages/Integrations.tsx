@@ -59,8 +59,6 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
   });
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<Platform | null>(null);
-  const [showFramerForm, setShowFramerForm] = useState(false);
-  const [shopifyDomain, setShopifyDomain] = useState("");
   const [shopifyDomain, setShopifyDomain] = useState("");
 
   // Check URL params for OAuth results
@@ -182,9 +180,11 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
                     <div className="flex gap-2">
                       {isConnected ? (
                         <>
-                          <Button variant="outline" size="sm" onClick={() => connectPlatform(platform.id)} disabled={isConnecting}>
-                            {isConnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Reconnect"}
-                          </Button>
+                          {!(platform as any).pluginBased && (
+                            <Button variant="outline" size="sm" onClick={() => connectPlatform(platform.id)} disabled={isConnecting}>
+                              {isConnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Reconnect"}
+                            </Button>
+                          )}
                           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => disconnectPlatform(platform.id)}>
                             Disconnect
                           </Button>
@@ -193,6 +193,12 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
                         <Button size="sm" disabled variant="outline" className="text-muted-foreground">
                           Coming Soon
                         </Button>
+                      ) : (platform as any).pluginBased ? (
+                        <a href="/framer-plugin/framer.json" download>
+                          <Button size="sm" variant="outline">
+                            <Download className="w-4 h-4 mr-2" /> Get Plugin
+                          </Button>
+                        </a>
                       ) : (
                         <Button size="sm" onClick={() => connectPlatform(platform.id)} disabled={isConnecting || (platform.id === "shopify" && !shopifyDomain.trim())}>
                           {isConnecting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Connecting…</> : "Connect"}
@@ -201,36 +207,22 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
                     </div>
                   </div>
                 </CardHeader>
-              {platform.id === "framer" && showFramerForm && !isConnected && (
+              {(platform as any).pluginBased && !isConnected && (
                 <CardContent className="pt-0 pb-4">
-                  <div className="border-t border-border pt-4 space-y-3">
+                  <div className="border-t border-border pt-4">
                     <p className="text-xs text-muted-foreground">
-                      Enter your Framer project details. Find your API key in Framer → Settings → API.
+                      Install the ContentLab plugin inside Framer (CMS → Add Plugin), enter your ContentLab API key, and the connection is set up automatically — no manual credentials needed.
                     </p>
-                    <div className="space-y-2">
-                      <Input
-                        placeholder="Project URL (e.g. https://mysite.framer.website)"
-                        value={framerProjectUrl}
-                        onChange={e => setFramerProjectUrl(e.target.value)}
-                      />
-                      <Input
-                        placeholder="Framer API Key"
-                        type="password"
-                        value={framerApiKey}
-                        onChange={e => setFramerApiKey(e.target.value)}
-                      />
-                      <Input
-                        placeholder="Collection ID (optional)"
-                        value={framerCollectionId}
-                        onChange={e => setFramerCollectionId(e.target.value)}
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={saveFramerIntegration} disabled={savingFramer}>
-                        {savingFramer ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving…</> : "Save"}
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setShowFramerForm(false)}>Cancel</Button>
-                    </div>
+                  </div>
+                </CardContent>
+              )}
+
+              {(platform as any).pluginBased && isConnected && integration?.platform_user_name && (
+                <CardContent className="pt-0 pb-4">
+                  <div className="border-t border-border pt-4">
+                    <p className="text-xs text-muted-foreground">
+                      Connected via Framer plugin · {integration.platform_user_name}
+                    </p>
                   </div>
                 </CardContent>
               )}
