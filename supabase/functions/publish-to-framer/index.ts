@@ -81,27 +81,26 @@ serve(async (req) => {
     const adminSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // Fetch this user's Framer integration from DB
-    const { data: integration, error: intError } = await adminSupabase
+    const { data: integration } = await adminSupabase
       .from("user_integrations")
       .select("access_token, platform_user_name, metadata")
       .eq("user_id", user.id)
       .eq("platform", "framer")
       .single();
 
-    if (intError || !integration) {
-      return new Response(JSON.stringify({
-        error: "Framer is not connected. Go to Settings → Integrations and connect your Framer project."
-      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    // Prefer DB integration, fall back to global env vars
+    const FRAMER_PROJECT_URL = (integration?.metadata as any)?.project_url
+      ?? integration?.platform_user_name
+      ?? env("FRAMER_PROJECT_URL");
+    const FRAMER_API_KEY = (integration?.metadata as any)?.api_key
+      ?? (integration?.access_token !== "plugin-managed" ? integration?.access_token : null)
+      ?? env("FRAMER_API_TOKEN");
+    const FRAMER_COLLECTION_ID = (integration?.metadata as any)?.collection_id
+      ?? env("FRAMER_COLLECTION_ID");
 
-    const FRAMER_PROJECT_URL = (integration.metadata as any)?.project_url ?? integration.platform_user_name;
-    const FRAMER_API_KEY = (integration.metadata as any)?.api_key ?? integration.access_token;
-    const FRAMER_COLLECTION_ID = (integration.metadata as any)?.collection_id ?? env("FRAMER_COLLECTION_ID");
-
-    // If connected via plugin only (no API key), server-side push is not available
-    if (!FRAMER_PROJECT_URL || !FRAMER_API_KEY || FRAMER_API_KEY === "plugin-managed") {
+    if (!FRAMER_PROJECT_URL || !FRAMER_API_KEY) {
       return new Response(JSON.stringify({
-        error: "Server-side Framer push is not available. Use the Framer plugin to sync articles."
+        error: "Framer is not connected. Go to Settings → Integrations or set FRAMER_PROJECT_URL/FRAMER_API_TOKEN secrets."
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     if (!FRAMER_COLLECTION_ID) {

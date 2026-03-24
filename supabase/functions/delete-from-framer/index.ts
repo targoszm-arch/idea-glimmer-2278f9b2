@@ -82,25 +82,24 @@ serve(async (req) => {
 
     // Fetch Framer credentials from user's integration
     const adminSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const { data: integration, error: intError } = await adminSupabase
+    const { data: integration } = await adminSupabase
       .from("user_integrations")
       .select("access_token, platform_user_name, metadata")
       .eq("user_id", user.id)
       .eq("platform", "framer")
       .single();
 
-    if (intError || !integration) {
-      return new Response(JSON.stringify({ error: "Framer is not connected. Go to Settings → Integrations." }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const FRAMER_PROJECT_URL = (integration?.metadata as any)?.project_url
+      ?? integration?.platform_user_name
+      ?? env("FRAMER_PROJECT_URL");
+    const FRAMER_API_KEY = (integration?.metadata as any)?.api_key
+      ?? (integration?.access_token !== "plugin-managed" ? integration?.access_token : null)
+      ?? env("FRAMER_API_TOKEN");
+    const FRAMER_COLLECTION_ID = (integration?.metadata as any)?.collection_id
+      ?? env("FRAMER_COLLECTION_ID");
 
-    const FRAMER_PROJECT_URL = (integration.metadata as any)?.project_url ?? integration.platform_user_name;
-    const FRAMER_API_KEY = (integration.metadata as any)?.api_key ?? integration.access_token;
-    const FRAMER_COLLECTION_ID = (integration.metadata as any)?.collection_id ?? env("FRAMER_COLLECTION_ID");
-
-    if (!FRAMER_PROJECT_URL || !FRAMER_API_KEY || FRAMER_API_KEY === "plugin-managed" || !FRAMER_COLLECTION_ID) {
-      return new Response(JSON.stringify({ ok: true, message: "Skipped — Framer uses plugin-based sync." }), {
+    if (!FRAMER_PROJECT_URL || !FRAMER_API_KEY || !FRAMER_COLLECTION_ID) {
+      return new Response(JSON.stringify({ ok: true, message: "Skipped — no Framer credentials available." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
