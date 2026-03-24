@@ -49,10 +49,10 @@ export const useCredits = () => {
     } else if (!data) {
       const { data: inserted } = await supabase
         .from("user_credits")
-        .insert({ user_id: user.id, credits: 10, plan: "free" })
+        .insert({ user_id: user.id, credits: 20, plan: "free" })
         .select("credits, plan")
         .single();
-      setCredits(inserted?.credits ?? 10);
+      setCredits(inserted?.credits ?? 20);
       setPlan(inserted?.plan ?? "free");
     } else {
       setCredits(data.credits);
