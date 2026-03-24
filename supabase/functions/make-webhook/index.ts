@@ -13,22 +13,21 @@ serve(async (req) => {
   }
 
   try {
-    // Optional secret check — only enforced if MAKE_WEBHOOK_SECRET is set
-    // AND the caller provides a header. Make.com GET requests without headers
-    // are allowed through since this endpoint only returns published articles.
+    // SECURITY: require webhook secret - no secret = no access
     const WEBHOOK_SECRET = Deno.env.get("MAKE_WEBHOOK_SECRET");
-    if (WEBHOOK_SECRET) {
-      const provided =
-        req.headers.get("x-webhook-secret") ??
-        req.headers.get("authorization")?.replace("Bearer ", "");
-      // Only reject if a secret is configured AND the caller sent something wrong
-      // (not if they sent nothing — Make.com plain GET has no headers)
-      if (provided && provided !== WEBHOOK_SECRET) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    const provided =
+      req.headers.get("x-webhook-secret") ??
+      req.headers.get("authorization")?.replace("Bearer ", "");
+
+    if (!WEBHOOK_SECRET) {
+      return new Response(JSON.stringify({ error: "MAKE_WEBHOOK_SECRET not configured" }), {
+        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!provided || provided !== WEBHOOK_SECRET) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const supabase = createClient(
@@ -36,10 +35,20 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Require user_id param so webhook only returns that user's articles
+    const url = new URL(req.url);
+    const userId = url.searchParams.get("user_id");
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "user_id query param required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { data, error } = await supabase
       .from("articles")
       .select("title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, author_name, reading_time_minutes, faq_html")
       .eq("status", "published")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(500);
 

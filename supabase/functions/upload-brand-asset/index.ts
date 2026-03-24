@@ -66,7 +66,8 @@ serve(async (req) => {
         if (storageError) throw new Error(`Storage delete failed: ${storageError.message}`);
       }
 
-      const del = supabase.from("brand_assets").delete();
+      // SECURITY: always filter by user_id to prevent deleting other users' assets
+      const del = supabase.from("brand_assets").delete().eq("user_id", user.id);
       const { error: dbError } = id ? await del.eq("id", id) : await del.eq("file_name", file_name!);
       if (dbError) throw new Error(`Database delete failed: ${dbError.message}`);
 
