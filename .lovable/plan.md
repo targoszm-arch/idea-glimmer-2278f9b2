@@ -1,21 +1,56 @@
 
+## Restore the preview by fixing the current build blockers
 
-## Fix: Blank Preview
+The blank page is coming from compile-time breakages, not a runtime/data issue. I inspected the reported files and there are 4 direct fixes plus 1 extra JSX cleanup in `Header.tsx`.
 
-After thorough code review, all source files (Header.tsx, Landing.tsx, App.tsx, types.ts) are syntactically correct with no visible errors. The blank page with zero console logs and zero network requests indicates the Vite dev server build is stalled or failed silently.
+### Implementation plan
 
-### Diagnosis
-- No TypeScript errors found in imports or component code
-- Logo asset exists at `src/assets/ContentLab_Logo.png`
-- All imports resolve correctly
-- The `__InternalSupabase` block in `types.ts` (added in a previous edit) may be causing a build-time type error that prevents compilation
+1. **Fix `src/components/Header.tsx`**
+   - Remove the duplicate `useState` import.
+   - Repair the component return so the fragment correctly wraps both `<UpgradeModal />` and `<header>...</header>`.
+   - Leave the branding as `ContentLab` (do not remove it).
 
-### Plan
+2. **Fix `src/components/OutOfCreditsDialog.tsx`**
+   - Replace the invalid `STRIPE_URLS.topUp200` reference.
+   - Align both button URLs with the labels already shown in the UI:
+     - `100 Credits / €25` → `STRIPE_URLS.topUp25`
+     - `200 Credits / €50` → `STRIPE_URLS.topUp50`
 
-1. **Remove the non-standard `__InternalSupabase` property** from `src/integrations/supabase/types.ts` (lines 11-14) — this was added in a previous migration sync and may cause the Supabase client instantiation to fail at the type level, blocking the build.
+3. **Fix `src/pages/NewArticle.tsx`**
+   - Remove the stray `UpgradeModal` render that references undefined `showUpgrade` / `setShowUpgrade`.
+   - Remove the unused `useUpgrade` and `UpgradeModal` imports.
+   - Keep the existing `OutOfCreditsDialog` flow, since it is already wired and working for credit checks.
 
-2. **If that alone doesn't fix it**, trigger a clean rebuild by adding a trivial comment to `src/main.tsx` to force Vite to re-process the entry point.
+4. **Fix `src/pages/Profile.tsx`**
+   - Resolve the `plan` redeclaration by using a single source of truth in this file.
+   - Safest minimal change: keep local `plan` state for `fetchPlan()` / `planStarted`, and change the hook destructure to only read `credits`.
 
-### Technical Details
-The `__InternalSupabase: { PostgrestVersion: "14.1" }` key in the `Database` type is a newer Supabase CLI convention. If the installed `@supabase/supabase-js` version doesn't expect it, the `createClient<Database>()` call in `client.ts` will produce a type error that may block the build. Removing it restores compatibility.
+### Why this should restore the preview
+These errors are enough to stop the app from compiling:
+- duplicate identifier in `Header.tsx`
+- invalid Stripe property in `OutOfCreditsDialog.tsx`
+- undefined variables in `NewArticle.tsx`
+- duplicate `plan` declaration in `Profile.tsx`
 
+There is also a malformed JSX return in `Header.tsx` that should be corrected while fixing the import issue, otherwise the file remains unstable.
+
+### Technical details
+```text
+Header.tsx
+- duplicate import: useState
+- malformed fragment / return structure
+
+OutOfCreditsDialog.tsx
+- uses STRIPE_URLS.topUp200, but only topUp25/topUp50/topUp100 exist
+
+NewArticle.tsx
+- renders UpgradeModal with showUpgrade/setShowUpgrade that are never declared
+- already has OutOfCreditsDialog + showCreditsDialog, so the extra modal is redundant
+
+Profile.tsx
+- both `const { credits, plan } = useCredits()` and `const [plan, setPlan] = useState("free")`
+- this causes the block-scoped redeclaration error
+```
+
+### Expected result
+After these file-level fixes, the project should compile again and the preview should load normally with the `ContentLab` name preserved.
