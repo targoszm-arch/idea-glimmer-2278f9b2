@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, XCircle, Loader2, ExternalLink } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ExternalLink, Download } from "lucide-react";
 
 type Platform = "framer" | "notion" | "shopify" | "intercom" | "google";
 
@@ -24,8 +24,8 @@ const PLATFORMS = [
   {
     id: "framer" as Platform,
     name: "Framer CMS",
-    description: "Publish articles directly to your Framer CMS collection",
-    requiresSecrets: true,
+    description: "Install the Framer plugin to auto-connect your CMS collection",
+    pluginBased: true,
   },
   {
     id: "notion" as Platform,
@@ -60,10 +60,7 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<Platform | null>(null);
   const [showFramerForm, setShowFramerForm] = useState(false);
-  const [framerProjectUrl, setFramerProjectUrl] = useState("");
-  const [framerApiKey, setFramerApiKey] = useState("");
-  const [framerCollectionId, setFramerCollectionId] = useState("");
-  const [savingFramer, setSavingFramer] = useState(false);
+  const [shopifyDomain, setShopifyDomain] = useState("");
   const [shopifyDomain, setShopifyDomain] = useState("");
 
   // Check URL params for OAuth results
@@ -102,10 +99,7 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
   async function connectPlatform(platform: Platform) {
     const p = PLATFORMS.find(pl => pl.id === platform);
     if ((p as any)?.comingSoon) return;
-    if (platform === "framer") {
-      setShowFramerForm(true);
-      return;
-    }
+    if ((p as any)?.pluginBased) return; // Framer connects via plugin, not OAuth
     setConnecting(platform);
     try {
       const headers = await getEdgeFunctionHeaders();
@@ -123,43 +117,7 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
     }
   }
 
-  async function saveFramerIntegration() {
-    if (!framerProjectUrl.trim() || !framerApiKey.trim()) {
-      toast({ title: "Missing fields", description: "Project URL and API Key are required.", variant: "destructive" });
-      return;
-    }
-    // Ensure URL starts with https://
-    const url = framerProjectUrl.trim().startsWith("https://")
-      ? framerProjectUrl.trim()
-      : `https://${framerProjectUrl.trim()}`;
 
-    setSavingFramer(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
-
-      const { error } = await supabase.from("user_integrations").upsert({
-        user_id: session.user.id,
-        platform: "framer",
-        access_token: framerApiKey.trim(),
-        platform_user_name: url,
-        metadata: {
-          project_url: url,
-          api_key: framerApiKey.trim(),
-          collection_id: framerCollectionId.trim() || null,
-        },
-      }, { onConflict: "user_id,platform" });
-
-      if (error) throw error;
-      toast({ title: "Framer connected!", description: "Your Framer project has been saved." });
-      setShowFramerForm(false);
-      setFramerProjectUrl(""); setFramerApiKey(""); setFramerCollectionId("");
-      await loadIntegrations();
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
-    }
-    setSavingFramer(false);
-  }
 
   async function disconnectPlatform(platform: Platform) {
     await supabase.from("user_integrations" as any).delete().eq("platform", platform);
