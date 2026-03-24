@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-const STRIPE_CHECKOUT_URL = "https://buy.stripe.com/fZu8wOchogNB3VC08K1sQ00";
+const STRIPE_CHECKOUT_URL = "https://buy.stripe.com/4gMfZg81854T77Of3E1sQ04";
 
 const Signup = () => {
   const [email, setEmail] = useState("");
