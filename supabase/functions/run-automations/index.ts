@@ -178,20 +178,21 @@ serve(async (req) => {
         console.log(`Generated content length: ${content.length} chars`);
         if (!content || content.length < 100) throw new Error("Generated content too short or empty");
 
-        // Strip any markdown code fences Perplexity sometimes wraps content in
+        // Strip any markdown code fences and preamble Perplexity adds
         content = content
           .replace(/^```html\s*/i, "")
           .replace(/^```\s*/i, "")
-          .replace(/\s*```$/i, "")
+          .replace(/\s*```\s*$/i, "")
           .trim();
 
-        // If content still doesn't start with HTML, find the first < and trim everything before it
-        if (!content.startsWith("<")) {
-          const firstTag = content.indexOf("<");
-          if (firstTag > 0) {
-            console.warn(`Stripping ${firstTag} chars of preamble before first HTML tag`);
-            content = content.slice(firstTag);
-          }
+        // Always find the first < tag and strip everything before it
+        // This handles cases where "html" or other text appears before the first tag
+        const firstTag = content.indexOf("<");
+        if (firstTag > 0) {
+          console.warn(`Stripping ${firstTag} chars before first HTML tag: "${content.slice(0, firstTag).trim()}"`);
+          content = content.slice(firstTag);
+        } else if (firstTag === -1) {
+          console.warn("No HTML tags found in generated content");
         }
 
         // Convert any markdown to HTML if content is not already HTML
@@ -285,7 +286,7 @@ serve(async (req) => {
             title,
             slug,
             content: finalContent,
-            excerpt: finalContent.replace(/<[^>]+>/g, "").slice(0, 200),
+            excerpt: finalContent.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200),
             meta_description: metaDescMatch?.[1]?.slice(0, 255) || "",
             category,
             status: "published",

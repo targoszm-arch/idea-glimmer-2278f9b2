@@ -101,7 +101,11 @@ const EditArticle = () => {
       setShopifyArticleId((data as any).shopify_article_id || null);
       setAuthorName((data as any).author_name || "");
       setMetaDescription(data.meta_description || "");
-      editor?.commands.setContent(data.content || "");
+      // Strip any markdown fences or preamble before first HTML tag
+      let articleContent = data.content || "";
+      const firstTag = articleContent.indexOf("<");
+      if (firstTag > 0) articleContent = articleContent.slice(firstTag);
+      editor?.commands.setContent(articleContent);
       setLoading(false);
     })();
   }, [id, editor]);
