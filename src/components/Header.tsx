@@ -21,7 +21,7 @@ const Header = () => {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const location = useLocation();
   const { signOut } = useAuth();
-  const { credits, loading: creditsLoading } = useCredits();
+  const { credits, loading: creditsLoading, isPaidPlan } = useCredits();
 
   const isSettingsActive = location.pathname.startsWith("/settings") || location.pathname === "/brand";
 
@@ -100,9 +100,15 @@ const Header = () => {
                   ))}
                 </div>
                 <div className="mt-3 pt-3 border-t border-border space-y-2">
-                  <button onClick={() => setShowUpgrade(true)} className="block w-full text-center bg-primary text-white rounded-lg py-1.5 text-xs font-semibold hover:bg-primary/90">
-                    ⚡ Get More Credits
-                  </button>
+                  {isPaidPlan ? (
+                    <a href={STRIPE_URLS.topUp25} target="_blank" rel="noreferrer" className="block w-full text-center bg-primary text-white rounded-lg py-1.5 text-xs font-semibold hover:bg-primary/90">
+                      ⚡ Top Up Credits
+                    </a>
+                  ) : (
+                    <a href={STRIPE_URLS.upgrade} target="_blank" rel="noreferrer" className="block w-full text-center bg-primary text-white rounded-lg py-1.5 text-xs font-semibold hover:bg-primary/90">
+                      ⚡ Upgrade Plan
+                    </a>
+                  )}
                   <button onClick={() => window.open(STRIPE_URLS.customerPortal, "_blank")} className="flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline text-xs">
                     <ExternalLink className="h-3 w-3" /> Manage Billing
                   </button>
