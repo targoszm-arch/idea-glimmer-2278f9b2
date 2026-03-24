@@ -6,24 +6,20 @@ const STRIPE_BASE = "https://buy.stripe.com/4gMfZg81854T77Of3E1sQ04";
 const SignupConfirm = () => {
   useEffect(() => {
     const redirect = async () => {
-      // Get the user's email from the session to prefill Stripe
       const { data: { session } } = await supabase.auth.getSession();
       const email = session?.user?.email ?? "";
       const userId = session?.user?.id ?? "";
 
-      // Pass email + client_reference_id (user ID) to Stripe
-      // client_reference_id lets the webhook identify the user
+      // Payment Links only support prefilled_email and client_reference_id
+      // success_url must be set in Stripe Dashboard → Payment Link → After payment
       const params = new URLSearchParams({
         prefilled_email: email,
         client_reference_id: userId,
-        success_url: `${window.location.origin}/payment-success`,
-        cancel_url: `${window.location.origin}/signup`,
       });
 
       window.location.href = `${STRIPE_BASE}?${params.toString()}`;
     };
 
-    // Small delay to ensure session is fully established
     const t = setTimeout(redirect, 1000);
     return () => clearTimeout(t);
   }, []);

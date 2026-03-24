@@ -21,6 +21,7 @@ import Signup from "./pages/Signup";
 import Integrations from "./pages/Integrations";
 import APIKey from "./pages/APIKey";
 import PaymentSuccess from "./pages/PaymentSuccess";
+import ResetPassword from "./pages/ResetPassword";
 import SignupConfirm from "./pages/SignupConfirm";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="/brand" element={<ProtectedRoute><BrandAssets /></ProtectedRoute>} />
             <Route path="/framer-plugin-setup" element={<ProtectedRoute><FramerPlugin /></ProtectedRoute>} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/signup/confirm" element={<SignupConfirm />} />
             <Route path="/settings/api-key" element={<ProtectedRoute><APIKey /></ProtectedRoute>} />
             <Route path="/settings/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
