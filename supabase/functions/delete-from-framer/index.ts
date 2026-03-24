@@ -104,39 +104,60 @@ serve(async (req) => {
       });
     }
 
-    const { connect } = await import("https://esm.sh/framer-api@0.1.2");
-    const framer = await connect(FRAMER_PROJECT_URL, FRAMER_API_KEY);
-
+    // Use Framer REST API directly instead of framer-api SDK (avoids WebSocket issues)
     try {
-      const collections = await framer.getCollections();
-      const collection = collections.find((c: any) => c.id === FRAMER_COLLECTION_ID);
-      if (!collection) {
-        throw new Error(`Collection ${FRAMER_COLLECTION_ID} not found`);
+      const base = FRAMER_PROJECT_URL.replace(/\/$/, "");
+      const headers = {
+        "Authorization": `Bearer ${FRAMER_API_KEY}`,
+        "Content-Type": "application/json",
+      };
+
+      // Get collection items to find the one to delete
+      const itemsResp = await fetch(
+        `${base}/api/collections/${FRAMER_COLLECTION_ID}/items`,
+        { headers }
+      );
+
+      if (!itemsResp.ok) {
+        console.warn("Framer items fetch failed:", itemsResp.status);
+        return new Response(
+          JSON.stringify({ ok: true, message: "Framer cleanup skipped — could not fetch items" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
-      // Resolve the item ID: use framer_item_id directly, or look up by slug
+      const itemsData = await itemsResp.json();
+      const items = itemsData.items ?? itemsData ?? [];
+
       let resolvedId = framer_item_id;
       if (!resolvedId && slug) {
-        const items = await collection.getItems();
-        const found = items.find((it: any) => it.slug === slug);
-        if (found?.id) {
-          resolvedId = found.id;
-        } else {
-          return new Response(
-            JSON.stringify({ ok: true, message: "No matching item found in Framer" }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
+        const found = items.find((it: any) => it.slug === slug || it.fieldData?.slug?.value === slug);
+        resolvedId = found?.id;
       }
 
-      await collection.removeItems([resolvedId]);
+      if (!resolvedId) {
+        return new Response(
+          JSON.stringify({ ok: true, message: "No matching Framer item found" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Delete the item
+      const deleteResp = await fetch(
+        `${base}/api/collections/${FRAMER_COLLECTION_ID}/items/${resolvedId}`,
+        { method: "DELETE", headers }
+      );
 
       return new Response(
-        JSON.stringify({ ok: true, removed: resolvedId }),
+        JSON.stringify({ ok: true, removed: resolvedId, status: deleteResp.status }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-    } finally {
-      await framer.disconnect();
+    } catch (framerErr) {
+      console.warn("Framer delete failed (non-fatal):", framerErr);
+      return new Response(
+        JSON.stringify({ ok: true, message: "Framer cleanup failed but article will be deleted" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
   } catch (error) {
     console.error("delete-from-framer error:", error);

@@ -176,23 +176,17 @@ const EditArticle = () => {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
 
-    // Always attempt Framer CMS cleanup — pass both id and slug as fallback
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-from-framer`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          framer_item_id: framerItemId || undefined,
-          slug: articleSlug || undefined,
-        }),
+    // Attempt Framer CMS cleanup — fire and forget, never block deletion
+    if (framerItemId) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        const token = session?.access_token;
+        if (!token) return;
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-from-framer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ framer_item_id: framerItemId, slug: articleSlug }),
+        }).catch(e => console.warn("Framer cleanup failed:", e));
       });
-    } catch (e) {
-      console.warn("Framer cleanup failed (non-blocking):", e);
     }
 
     const { error } = await supabase.from("articles").delete().eq("id", id);
