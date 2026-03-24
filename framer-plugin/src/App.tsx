@@ -8,8 +8,9 @@ type Article = {
   cover_image_url: string | null; created_at: string
 }
 
+import { PLUGIN_DATA_KEY } from "./constants"
+
 const SIGNUP_URL = "https://contentlab.skillstudio.ai/signup"
-const PLUGIN_DATA_KEY = "contentlab_api_key"
 
 const F = {
   title:    "fldaaa",
@@ -137,7 +138,7 @@ export default function App() {
         projectName = info?.name ?? null
       } catch { /* getProjectInfo may not be available */ }
 
-      await fetch(REGISTER_ENDPOINT, {
+      const regRes = await fetch(REGISTER_ENDPOINT, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -149,6 +150,11 @@ export default function App() {
           project_name: projectName,
         }),
       })
+      if (!regRes.ok) {
+        const regData = await regRes.json().catch(() => ({}))
+        console.error("Plugin registration failed:", regData)
+        framer.notify(`Registration failed: ${regData.error || "Unknown error"}`, { variant: "error" })
+      }
     } catch (e) {
       console.warn("Auto-register failed (non-blocking):", e)
     }

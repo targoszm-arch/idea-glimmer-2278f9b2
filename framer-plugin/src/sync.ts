@@ -1,11 +1,12 @@
 import { framer, type ManagedCollection, type ManagedCollectionItemInput } from "framer-plugin"
 import { SYNC_ENDPOINT, SUPABASE_ANON_KEY } from "./config"
+import { PLUGIN_DATA_KEY } from "./constants"
 
 export const PLUGIN_KEYS = {
     CONFIGURED: "configured",
 } as const
 
-// Field definitions — ids are short readable strings (official pattern uses field name as id)
+// Field definitions
 export const FIELDS = [
     { id: "title",        name: "Title",            type: "string"        },
     { id: "body",         name: "Body",             type: "formattedText" },
@@ -22,12 +23,22 @@ type Article = {
     cover_image_url: string | null; created_at: string
 }
 
-async function fetchArticles(category: string): Promise<Article[]> {
+async function getStoredApiKey(): Promise<string | null> {
+    try {
+        const key = await framer.getPluginData(PLUGIN_DATA_KEY)
+        if (key && key.trim().startsWith("cl_")) return key.trim()
+        return null
+    } catch {
+        return null
+    }
+}
+
+async function fetchArticles(category: string, apiKey: string): Promise<Article[]> {
     const param = category !== "all" ? `&category=${encodeURIComponent(category)}` : ""
     const res = await fetch(`${SYNC_ENDPOINT}?status=published${param}`, {
-        headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, apikey: SUPABASE_ANON_KEY },
+        headers: { Authorization: `Bearer ${apiKey}`, apikey: SUPABASE_ANON_KEY },
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
     const { articles } = await res.json()
     return articles ?? []
 }
@@ -42,14 +53,19 @@ async function uploadImageSafe(url: string) {
 }
 
 export async function performSync(collection: ManagedCollection, category = "all"): Promise<number> {
-    const articles = await fetchArticles(category)
+    const apiKey = await getStoredApiKey()
+    if (!apiKey) {
+        throw new Error("No ContentLab API key found. Open the plugin and enter your API key first.")
+    }
+
+    const articles = await fetchArticles(category, apiKey)
     if (!articles.length) return 0
 
     const existingIds = new Set(await collection.getItemIds())
 
     const items: ManagedCollectionItemInput[] = []
     for (const a of articles) {
-        existingIds.delete(a.id) // track what's still in source
+        existingIds.delete(a.id)
 
         const imageAsset = a.cover_image_url ? await uploadImageSafe(a.cover_image_url) : null
 
@@ -68,7 +84,6 @@ export async function performSync(collection: ManagedCollection, category = "all
         items.push({ id: a.id, slug: a.slug, draft: false, fieldData })
     }
 
-    // Remove items no longer in source
     if (existingIds.size > 0) await collection.removeItems(Array.from(existingIds))
     await collection.addItems(items)
 
@@ -80,6 +95,13 @@ export async function syncExistingCollection(collection: ManagedCollection): Pro
     if (framer.mode !== "syncManagedCollection") return { didSync: false }
 
     if (!framer.isAllowedTo("ManagedCollection.removeItems", "ManagedCollection.addItems")) {
+        return { didSync: false }
+    }
+
+    // Check if API key exists before attempting sync
+    const apiKey = await getStoredApiKey()
+    if (!apiKey) {
+        // No key saved — show UI so user can enter it
         return { didSync: false }
     }
 
