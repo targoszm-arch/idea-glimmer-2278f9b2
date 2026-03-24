@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Calendar, Edit3, ExternalLink } from "lucide-react";
+import { Calendar, Edit3, ExternalLink, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Article } from "@/lib/supabase";
 
@@ -17,12 +17,19 @@ const ArticleCard = ({ article }: ArticleCardProps) => {
   return (
     <div className="group relative flex flex-col rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/30 hover:shadow-md">
       <div className="mb-3 flex items-center justify-between">
-        <Badge
-          variant={article.status === "published" ? "default" : "secondary"}
-          className="text-xs"
-        >
-          {article.status}
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge
+            variant={article.status === "published" ? "default" : "secondary"}
+            className="text-xs"
+          >
+            {article.status}
+          </Badge>
+          {(article as any).source === "automation" && (
+            <Badge variant="outline" className="text-xs text-purple-600 border-purple-200 bg-purple-50 gap-1">
+              <Zap className="w-2.5 h-2.5" /> Auto
+            </Badge>
+          )}
+        </div>
         {article.category && (
           <span className="text-xs font-medium text-muted-foreground">
             {article.category}

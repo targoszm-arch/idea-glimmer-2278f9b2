@@ -235,6 +235,8 @@ serve(async (req) => {
             meta_description: metaDescMatch?.[1]?.slice(0, 255) || "",
             category,
             status: "published",
+            source: "automation",
+            automation_name: automation.name,
           })
           .select()
           .single();

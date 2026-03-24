@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 const Dashboard = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "published">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "published" | "automation">("all");
   const [syncing, setSyncing] = useState(false);
   const location = useLocation();
 
@@ -20,7 +20,7 @@ const Dashboard = () => {
     try {
       const { data: articles, error } = await supabase
         .from("articles")
-        .select("id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, wp_permalink")
+        .select("id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, wp_permalink, source, automation_name")
         .eq("status", "published");
 
       if (error) throw error;
@@ -97,9 +97,9 @@ const Dashboard = () => {
     setLoading(false);
   };
 
-  const filtered = statusFilter === "all" ?
-  articles :
-  articles.filter((a) => a.status === statusFilter);
+  const filtered = statusFilter === "all" ? articles
+    : statusFilter === "automation" ? articles.filter((a) => (a as any).source === "automation")
+    : articles.filter((a) => a.status === statusFilter);
 
   return (
     <PageLayout>
@@ -127,7 +127,7 @@ const Dashboard = () => {
         {/* Filters */}
         <div className="mb-6 flex items-center gap-2">
           <Filter className="h-4 w-4 text-muted-foreground" />
-          {(["all", "draft", "published"] as const).map((s) =>
+          {(["all", "published", "draft", "automation"] as const).map((s) =>
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
@@ -137,7 +137,7 @@ const Dashboard = () => {
             "bg-secondary text-muted-foreground hover:text-foreground"}`
             }>
             
-              {s.charAt(0).toUpperCase() + s.slice(1)}
+              {s === "automation" ? "⚡ Auto" : s.charAt(0).toUpperCase() + s.slice(1)}
             </button>
           )}
         </div>
