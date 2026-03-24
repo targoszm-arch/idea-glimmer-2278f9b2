@@ -37,7 +37,7 @@ const OutOfCreditsDialog = ({ open, onOpenChange, creditsNeeded, creditsAvailabl
             <span className="text-primary-foreground/80">€25</span>
           </Button>
           <Button
-            onClick={() => window.open(STRIPE_URLS.topUp200, "_blank")}
+            onClick={() => window.open(STRIPE_URLS.topUp50, "_blank")}
             className="w-full justify-between"
             variant="secondary"
           >
