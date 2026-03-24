@@ -8,7 +8,7 @@ import contentLabLogo from "@/assets/ContentLab_Logo.png";
 const features = [
   { icon: PenSquare, title: "AI Article Generation", desc: "Generate SEO-optimised articles with your brand voice and tone in seconds." },
   { icon: Share2, title: "Social Media Posts", desc: "Create platform-specific social content for LinkedIn, Twitter, Instagram & more." },
-  { icon: Video, title: "HeyGen Video", desc: "Turn articles into engaging AI avatar videos with a single click." },
+  { icon: Video, title: "AI Generated Videos", desc: "Turn articles into engaging AI avatar videos with a single click." },
   { icon: BarChart3, title: "Infographics", desc: "Auto-generate carousel infographics from your content for visual storytelling." },
 ];
 
@@ -117,7 +117,7 @@ const Landing = () => {
               </div>
               <p className="mt-2 text-sm text-muted-foreground">200 credits included</p>
               <ul className="mt-6 space-y-3">
-                {["200 AI credits", "Article generation", "Social media posts", "HeyGen video", "Infographic carousel", "Brand voice settings"].map((item) => (
+                {["200 AI credits", "Article generation", "Social media posts", "AI generated videos", "Infographic carousel", "Brand voice settings"].map((item) => (
                   <li key={item} className="flex items-center gap-2 text-sm text-card-foreground">
                     <Check className="h-4 w-4 text-primary flex-shrink-0" />
                     {item}
