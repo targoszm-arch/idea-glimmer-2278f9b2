@@ -25,6 +25,7 @@ import APIKey from "./pages/APIKey";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import ResetPassword from "./pages/ResetPassword";
 import Profile from "./pages/Profile";
+import Automations from "./pages/Automations";
 import SignupConfirm from "./pages/SignupConfirm";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/article/:id" element={<ProtectedRoute><Article /></ProtectedRoute>} />
             <Route path="/social" element={<ProtectedRoute><SocialMedia /></ProtectedRoute>} />
+            <Route path="/automations" element={<ProtectedRoute><Automations /></ProtectedRoute>} />
             <Route path="/brand" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/framer-plugin-setup" element={<ProtectedRoute><FramerPlugin /></ProtectedRoute>} />
             <Route path="/payment-success" element={<PaymentSuccess />} />

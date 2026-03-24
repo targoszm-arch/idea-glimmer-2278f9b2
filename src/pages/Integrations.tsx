@@ -9,9 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, XCircle, Loader2, ExternalLink, Download } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ExternalLink } from "lucide-react";
 
-type Platform = "framer" | "notion" | "shopify" | "intercom" | "google";
+type Platform = "framer" | "notion" | "shopify" | "intercom" | "google" | "wordpress";
 
 type Integration = {
   platform: Platform;
@@ -24,8 +24,8 @@ const PLATFORMS = [
   {
     id: "framer" as Platform,
     name: "Framer CMS",
-    description: "Install the Framer plugin to auto-connect your CMS collection",
-    pluginBased: true,
+    description: "Publish articles directly to your Framer CMS collection",
+    requiresSecrets: true,
   },
   {
     id: "notion" as Platform,
@@ -46,6 +46,12 @@ const PLATFORMS = [
     description: "Push articles to Intercom Help Center",
   },
   {
+    id: "wordpress" as Platform,
+    name: "WordPress",
+    description: "Publish articles directly to your WordPress site",
+    requiresSecrets: true,
+  },
+  {
     id: "google" as Platform,
     name: "Google Workspace",
     description: "Export articles to Google Docs",
@@ -55,10 +61,21 @@ const PLATFORMS = [
 export default function Integrations({ embedded = false }: { embedded?: boolean }) {
   const { toast } = useToast();
   const [connected, setConnected] = useState<Record<Platform, Integration | null>>({
-    framer: null, notion: null, shopify: null, intercom: null, google: null,
+    framer: null, notion: null, shopify: null, intercom: null, google: null, wordpress: null,
   });
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<Platform | null>(null);
+  const [showFramerForm, setShowFramerForm] = useState(false);
+  const [framerProjectUrl, setFramerProjectUrl] = useState("");
+  const [framerApiKey, setFramerApiKey] = useState("");
+  const [framerCollectionId, setFramerCollectionId] = useState("");
+  const [savingFramer, setSavingFramer] = useState(false);
+  const [showWordPressForm, setShowWordPressForm] = useState(false);
+  const [wpSiteUrl, setWpSiteUrl] = useState("");
+  const [wpUsername, setWpUsername] = useState("");
+  const [wpAppPassword, setWpAppPassword] = useState("");
+  const [testingWP, setTestingWP] = useState(false);
+  const [savingWP, setSavingWP] = useState(false);
   const [shopifyDomain, setShopifyDomain] = useState("");
 
   // Check URL params for OAuth results
@@ -97,7 +114,14 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
   async function connectPlatform(platform: Platform) {
     const p = PLATFORMS.find(pl => pl.id === platform);
     if ((p as any)?.comingSoon) return;
-    if ((p as any)?.pluginBased) return; // Framer connects via plugin, not OAuth
+    if (platform === "framer") {
+      setShowFramerForm(true);
+      return;
+    }
+    if (platform === "wordpress") {
+      setShowWordPressForm(true);
+      return;
+    }
     setConnecting(platform);
     try {
       const headers = await getEdgeFunctionHeaders();
@@ -115,7 +139,91 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
     }
   }
 
+  async function testWordPressConnection() {
+    setTestingWP(true);
+    try {
+      const headers = await getEdgeFunctionHeaders();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wordpress-publish`, {
+        method: "POST", headers,
+        body: JSON.stringify({ action: "test_connection", site_url: wpSiteUrl, username: wpUsername, app_password: wpAppPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Connection failed");
+      toast({ title: "Connected!", description: `Connected as ${data.display_name} on ${data.site_url}` });
+      return true;
+    } catch (e: any) {
+      toast({ title: "Connection failed", description: e.message, variant: "destructive" });
+      return false;
+    } finally { setTestingWP(false); }
+  }
 
+  async function saveWordPressIntegration() {
+    if (!wpSiteUrl.trim() || !wpUsername.trim() || !wpAppPassword.trim()) {
+      toast({ title: "Missing fields", description: "All fields are required.", variant: "destructive" });
+      return;
+    }
+    setSavingWP(true);
+    try {
+      const ok = await testWordPressConnection();
+      if (!ok) { setSavingWP(false); return; }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+      const siteUrl = wpSiteUrl.trim().startsWith("http") ? wpSiteUrl.trim() : `https://${wpSiteUrl.trim()}`;
+      const { error } = await supabase.from("user_integrations" as any).upsert({
+        user_id: session.user.id,
+        platform: "wordpress",
+        access_token: wpAppPassword.trim(),
+        platform_user_name: siteUrl,
+        metadata: { site_url: siteUrl, username: wpUsername.trim() },
+      }, { onConflict: "user_id,platform" });
+      if (error) throw error;
+      toast({ title: "WordPress connected!" });
+      setShowWordPressForm(false);
+      setWpSiteUrl(""); setWpUsername(""); setWpAppPassword("");
+      await loadIntegrations();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+    setSavingWP(false);
+  }
+
+  async function saveFramerIntegration() {
+    if (!framerProjectUrl.trim() || !framerApiKey.trim()) {
+      toast({ title: "Missing fields", description: "Project URL and API Key are required.", variant: "destructive" });
+      return;
+    }
+    // Ensure URL starts with https://
+    const url = framerProjectUrl.trim().startsWith("https://")
+      ? framerProjectUrl.trim()
+      : `https://${framerProjectUrl.trim()}`;
+
+    setSavingFramer(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const { error } = await supabase.from("user_integrations").upsert({
+        user_id: session.user.id,
+        platform: "framer",
+        access_token: framerApiKey.trim(),
+        platform_user_name: url,
+        metadata: {
+          project_url: url,
+          api_key: framerApiKey.trim(),
+          collection_id: framerCollectionId.trim() || null,
+        },
+      }, { onConflict: "user_id,platform" });
+
+      if (error) throw error;
+      toast({ title: "Framer connected!", description: "Your Framer project has been saved." });
+      setShowFramerForm(false);
+      setFramerProjectUrl(""); setFramerApiKey(""); setFramerCollectionId("");
+      await loadIntegrations();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+    setSavingFramer(false);
+  }
 
   async function disconnectPlatform(platform: Platform) {
     await supabase.from("user_integrations" as any).delete().eq("platform", platform);
@@ -180,11 +288,9 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
                     <div className="flex gap-2">
                       {isConnected ? (
                         <>
-                          {!(platform as any).pluginBased && (
-                            <Button variant="outline" size="sm" onClick={() => connectPlatform(platform.id)} disabled={isConnecting}>
-                              {isConnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Reconnect"}
-                            </Button>
-                          )}
+                          <Button variant="outline" size="sm" onClick={() => connectPlatform(platform.id)} disabled={isConnecting}>
+                            {isConnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Reconnect"}
+                          </Button>
                           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => disconnectPlatform(platform.id)}>
                             Disconnect
                           </Button>
@@ -193,12 +299,6 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
                         <Button size="sm" disabled variant="outline" className="text-muted-foreground">
                           Coming Soon
                         </Button>
-                      ) : (platform as any).pluginBased ? (
-                        <a href="/framer-plugin/framer.json" download>
-                          <Button size="sm" variant="outline">
-                            <Download className="w-4 h-4 mr-2" /> Get Plugin
-                          </Button>
-                        </a>
                       ) : (
                         <Button size="sm" onClick={() => connectPlatform(platform.id)} disabled={isConnecting || (platform.id === "shopify" && !shopifyDomain.trim())}>
                           {isConnecting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Connecting…</> : "Connect"}
@@ -207,22 +307,62 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
                     </div>
                   </div>
                 </CardHeader>
-              {(platform as any).pluginBased && !isConnected && (
+              {platform.id === "wordpress" && showWordPressForm && !isConnected && (
                 <CardContent className="pt-0 pb-4">
-                  <div className="border-t border-border pt-4">
+                  <div className="border-t border-border pt-4 space-y-3">
                     <p className="text-xs text-muted-foreground">
-                      Install the ContentLab plugin inside Framer (CMS → Add Plugin), enter your ContentLab API key, and the connection is set up automatically — no manual credentials needed.
+                      Use WordPress Application Passwords (Settings → Users → Edit → Application Passwords).
+                    </p>
+                    <div className="space-y-2">
+                      <Input placeholder="Site URL (e.g. https://myblog.com)" value={wpSiteUrl} onChange={e => setWpSiteUrl(e.target.value)} />
+                      <Input placeholder="WordPress Username" value={wpUsername} onChange={e => setWpUsername(e.target.value)} />
+                      <Input placeholder="Application Password" type="password" value={wpAppPassword} onChange={e => setWpAppPassword(e.target.value)} />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={testWordPressConnection} disabled={testingWP || savingWP}>
+                        {testingWP ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Testing…</> : "Test Connection"}
+                      </Button>
+                      <Button size="sm" onClick={saveWordPressIntegration} disabled={savingWP}>
+                        {savingWP ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving…</> : "Save"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setShowWordPressForm(false)}>Cancel</Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      <a href="https://wordpress.org/documentation/article/application-passwords/" target="_blank" rel="noreferrer" className="text-primary underline">How to create an Application Password →</a>
                     </p>
                   </div>
                 </CardContent>
               )}
-
-              {(platform as any).pluginBased && isConnected && integration?.platform_user_name && (
+              {platform.id === "framer" && showFramerForm && !isConnected && (
                 <CardContent className="pt-0 pb-4">
-                  <div className="border-t border-border pt-4">
+                  <div className="border-t border-border pt-4 space-y-3">
                     <p className="text-xs text-muted-foreground">
-                      Connected via Framer plugin · {integration.platform_user_name}
+                      Enter your Framer project details. Find your API key in Framer → Settings → API.
                     </p>
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Project URL (e.g. https://mysite.framer.website)"
+                        value={framerProjectUrl}
+                        onChange={e => setFramerProjectUrl(e.target.value)}
+                      />
+                      <Input
+                        placeholder="Framer API Key"
+                        type="password"
+                        value={framerApiKey}
+                        onChange={e => setFramerApiKey(e.target.value)}
+                      />
+                      <Input
+                        placeholder="Collection ID (optional)"
+                        value={framerCollectionId}
+                        onChange={e => setFramerCollectionId(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={saveFramerIntegration} disabled={savingFramer}>
+                        {savingFramer ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving…</> : "Save"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setShowFramerForm(false)}>Cancel</Button>
+                    </div>
                   </div>
                 </CardContent>
               )}

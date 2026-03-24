@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, LogOut, Coins, HelpCircle, ExternalLink, UserCircle } from "lucide-react";
+import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, LogOut, Coins, HelpCircle, ExternalLink, UserCircle, Zap } from "lucide-react";
 import contentLabLogo from "@/assets/ContentLab_Logo.png";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,7 @@ const navItems = [
   { label: "Library",  href: "/dashboard", icon: Library },
   { label: "Ideas",    href: "/ideas",     icon: Lightbulb },
   { label: "Social",   href: "/social",    icon: Share2 },
+  { label: "Automations", href: "/automations", icon: Zap },
 ];
 
 const Header = () => {

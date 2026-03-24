@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Calendar, Edit3 } from "lucide-react";
+import { Calendar, Edit3, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Article } from "@/lib/supabase";
 
@@ -61,6 +61,13 @@ const ArticleCard = ({ article }: ArticleCardProps) => {
           </Link>
         </div>
       </div>
+      {(article as any).wp_permalink && (
+        <a href={(article as any).wp_permalink} target="_blank" rel="noreferrer"
+          className="mt-2 flex items-center gap-1 text-xs text-blue-600 hover:underline"
+          onClick={e => e.stopPropagation()}>
+          <ExternalLink className="w-3 h-3" /> View on WordPress
+        </a>
+      )}
     </div>
   );
 };
