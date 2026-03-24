@@ -106,17 +106,11 @@ serve(async (req) => {
           .eq("user_id", automation.user_id)
           .single();
 
-        // Get auth token for user (use service role to create a session)
-        const { data: { user } } = await adminSupabase.auth.admin.getUserById(automation.user_id);
-        if (!user) throw new Error("User not found");
-
         // Generate article using the existing edge function
         const lengthMap: Record<string, string> = { short: "~500 words", medium: "~1000 words", long: "~2000 words" };
         const lengthHint = lengthMap[automation.article_length || "medium"] || "~1000 words";
 
-        const { data: { session } } = await adminSupabase.auth.admin.getUserById(automation.user_id);
-
-        // Call generate-article directly with service role
+        // Call generate-article with service role key + user_id_override
         const generateResp = await fetch(`${supabaseUrl}/functions/v1/generate-article`, {
           method: "POST",
           headers: {

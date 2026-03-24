@@ -14,14 +14,34 @@ serve(async (req) => {
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
     }
-    const supabaseAuth = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authHeader } } });
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
-    }
 
     const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const { data: hasCredits } = await supabaseAdmin.rpc('deduct_credits', { p_user_id: user.id, p_amount: 5, p_action: 'generate_article' });
+    const token = authHeader.replace('Bearer ', '').trim();
+    const isServiceRole = token === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    let userId: string;
+
+    if (isServiceRole) {
+      // Called from automation runner — get user_id from body
+      const bodyText = await req.text();
+      const bodyJson = JSON.parse(bodyText || '{}');
+      const overrideId = bodyJson.user_id_override;
+      if (!overrideId) {
+        return new Response(JSON.stringify({ error: 'user_id_override required when using service role' }), { status: 400, headers: corsHeaders });
+      }
+      userId = overrideId;
+      // Re-attach body for later parsing
+      (req as any)._parsedBody = bodyJson;
+    } else {
+      const supabaseAuth = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authHeader } } });
+      const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+      }
+      userId = user.id;
+    }
+
+    const { data: hasCredits } = await supabaseAdmin.rpc('deduct_credits', { p_user_id: userId, p_amount: 5, p_action: 'generate_article' });
     if (!hasCredits) {
       return new Response(JSON.stringify({ error: 'Insufficient credits', code: 'NO_CREDITS' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -34,7 +54,7 @@ serve(async (req) => {
       app_description = "",
       app_audience = "",
       reference_urls = [],
-    } = await req.json();
+    } = (req as any)._parsedBody ?? await req.json();
 
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
     if (!PERPLEXITY_API_KEY) throw new Error("PERPLEXITY_API_KEY is not configured");
