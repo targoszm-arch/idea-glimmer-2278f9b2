@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-const STRIPE_BASE = "https://buy.stripe.com/bJe6oH2v92vRbJG9J17EQ0f";
+const STRIPE_BASE = "https://buy.stripe.com/fZu8wOchogNB3VC08K1sQ00";
 
 const SignupConfirm = () => {
   useEffect(() => {

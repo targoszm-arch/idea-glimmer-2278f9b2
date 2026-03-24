@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 export const STRIPE_URLS = {
-  signup: "https://buy.stripe.com/bJe6oH2v92vRbJG9J17EQ0f",
+  signup: "https://buy.stripe.com/fZu8wOchogNB3VC08K1sQ00",
   topUp100: "https://buy.stripe.com/7sY3cv9XBgmHcNKdZh7EQ0g",
   topUp200: "https://buy.stripe.com/fZu7sL2v92vR1526wP7EQ0h",
   customerPortal: "https://billing.stripe.com/p/login/cNi9AT2v91rN3dabR97EQ00",
