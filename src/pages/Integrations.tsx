@@ -59,6 +59,11 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
   });
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<Platform | null>(null);
+  const [showFramerForm, setShowFramerForm] = useState(false);
+  const [framerProjectUrl, setFramerProjectUrl] = useState("");
+  const [framerApiKey, setFramerApiKey] = useState("");
+  const [framerCollectionId, setFramerCollectionId] = useState("");
+  const [savingFramer, setSavingFramer] = useState(false);
   const [shopifyDomain, setShopifyDomain] = useState("");
 
   // Check URL params for OAuth results
@@ -98,9 +103,7 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
     const p = PLATFORMS.find(pl => pl.id === platform);
     if ((p as any)?.comingSoon) return;
     if (platform === "framer") {
-      // Framer uses Supabase secrets (FRAMER_PROJECT_URL, FRAMER_API_KEY, FRAMER_COLLECTION_ID)
-      // Direct user to documentation
-      window.open("https://www.framer.com/marketplace/", "_blank");
+      setShowFramerForm(true);
       return;
     }
     setConnecting(platform);
@@ -118,6 +121,44 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
       toast({ title: "Error", description: e.message, variant: "destructive" });
       setConnecting(null);
     }
+  }
+
+  async function saveFramerIntegration() {
+    if (!framerProjectUrl.trim() || !framerApiKey.trim()) {
+      toast({ title: "Missing fields", description: "Project URL and API Key are required.", variant: "destructive" });
+      return;
+    }
+    // Ensure URL starts with https://
+    const url = framerProjectUrl.trim().startsWith("https://")
+      ? framerProjectUrl.trim()
+      : `https://${framerProjectUrl.trim()}`;
+
+    setSavingFramer(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const { error } = await supabase.from("user_integrations").upsert({
+        user_id: session.user.id,
+        platform: "framer",
+        access_token: framerApiKey.trim(),
+        platform_user_name: url,
+        metadata: {
+          project_url: url,
+          api_key: framerApiKey.trim(),
+          collection_id: framerCollectionId.trim() || null,
+        },
+      }, { onConflict: "user_id,platform" });
+
+      if (error) throw error;
+      toast({ title: "Framer connected!", description: "Your Framer project has been saved." });
+      setShowFramerForm(false);
+      setFramerProjectUrl(""); setFramerApiKey(""); setFramerCollectionId("");
+      await loadIntegrations();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+    setSavingFramer(false);
   }
 
   async function disconnectPlatform(platform: Platform) {
@@ -202,6 +243,39 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
                     </div>
                   </div>
                 </CardHeader>
+              {platform.id === "framer" && showFramerForm && !isConnected && (
+                <CardContent className="pt-0 pb-4">
+                  <div className="border-t border-border pt-4 space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      Enter your Framer project details. Find your API key in Framer → Settings → API.
+                    </p>
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Project URL (e.g. https://mysite.framer.website)"
+                        value={framerProjectUrl}
+                        onChange={e => setFramerProjectUrl(e.target.value)}
+                      />
+                      <Input
+                        placeholder="Framer API Key"
+                        type="password"
+                        value={framerApiKey}
+                        onChange={e => setFramerApiKey(e.target.value)}
+                      />
+                      <Input
+                        placeholder="Collection ID (optional)"
+                        value={framerCollectionId}
+                        onChange={e => setFramerCollectionId(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={saveFramerIntegration} disabled={savingFramer}>
+                        {savingFramer ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving…</> : "Save"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setShowFramerForm(false)}>Cancel</Button>
+                    </div>
+                  </div>
+                </CardContent>
+              )}
 
                 {/* Shopify needs store domain input before connecting */}
                 {platform.requiresInput && !isConnected && (

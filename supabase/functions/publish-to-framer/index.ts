@@ -78,16 +78,42 @@ serve(async (req) => {
     }
 
 
-    const FRAMER_PROJECT_URL = env("FRAMER_PROJECT_URL");
-    const FRAMER_API_KEY = env("FRAMER_API_KEY") ?? env("FRAMER_API_TOKEN");
-    const FRAMER_COLLECTION_ID = env("FRAMER_COLLECTION_ID");
+    // Get Framer credentials from user's integration settings (user_integrations table)
+    const adminSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // Auth check to get user
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+    }
+    const anonSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } }
+    });
+    const { data: { user }, error: authError } = await anonSupabase.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+    }
+
+    // Fetch this user's Framer integration from DB
+    const { data: integration, error: intError } = await adminSupabase
+      .from("user_integrations")
+      .select("access_token, platform_user_name, metadata")
+      .eq("user_id", user.id)
+      .eq("platform", "framer")
+      .single();
+
+    if (intError || !integration) {
+      return new Response(JSON.stringify({
+        error: "Framer is not connected. Go to Settings → Integrations and connect your Framer project."
+      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const FRAMER_PROJECT_URL = (integration.metadata as any)?.project_url ?? integration.platform_user_name;
+    const FRAMER_API_KEY = (integration.metadata as any)?.api_key ?? integration.access_token;
+    const FRAMER_COLLECTION_ID = (integration.metadata as any)?.collection_id ?? env("FRAMER_COLLECTION_ID");
 
     if (!FRAMER_PROJECT_URL || !FRAMER_API_KEY) {
-      throw new Error("Framer is not configured. Set FRAMER_PROJECT_URL (full URL like https://xxx.framer.website) and FRAMER_API_KEY in Supabase Edge Function secrets.");
-    }
-    // Validate URL format
-    if (!FRAMER_PROJECT_URL.startsWith("https://")) {
-      throw new Error(`Invalid FRAMER_PROJECT_URL: must be a full URL starting with https://, got: ${FRAMER_PROJECT_URL}`);
+      throw new Error("Framer integration is incomplete. Please reconnect in Settings → Integrations.");
     }
     if (!FRAMER_COLLECTION_ID) {
       throw new Error("Missing FRAMER_COLLECTION_ID");
