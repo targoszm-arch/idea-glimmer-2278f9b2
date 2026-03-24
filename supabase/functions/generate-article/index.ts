@@ -180,7 +180,7 @@ ${category ? `Category focus: ${category}` : ""}
         model: "sonar-pro",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Write an article about: ${topic}` },
+          { role: "user", content: `Write an article about: ${topic}\n\nREMINDER: Output ONLY valid HTML. Start immediately with <h1>. No markdown, no plain text, no code fences. Every paragraph must be wrapped in <p> tags.` },
         ],
         stream: true,
       }),

@@ -178,6 +178,22 @@ serve(async (req) => {
         console.log(`Generated content length: ${content.length} chars`);
         if (!content || content.length < 100) throw new Error("Generated content too short or empty");
 
+        // Strip any markdown code fences Perplexity sometimes wraps content in
+        content = content
+          .replace(/^```html\s*/i, "")
+          .replace(/^```\s*/i, "")
+          .replace(/\s*```$/i, "")
+          .trim();
+
+        // If content still doesn't start with HTML, find the first < and trim everything before it
+        if (!content.startsWith("<")) {
+          const firstTag = content.indexOf("<");
+          if (firstTag > 0) {
+            console.warn(`Stripping ${firstTag} chars of preamble before first HTML tag`);
+            content = content.slice(firstTag);
+          }
+        }
+
         // Convert any markdown to HTML if content is not already HTML
         const isHtml = content.trim().startsWith("<");
         if (!isHtml) {
