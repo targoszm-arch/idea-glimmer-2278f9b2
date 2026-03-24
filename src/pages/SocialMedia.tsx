@@ -1067,8 +1067,8 @@ const SocialMedia = () => {
                             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2">
                               <p className="text-xs text-muted-foreground">
                                 {loadingHeygenTemplates
-                                  ? "Loading HeyGen templates…"
-                                  : `${heygenTemplates.length} HeyGen templates loaded — select one per idea below.`}
+                                  ? "Loading video templates…"
+                                  : `${heygenTemplates.length} video templates loaded — select one per idea below.`}
                               </p>
                               <Button
                                 variant="ghost"
