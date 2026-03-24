@@ -42,6 +42,8 @@ const EditArticle = () => {
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [isLoadingCollections, setIsLoadingCollections] = useState(false);
   const [isSyncingFramer, setIsSyncingFramer] = useState(false);
+  const [isSyncingWordPress, setIsSyncingWordPress] = useState(false);
+  const [wpPermalink, setWpPermalink] = useState<string | null>(null);
   const [isSyncingNotion, setIsSyncingNotion] = useState(false);
   const [isSyncingShopify, setIsSyncingShopify] = useState(false);
   const [notionPageId, setNotionPageId] = useState<string | null>(null);
@@ -90,6 +92,7 @@ const EditArticle = () => {
       setTitle(data.title);
       setCategory(data.category || "");
       setStatus(data.status as "draft" | "published");
+      setWpPermalink(data.wp_permalink || null);
       setCoverImageUrl(data.cover_image_url || null);
       setFramerItemId((data as any).framer_item_id || null);
       setIntercomArticleId((data as any).intercom_article_id || null);
@@ -412,6 +415,27 @@ const EditArticle = () => {
     setIsLoadingCollections(false);
   };
 
+  const handleSyncToWordPress = async () => {
+    if (!id) return;
+    await handleSave();
+    setIsSyncingWordPress(true);
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wordpress-publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "publish", article_id: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "WordPress publish failed");
+      setWpPermalink(data.wp_permalink);
+      toast({ title: "Published to WordPress! ✓", description: data.wp_permalink });
+    } catch (e: any) {
+      toast({ title: "WordPress publish failed", description: e.message, variant: "destructive" });
+    }
+    setIsSyncingWordPress(false);
+  };
+
   const handleSyncToIntercom = async () => {
     if (!id) return;
 
@@ -591,6 +615,16 @@ const EditArticle = () => {
                   ) : (
                     <DropdownMenuItem disabled className="gap-2 opacity-40">
                       <PlatformLogo platform="intercom" /> Intercom <span className="ml-auto text-xs">Not connected</span>
+                    </DropdownMenuItem>
+                  )}
+                  {connectedPlatforms.includes("wordpress") ? (
+                    <DropdownMenuItem onClick={handleSyncToWordPress} disabled={isSyncingWordPress} className="gap-2 cursor-pointer">
+                      <PlatformLogo platform="wordpress" />
+                      {isSyncingWordPress ? "Publishing…" : wpPermalink ? "Update in WordPress" : "Publish to WordPress"}
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem disabled className="gap-2 opacity-40">
+                      <PlatformLogo platform="wordpress" /> WordPress <span className="ml-auto text-xs">Not connected</span>
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />

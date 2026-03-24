@@ -93,6 +93,23 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
 
   useEffect(() => { if (user) { loadAutomations(); loadConnectedPlatforms(); } }, [user]);
 
+  async function runNow(automationId: string) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/run-automations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ automation_id: automationId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      toast.success("Automation triggered! Check Library for the new article.");
+      setTimeout(loadAutomations, 2000);
+    } catch (e: any) {
+      toast.error(`Run failed: ${e.message}`);
+    }
+  }
+
   async function loadAutomations() {
     setLoading(true);
     const { data } = await supabase.from("automations" as any).select("*").order("created_at", { ascending: false });
@@ -194,6 +211,10 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    <button onClick={() => runNow(a.id)}
+                      className="p-1.5 rounded-lg hover:bg-green-50 text-muted-foreground hover:text-green-600" title="Run now">
+                      <Zap className="w-4 h-4" />
+                    </button>
                     <button onClick={() => toggleActive(a.id, a.is_active)}
                       className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground" title={a.is_active ? "Pause" : "Resume"}>
                       {a.is_active ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}

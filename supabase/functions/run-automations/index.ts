@@ -149,6 +149,44 @@ serve(async (req) => {
         const metaDescMatch = content.match(/<!--\s*META_DESCRIPTION:\s*(.+?)\s*-->/i);
         const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 64).replace(/-+$/, "");
 
+        // Optionally improve SEO
+        let finalContent = content;
+        if (automation.improve_seo) {
+          try {
+            const seoResp = await fetch(`${supabaseUrl}/functions/v1/improve-article`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({
+                content,
+                instruction: "Improve the SEO of this article. Optimize headings, meta description, keyword density, and internal structure. Keep all content intact.",
+              }),
+            });
+            if (seoResp.ok) {
+              const seoReader = seoResp.body!.getReader();
+              let seoContent = "";
+              while (true) {
+                const { done, value } = await seoReader.read();
+                if (done) break;
+                const chunk = new TextDecoder().decode(value);
+                for (const line of chunk.split("\n")) {
+                  if (line.startsWith("data: ")) {
+                    const data = line.slice(6);
+                    if (data === "[DONE]") continue;
+                    try { seoContent += JSON.parse(data).choices?.[0]?.delta?.content || ""; } catch {}
+                  }
+                }
+              }
+              if (seoContent) finalContent = seoContent;
+            }
+          } catch (seoErr) {
+            console.error("SEO improvement failed:", seoErr);
+            // Continue with original content
+          }
+        }
+
         // Save article
         const { data: article, error: articleError } = await adminSupabase
           .from("articles")
@@ -156,8 +194,8 @@ serve(async (req) => {
             user_id: automation.user_id,
             title,
             slug,
-            content,
-            excerpt: content.replace(/<[^>]+>/g, "").slice(0, 200),
+            content: finalContent,
+            excerpt: finalContent.replace(/<[^>]+>/g, "").slice(0, 200),
             meta_description: metaDescMatch?.[1]?.slice(0, 255) || "",
             category,
             status: "published",
@@ -168,17 +206,33 @@ serve(async (req) => {
         if (articleError) throw articleError;
         articleId = article.id;
 
-        // Publish to destinations
+        // Publish to all selected destinations
+        const destMap: Record<string, string> = {
+          wordpress: "wordpress-publish",
+          framer: "publish-to-framer",
+          notion: "sync-to-notion",
+          shopify: "sync-to-shopify",
+          intercom: "sync-to-intercom",
+        };
+
         for (const dest of automation.publish_destinations || []) {
+          const fnName = destMap[dest];
+          if (!fnName) continue;
           try {
-            if (dest === "wordpress") {
-              await fetch(`${supabaseUrl}/functions/v1/wordpress-publish`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
-                body: JSON.stringify({ action: "publish", article_id: article.id, user_id_override: automation.user_id }),
-              });
-            }
-            // Add other destinations here as needed
+            const payload = dest === "wordpress"
+              ? { action: "publish", article_id: article.id }
+              : { article_id: article.id, title, slug, content: finalContent };
+
+            await fetch(`${supabaseUrl}/functions/v1/${fnName}`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                "x-user-id": automation.user_id,
+              },
+              body: JSON.stringify(payload),
+            });
+            console.log(`✓ Published to ${dest}`);
           } catch (destErr) {
             console.error(`Failed to publish to ${dest}:`, destErr);
           }
