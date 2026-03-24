@@ -44,7 +44,7 @@ const Header = () => {
         <nav className="hidden md:flex items-center gap-0.5 flex-1 min-w-0">
           {/* Settings icon — first, left of Library */}
           <Link to="/settings"
-            className={`rounded-md p-1.5 transition-colors shrink-0 ${
+            className={`rounded-md p-1.5 transition-all shrink-0 outline-none ${
               isSettingsActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}
             title="Settings">
@@ -55,9 +55,10 @@ const Header = () => {
             const isActive = location.pathname === item.href;
             return (
               <Link key={item.label} to={item.href}
-                className={`rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors whitespace-nowrap shrink-0 ${
+                className={`rounded-md px-2.5 py-1.5 text-sm font-medium transition-all whitespace-nowrap shrink-0 outline-none ${
                   isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                }`}>
+                }`}
+                style={{ fontVariantNumeric: "tabular-nums" }}>
                 {item.label}
               </Link>
             );
