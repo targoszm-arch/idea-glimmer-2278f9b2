@@ -73,7 +73,7 @@ export async function performSync(collection: ManagedCollection, category = "all
             metaDesc:   { type: "string",        value: a.meta_description ?? "" },
             pubDate:    { type: "date",          value: a.created_at ?? "" },
         }
-        fieldData.coverImage = imageAsset
+        fieldData.coverImage = { type: "image", value: imageAsset }
 
         items.push({ id: a.id, slug: a.slug, draft: false, fieldData })
     }

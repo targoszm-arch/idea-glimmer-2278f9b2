@@ -100,7 +100,9 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
       [F.category]:    { type: "string" as const,        value: a.category ?? "" },
       [F.metaDesc]:    { type: "string" as const,        value: a.meta_description ?? "" },
       [F.pubDate]:     { type: "date" as const,          value: a.created_at ?? "" },
-      [F.image]:       { type: "image" as const,         value: a.cover_image_url ?? null },
+      ...(a.cover_image_url
+        ? { [F.image]: { type: "image" as const, value: a.cover_image_url } }
+        : {}),
       [F.readingTime]: { type: "number" as const,        value: a.reading_time_minutes ?? 0 },
       [F.author]:      { type: "string" as const,        value: a.author_name ?? "" },
     },
