@@ -21,6 +21,7 @@ import { toast } from "@/hooks/use-toast";
 import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
 import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 import PlatformLogo from "@/components/PlatformLogo";
+import DOMPurify from "dompurify";
 
 
 const EditArticle = () => {
@@ -93,7 +94,7 @@ const EditArticle = () => {
       setTitle(data.title);
       setCategory(data.category || "");
       setStatus(data.status as "draft" | "published");
-      setWpPermalink(data.wp_permalink || null);
+      setWpPermalink((data as any).wp_permalink || null);
       setCoverImageUrl(data.cover_image_url || null);
       setFramerItemId((data as any).framer_item_id || null);
       setIntercomArticleId((data as any).intercom_article_id || null);

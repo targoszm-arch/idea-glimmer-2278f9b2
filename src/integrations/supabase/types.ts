@@ -84,6 +84,7 @@ export type Database = {
         Row: {
           article_meta: Json | null
           author_name: string
+          automation_name: string | null
           category: string
           content: string
           cover_image_url: string | null
@@ -98,14 +99,18 @@ export type Database = {
           reading_time_minutes: number
           shopify_article_id: string | null
           slug: string
+          source: string | null
           status: string
           title: string
           updated_at: string
           user_id: string | null
+          wp_permalink: string | null
+          wp_post_id: number | null
         }
         Insert: {
           article_meta?: Json | null
           author_name?: string
+          automation_name?: string | null
           category?: string
           content?: string
           cover_image_url?: string | null
@@ -120,14 +125,18 @@ export type Database = {
           reading_time_minutes?: number
           shopify_article_id?: string | null
           slug: string
+          source?: string | null
           status?: string
           title: string
           updated_at?: string
           user_id?: string | null
+          wp_permalink?: string | null
+          wp_post_id?: number | null
         }
         Update: {
           article_meta?: Json | null
           author_name?: string
+          automation_name?: string | null
           category?: string
           content?: string
           cover_image_url?: string | null
@@ -142,10 +151,124 @@ export type Database = {
           reading_time_minutes?: number
           shopify_article_id?: string | null
           slug?: string
+          source?: string | null
           status?: string
           title?: string
           updated_at?: string
           user_id?: string | null
+          wp_permalink?: string | null
+          wp_post_id?: number | null
+        }
+        Relationships: []
+      }
+      automation_runs: {
+        Row: {
+          article_id: string | null
+          automation_id: string
+          error_message: string | null
+          id: string
+          resolved_prompt: string | null
+          run_at: string | null
+          status: string | null
+        }
+        Insert: {
+          article_id?: string | null
+          automation_id: string
+          error_message?: string | null
+          id?: string
+          resolved_prompt?: string | null
+          run_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          article_id?: string | null
+          automation_id?: string
+          error_message?: string | null
+          id?: string
+          resolved_prompt?: string | null
+          run_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_runs_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_runs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "automations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automations: {
+        Row: {
+          article_length: string | null
+          category: string | null
+          created_at: string | null
+          cron_expression: string
+          custom_prompt: string | null
+          funnel_stage_filter: string | null
+          generate_mode: string
+          id: string
+          improve_seo: boolean | null
+          is_active: boolean | null
+          name: string
+          next_run_at: string
+          notify_email: string | null
+          prompt_variables: Json | null
+          publish_destinations: string[] | null
+          timezone: string
+          tone: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          article_length?: string | null
+          category?: string | null
+          created_at?: string | null
+          cron_expression: string
+          custom_prompt?: string | null
+          funnel_stage_filter?: string | null
+          generate_mode: string
+          id?: string
+          improve_seo?: boolean | null
+          is_active?: boolean | null
+          name: string
+          next_run_at: string
+          notify_email?: string | null
+          prompt_variables?: Json | null
+          publish_destinations?: string[] | null
+          timezone?: string
+          tone?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          article_length?: string | null
+          category?: string | null
+          created_at?: string | null
+          cron_expression?: string
+          custom_prompt?: string | null
+          funnel_stage_filter?: string | null
+          generate_mode?: string
+          id?: string
+          improve_seo?: boolean | null
+          is_active?: boolean | null
+          name?: string
+          next_run_at?: string
+          notify_email?: string | null
+          prompt_variables?: Json | null
+          publish_destinations?: string[] | null
+          timezone?: string
+          tone?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
