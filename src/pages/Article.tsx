@@ -52,6 +52,24 @@ const Article = () => {
     })();
   }, [id]);
 
+  const articleRef = useRef<HTMLElement>(null);
+
+  const handleArticleClick = (e: React.MouseEvent<HTMLElement>) => {
+    const target = e.target as HTMLElement;
+    const anchor = target.closest("a");
+    if (!anchor) return;
+    const href = anchor.getAttribute("href");
+    if (!href) return;
+    if (href.startsWith("#")) {
+      e.preventDefault();
+      const el = document.getElementById(href.slice(1));
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (href.startsWith("http")) {
+      e.preventDefault();
+      window.open(href, "_blank", "noopener,noreferrer");
+    }
+  };
+
   if (loading) {
     return (
       <PageLayout>
@@ -69,30 +87,6 @@ const Article = () => {
     day: "numeric",
     year: "numeric",
   });
-
-  const articleRef = useRef<HTMLElement>(null);
-
-  const handleArticleClick = (e: React.MouseEvent<HTMLElement>) => {
-    const target = e.target as HTMLElement;
-    const anchor = target.closest("a");
-    if (!anchor) return;
-    const href = anchor.getAttribute("href");
-    if (!href) return;
-    // Internal anchor link (TOC) — scroll to section
-    if (href.startsWith("#")) {
-      e.preventDefault();
-      const id = href.slice(1);
-      const el = document.getElementById(id);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }
-    // External links open in new tab
-    else if (href.startsWith("http")) {
-      e.preventDefault();
-      window.open(href, "_blank", "noopener,noreferrer");
-    }
-  };
 
 
   return (
