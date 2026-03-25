@@ -43,13 +43,9 @@ async function fetchArticles(category: string, apiKey: string): Promise<Article[
     return articles ?? []
 }
 
-async function uploadImageSafe(url: string) {
-    try {
-        if (!url) return null
-        return await framer.uploadImage({ image: url, name: url.split("/").pop() ?? "image" })
-    } catch {
-        return null
-    }
+async function uploadImageSafe(url: string): Promise<string | null> {
+    if (!url) return null
+    return url
 }
 
 export async function performSync(collection: ManagedCollection, category = "all"): Promise<number> {
@@ -77,9 +73,7 @@ export async function performSync(collection: ManagedCollection, category = "all
             metaDesc:   { type: "string",        value: a.meta_description ?? "" },
             pubDate:    { type: "date",          value: a.created_at ?? "" },
         }
-        if (imageAsset) {
-            fieldData.coverImage = { type: "image", value: imageAsset }
-        }
+        fieldData.coverImage = imageAsset
 
         items.push({ id: a.id, slug: a.slug, draft: false, fieldData })
     }
