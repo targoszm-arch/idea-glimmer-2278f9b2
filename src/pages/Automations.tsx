@@ -200,8 +200,7 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
     }
   }
 
-  async function loadAutomations()
-  // eslint-disable-next-line {
+  async function loadAutomations() {
     setLoading(true);
     const { data } = await supabase.from("automations" as any).select("*").order("created_at", { ascending: false });
     if (data) {
