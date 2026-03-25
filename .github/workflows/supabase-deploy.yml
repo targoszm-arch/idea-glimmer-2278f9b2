@@ -18,16 +18,11 @@ jobs:
         with:
           version: 2.30.4
 
-      - run: |
-          for fn in \
-            framer-sync-articles framer-probe make-webhook \
-            sync-to-notion sync-to-shopify \
-            notion-oauth-start notion-oauth-callback \
-            shopify-oauth-start shopify-oauth-callback \
-            intercom-oauth-start intercom-oauth-callback \
-            google-oauth-start google-oauth-callback; do
+      - name: Deploy all edge functions
+        run: |
+          for fn in $(ls supabase/functions/ | grep -v _shared); do
             echo "Deploying $fn..."
-            supabase functions deploy $fn --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+            supabase functions deploy $fn --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} || echo "⚠️ Failed to deploy $fn"
           done
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_CLI_LOGIN_TOKEN }}
