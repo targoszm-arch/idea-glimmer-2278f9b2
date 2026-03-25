@@ -21,6 +21,7 @@ import { toast } from "@/hooks/use-toast";
 import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
 import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 import PlatformLogo from "@/components/PlatformLogo";
+import DOMPurify from "dompurify";
 
 
 const EditArticle = () => {
