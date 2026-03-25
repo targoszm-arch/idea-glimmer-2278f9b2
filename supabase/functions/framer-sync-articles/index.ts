@@ -9,8 +9,10 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Accept key via Authorization: Bearer OR x-api-key header
   const authHeader = req.headers.get("Authorization") ?? "";
-  const token = authHeader.replace("Bearer ", "").trim();
+  const xApiKey = req.headers.get("x-api-key") ?? "";
+  const token = (authHeader.replace("Bearer ", "").trim()) || xApiKey.trim();
 
   if (!token) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -22,11 +24,10 @@ serve(async (req) => {
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  // Check if token is a ContentLab API key (starts with cl_)
   let userId: string | null = null;
 
   if (token.startsWith("cl_")) {
-    // Validate against api_keys table
+    // Validate ContentLab API key
     const { data: keyData } = await adminSupabase
       .from("api_keys")
       .select("user_id")
@@ -40,11 +41,9 @@ serve(async (req) => {
     }
 
     userId = keyData.user_id;
-
-    // Update last_used_at
     await adminSupabase.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("key", token);
   } else {
-    // Fall back to Supabase JWT (anon key for dev)
+    // Fall back to Supabase JWT
     const anonSupabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
