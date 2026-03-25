@@ -779,7 +779,14 @@ const EditArticle = () => {
                   <h1 className="text-3xl font-bold text-foreground mb-4">{title || "Untitled"}</h1>
                   <article
                     className="prose prose-sm sm:prose max-w-none text-foreground prose-headings:text-foreground prose-a:text-primary prose-strong:text-foreground"
-                    dangerouslySetInnerHTML={{ __html: editor?.getHTML() || "" }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(editor?.getHTML() || "", {
+                        ALLOWED_TAGS: [
+                          "a","b","i","em","strong","p","br","ul","ol","li","h1","h2","h3","h4","h5","h6",
+                          "blockquote","code","pre","table","thead","tbody","tr","th","td",
+                          "div","span","img","figure","figcaption","hr","sup","sub","s","u",
+                        ],
+                        ALLOWED_ATTR: ["href","src","alt","title","id","class","target","rel","width","height"],
+                      }) }}
                   />
                 </div>
               ) : (

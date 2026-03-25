@@ -107,6 +107,7 @@ Then, after the Table of Contents, output an expanded TL;DR section:
 - Use HTML comparison tables (<table>) — never styled divs or images for comparisons.
 - Include quantified proof points with specific numbers.
 - Each H2 must have an id attribute matching the Table of Contents anchor.
+- Hyperlinks: where relevant, wrap key terms or cited sources in <a href="URL">anchor text</a> tags. Use real, credible URLs. Never use plain text URLs — always use proper HTML anchor tags.
 
 **E. FAQ section (5–10 Q&A pairs)**
 - <h2 id="faqs">FAQs</h2>

@@ -142,7 +142,14 @@ const Article = () => {
 
           <article
             className="prose prose-sm sm:prose max-w-none text-foreground prose-headings:text-foreground prose-a:text-primary prose-strong:text-foreground"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content, { ADD_ATTR: ["id", "target", "rel", "href"], FORCE_BODY: false }) }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content, {
+                ALLOWED_TAGS: [
+                  "a","b","i","em","strong","p","br","ul","ol","li","h1","h2","h3","h4","h5","h6",
+                  "blockquote","code","pre","table","thead","tbody","tr","th","td",
+                  "div","span","img","figure","figcaption","hr","sup","sub","s","u",
+                ],
+                ALLOWED_ATTR: ["href","src","alt","title","id","class","target","rel","width","height"],
+              }) }}
           />
         </motion.div>
     </PageLayout>
