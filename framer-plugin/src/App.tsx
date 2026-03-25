@@ -98,90 +98,80 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
 // ── App ───────────────────────────────────────────────────────────────────────
 
 const FIELD_DEFS = [
-  { key: "title",       label: "Title",              type: "string" },
-  { key: "body",        label: "Body (Rich Text)",   type: "formattedText" },
-  { key: "excerpt",     label: "Excerpt",            type: "string" },
-  { key: "category",    label: "Category",           type: "string" },
-  { key: "metaDesc",    label: "Meta Description",   type: "string" },
-  { key: "pubDate",     label: "Published Date",     type: "date" },
-  { key: "image",       label: "Cover Image",        type: "image" },
-  { key: "readingTime", label: "Reading Time (min)", type: "number" },
-  { key: "author",      label: "Author",             type: "string" },
+  { key: "title",       label: "Title" },
+  { key: "body",        label: "Body (Rich Text)" },
+  { key: "excerpt",     label: "Excerpt" },
+  { key: "category",    label: "Category" },
+  { key: "metaDesc",    label: "Meta Description" },
+  { key: "pubDate",     label: "Published Date" },
+  { key: "image",       label: "Cover Image" },
+  { key: "readingTime", label: "Reading Time (min)" },
+  { key: "author",      label: "Author" },
 ] as const
 
 const STORAGE_KEY = "contentlab_field_mapping"
 
 function FieldMappingEditor() {
   const [mapping, setMapping] = useState<Record<string, string>>(() => {
-    // Load saved mapping or use defaults from F
     const saved = framer.getPluginData(STORAGE_KEY)
     if (saved) { try { return JSON.parse(saved) } catch {} }
-    return Object.fromEntries(FIELD_DEFS.map(f => [f.key, F[f.key as keyof typeof F]]))
+    return Object.fromEntries(FIELD_DEFS.map(f => [f.key, F[f.key as keyof typeof F] as string]))
   })
-  const [editing, setEditing] = React.useState(false)
-  const [editingKey, setEditingKey] = React.useState<string | null>(null)
-  const [tempValue, setTempValue] = React.useState("")
+  const [editingKey, setEditingKey] = useState<string | null>(null)
+  const [tempValue, setTempValue] = useState("")
+  const [dirty, setDirty] = useState(false)
 
-  async function saveMapping() {
+  async function save() {
     await framer.setPluginData(STORAGE_KEY, JSON.stringify(mapping))
     framer.notify("Field mapping saved ✓")
-    setEditing(false)
-    setEditingKey(null)
+    setDirty(false)
   }
 
-  function startEdit(key: string, current: string) {
+  function startEdit(key: string) {
     setEditingKey(key)
-    setTempValue(current)
+    setTempValue(mapping[key] || F[key as keyof typeof F] as string)
   }
 
-  function commitEdit(key: string) {
-    if (tempValue.trim()) {
-      setMapping(m => ({ ...m, [key]: tempValue.trim() }))
-    }
+  function commit(key: string) {
+    const val = tempValue.trim()
+    if (val) { setMapping(m => ({ ...m, [key]: val })); setDirty(true) }
     setEditingKey(null)
+  }
+
+  function reset() {
+    setMapping(Object.fromEntries(FIELD_DEFS.map(f => [f.key, F[f.key as keyof typeof F] as string])))
+    setDirty(true)
   }
 
   return (
     <div style={{ fontSize: 11 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
         <div style={{ fontWeight: 600, color: "var(--framer-color-text,#111)" }}>Field Mapping</div>
-        {editing ? (
-          <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={saveMapping} style={{ fontSize: 10, background: "#2563EB", color: "white", border: "none", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>Save</button>
-            <button onClick={() => { setEditing(false); setEditingKey(null) }} style={{ fontSize: 10, background: "none", border: "1px solid #ddd", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>Cancel</button>
-          </div>
-        ) : (
-          <button onClick={() => setEditing(true)} style={{ fontSize: 10, background: "none", border: "1px solid #ddd", borderRadius: 4, padding: "2px 8px", cursor: "pointer", color: "var(--framer-color-text-secondary,#666)" }}>Edit</button>
-        )}
+        <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+          <button onClick={reset} style={{ fontSize: 10, background: "none", border: "none", cursor: "pointer", color: "#aaa", padding: "1px 0" }}>Reset</button>
+          {dirty && <button onClick={save} style={{ fontSize: 10, background: "#2563EB", color: "white", border: "none", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>Save</button>}
+        </div>
       </div>
-      <div style={{ color: "var(--framer-color-text-secondary,#888)", marginBottom: 4, fontSize: 10 }}>
-        ContentLab field → Framer CMS field ID
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "#bbb", marginBottom: 2, padding: "0 2px" }}>
+        <span>ContentLab field</span><span>Framer field ID</span>
       </div>
-      {FIELD_DEFS.map(({ key, label, type }) => (
-        <div key={key} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 0", borderBottom: "1px solid var(--framer-color-divider,#eee)" }}>
-          <span style={{ color: "var(--framer-color-text,#111)", flex: 1, minWidth: 0 }}>{label}</span>
-          {editing && editingKey === key ? (
+      {FIELD_DEFS.map(({ key, label }) => (
+        <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 2px", borderBottom: "1px solid var(--framer-color-divider,#eee)" }}>
+          <span style={{ color: "var(--framer-color-text,#111)" }}>{label}</span>
+          {editingKey === key ? (
             <input
               value={tempValue}
               onChange={e => setTempValue(e.target.value)}
-              onBlur={() => commitEdit(key)}
-              onKeyDown={e => e.key === "Enter" && commitEdit(key)}
+              onBlur={() => commit(key)}
+              onKeyDown={e => { if (e.key === "Enter") commit(key); if (e.key === "Escape") setEditingKey(null) }}
               autoFocus
-              style={{ fontSize: 10, fontFamily: "monospace", width: 72, padding: "1px 4px", border: "1px solid #2563EB", borderRadius: 3, outline: "none" }}
+              style={{ fontFamily: "monospace", fontSize: 10, width: 75, padding: "2px 5px", border: "1.5px solid #2563EB", borderRadius: 4, outline: "none", background: "#EFF6FF", color: "#1E40AF" }}
             />
           ) : (
             <span
-              onClick={() => editing && startEdit(key, mapping[key] || F[key as keyof typeof F])}
-              style={{
-                fontFamily: "monospace",
-                fontSize: 10,
-                color: editing ? "#2563EB" : "var(--framer-color-text-secondary,#888)",
-                cursor: editing ? "pointer" : "default",
-                background: editing ? "#EFF6FF" : "transparent",
-                borderRadius: 3,
-                padding: editing ? "1px 4px" : "0",
-                border: editing ? "1px dashed #93C5FD" : "none",
-              }}
+              onClick={() => startEdit(key)}
+              title="Click to edit"
+              style={{ fontFamily: "monospace", fontSize: 10, color: "#2563EB", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 4, padding: "2px 6px", cursor: "pointer" }}
             >
               {mapping[key] || F[key as keyof typeof F]}
             </span>
@@ -191,6 +181,7 @@ function FieldMappingEditor() {
     </div>
   )
 }
+
 
 export default function App() {
   const [screen, setScreen] = useState<"loading"|"onboard"|"sync">("loading")
