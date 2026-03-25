@@ -10,16 +10,23 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: cors });
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: cors });
+  }
+
+  const token = authHeader.replace("Bearer ", "").trim();
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } }
   );
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: cors });
+  const { data, error: authError } = await supabase.auth.getClaims(token);
+  if (authError || !data?.claims) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: cors });
+  }
+
+  const userId = data.claims.sub as string;
 
   const adminSupabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -27,24 +34,22 @@ serve(async (req) => {
   );
 
   if (req.method === "GET") {
-    // Get existing key — mask it for security (show first 8 chars only)
-    const { data } = await adminSupabase
+    const { data: keyData } = await adminSupabase
       .from("api_keys")
       .select("key, created_at, last_used_at")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .single();
     return new Response(
-      JSON.stringify({ key: data?.key ?? null, created_at: data?.created_at, last_used_at: data?.last_used_at }),
+      JSON.stringify({ key: keyData?.key ?? null, created_at: keyData?.created_at, last_used_at: keyData?.last_used_at }),
       { headers: { ...cors, "Content-Type": "application/json" } }
     );
   }
 
   if (req.method === "POST") {
-    // Use the SECURITY DEFINER DB function to atomically generate key
-    const { data, error } = await adminSupabase.rpc("create_api_key_for_user", { p_user_id: user.id });
+    const { data: newKey, error } = await adminSupabase.rpc("create_api_key_for_user", { p_user_id: userId });
     if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: cors });
     return new Response(
-      JSON.stringify({ key: data }),
+      JSON.stringify({ key: newKey }),
       { headers: { ...cors, "Content-Type": "application/json" } }
     );
   }

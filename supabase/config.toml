@@ -59,3 +59,6 @@ verify_jwt = false
 
 [functions.register-framer-plugin]
 verify_jwt = false
+
+[functions.generate-api-key]
+verify_jwt = false
