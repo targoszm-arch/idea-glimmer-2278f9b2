@@ -17,7 +17,7 @@ serve(async (req) => {
     if (authError || !user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
 
     const INTERCOM_CLIENT_ID = Deno.env.get("INTERCOM_CLIENT_ID")!;
-    const REDIRECT_URI = "https://content-lab.ie/integrations/intercom/callback";
+    const REDIRECT_URI = "https://www.app.content-lab.ie/integrations/intercom/callback";
     const state = btoa(JSON.stringify({ user_id: user.id, ts: Date.now() }));
 
     const params = new URLSearchParams({ client_id: INTERCOM_CLIENT_ID, redirect_uri: REDIRECT_URI, state });

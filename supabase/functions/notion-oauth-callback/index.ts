@@ -9,7 +9,7 @@ serve(async (req) => {
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
 
-  const frontendBase = "https://content-lab.ie/settings/integrations";
+  const frontendBase = "https://www.app.content-lab.ie/settings/integrations";
 
   if (error) {
     return Response.redirect(`${frontendBase}?error=${encodeURIComponent(error)}&platform=notion`);

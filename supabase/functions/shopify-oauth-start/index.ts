@@ -25,7 +25,7 @@ serve(async (req) => {
     if (!shop) return new Response(JSON.stringify({ error: "shop domain is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const SHOPIFY_CLIENT_ID = Deno.env.get("SHOPIFY_CLIENT_ID")!;
-    const REDIRECT_URI = "https://content-lab.ie/integrations/shopify/callback";
+    const REDIRECT_URI = "https://www.app.content-lab.ie/integrations/shopify/callback";
     const SCOPES = "write_content,read_content";
 
     const state = btoa(JSON.stringify({ user_id: user.id, shop, ts: Date.now() }));

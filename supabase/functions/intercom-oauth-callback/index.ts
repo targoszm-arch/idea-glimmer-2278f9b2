@@ -5,7 +5,7 @@ serve(async (req) => {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  const frontendBase = "https://content-lab.ie/settings/integrations";
+  const frontendBase = "https://www.app.content-lab.ie/settings/integrations";
 
   if (!code || !state) return Response.redirect(`${frontendBase}?error=missing_params&platform=intercom`);
 

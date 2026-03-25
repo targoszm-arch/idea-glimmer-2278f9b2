@@ -366,8 +366,8 @@ serve(async (req) => {
               console.warn("RESEND_API_KEY not set — skipping email notification");
             } else {
               const articleUrl = articleId
-                ? `https://contentlab.skillstudio.ai/edit/${articleId}`
-                : "https://contentlab.skillstudio.ai/dashboard";
+                ? `https://www.app.content-lab.ie/edit/${articleId}`
+                : "https://www.app.content-lab.ie/dashboard";
 
               const emailBody = {
                 from: "ContentLab <noreply@contentlab.skillstudio.ai>",
@@ -376,8 +376,8 @@ serve(async (req) => {
                   ? `⚠️ Automation "${automation.name}" failed`
                   : `✅ Automation "${automation.name}" published a new article`,
                 html: errorMessage
-                  ? `<p>Your automation <strong>${automation.name}</strong> ran but encountered an error:</p><p><code>${errorMessage}</code></p><p>Check your <a href="https://contentlab.skillstudio.ai/automations">Automations page</a> for details.</p>`
-                  : `<p>Your automation <strong>${automation.name}</strong> successfully generated and published a new article.</p><p><a href="${articleUrl}" style="background:#2563EB;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:12px;">View Article →</a></p><p style="color:#888;font-size:12px;margin-top:24px;">You're receiving this because you enabled email notifications for this automation. <a href="https://contentlab.skillstudio.ai/automations">Manage automations</a></p>`,
+                  ? `<p>Your automation <strong>${automation.name}</strong> ran but encountered an error:</p><p><code>${errorMessage}</code></p><p>Check your <a href="https://www.app.content-lab.ie/automations">Automations page</a> for details.</p>`
+                  : `<p>Your automation <strong>${automation.name}</strong> successfully generated and published a new article.</p><p><a href="${articleUrl}" style="background:#2563EB;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:12px;">View Article →</a></p><p style="color:#888;font-size:12px;margin-top:24px;">You're receiving this because you enabled email notifications for this automation. <a href="https://www.app.content-lab.ie/automations">Manage automations</a></p>`,
               };
 
               await fetch("https://api.resend.com/emails", {
