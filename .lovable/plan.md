@@ -1,30 +1,40 @@
-## Replace all `contentlab.skillstudio.ai` URLs with `content-lab.ie`
-
-### Summary
-
-8 files contain the old domain `contentlab.skillstudio.ai`. All instances will be replaced with `content-lab.ie`, keeping the same paths.
-
-### Files and changes  
-  
-YOU MISSED:  
-  
-[https://content-lab.ie/payment-success](https://content-lab.ie/payment-success)   (new)  
-  
-Previously [https://contentlab.skillstudio.ai/payment-success](https://contentlab.skillstudio.ai/payment-success) (old)  
-  
 
 
+## Problem
 
-| File                                                  | Old URL                                                                                        | New URL                                                 |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `framer-plugin/src/App.tsx`                           | `https://contentlab.skillstudio.ai/signup`                                                     | `https://content-lab.ie/signup`                         |
-| `supabase/functions/google-oauth-start/index.ts`      | `.../integrations/google/callback`                                                             | `https://content-lab.ie/integrations/google/callback`   |
-| `supabase/functions/google-oauth-callback/index.ts`   | `.../settings/integrations` (frontendBase) + `.../integrations/google/callback` (REDIRECT_URI) | `https://content-lab.ie/...`                            |
-| `supabase/functions/shopify-oauth-start/index.ts`     | `.../integrations/shopify/callback`                                                            | `https://content-lab.ie/integrations/shopify/callback`  |
-| `supabase/functions/shopify-oauth-callback/index.ts`  | `.../settings/integrations`                                                                    | `https://content-lab.ie/settings/integrations`          |
-| `supabase/functions/intercom-oauth-start/index.ts`    | `.../integrations/intercom/callback`                                                           | `https://content-lab.ie/integrations/intercom/callback` |
-| `supabase/functions/intercom-oauth-callback/index.ts` | `.../settings/integrations`                                                                    | `https://content-lab.ie/settings/integrations`          |
-| `supabase/functions/notion-oauth-callback/index.ts`   | `.../settings/integrations`                                                                    | `https://content-lab.ie/settings/integrations`          |
+Two issues need fixing:
 
+1. **Build error**: `supabase/functions/run-automations/index.ts` has an unterminated regexp literal at line 212. The regex for matching Markdown tables uses literal newlines (`\n` as actual line breaks) inside a regex pattern, which Deno's parser rejects.
 
-All 8 files, simple find-and-replace of `contentlab.skillstudio.ai` → `content-lab.ie`. Edge functions will need redeployment after the change.
+2. **Broken reset password link**: The password reset email redirects to `https://contentlab.skillstudio.ai` — this appears to be a stale/incorrect Supabase Site URL configuration. The Supabase project's **Site URL** and **Redirect URLs** need to be updated in the Supabase dashboard to point to the correct domain (`content-lab.ie` or the Lovable preview URL).
+
+   The link in the error also shows `type=signup`, suggesting this is actually a signup confirmation link, not a password reset — but the root cause is the same: the redirect URL is wrong.
+
+## Plan
+
+### Step 1 — Fix the unterminated regexp in `run-automations/index.ts`
+
+Replace the multi-line regex literal (lines 212-215) with a `new RegExp()` constructor that uses `\\n` string escapes instead of actual newlines:
+
+```typescript
+.replace(new RegExp("(\\|.+\\|\n)([\\|\\-: ]+\\|\n)((?:\\|.+\\|\n)*)", "gm"), (match) => {
+```
+
+This produces the same regex pattern but avoids the parser error.
+
+### Step 2 — Fix the redirect URL for password reset and signup
+
+The redirect URLs in the code use `window.location.origin`, which is correct at runtime. However, the **Supabase Auth Site URL** setting must be updated in the Supabase dashboard:
+
+- Go to **Supabase Dashboard → Authentication → URL Configuration**
+- Set **Site URL** to `https://content-lab.ie` (or your production domain)
+- Add `https://content-lab.ie/reset-password` and `https://content-lab.ie/signup/confirm` to the **Redirect URLs** allowlist
+- Remove any stale `contentlab.skillstudio.ai` entries
+
+This is a dashboard-only change — no code modification needed for the redirect issue.
+
+### Technical details
+
+- The regexp fix is a single-line change in the edge function
+- The Supabase URL Configuration change requires manual action in the dashboard at: `https://supabase.com/dashboard/project/rnshobvpqegttrpaowxe/auth/url-configuration`
+
