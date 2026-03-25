@@ -73,7 +73,7 @@ const SocialMedia = () => {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
   const [showCreditsDialog, setShowCreditsDialog] = useState(false);
-  const { credits, hasEnough, deductLocally } = useCredits();
+  const { credits, loading: creditsLoading, hasEnough, deductLocally } = useCredits();
 
   const [aiSettings, setAiSettings] = useState<{
     app_description: string;
@@ -128,7 +128,7 @@ const SocialMedia = () => {
       toast({ title: "No context", description: "Enter a topic or configure AI Settings.", variant: "destructive" });
       return;
     }
-    if (!hasEnough("generate_social_ideas")) {
+    if (!creditsLoading && !hasEnough("generate_social_ideas")) {
       setShowCreditsDialog(true);
       return;
     }
@@ -205,7 +205,7 @@ const SocialMedia = () => {
 
   const handleGenerateReelVideo = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
-    if (!hasEnough("generate_reel_video")) {
+    if (!creditsLoading && !hasEnough("generate_reel_video")) {
       setShowCreditsDialog(true);
       return;
     }
@@ -306,7 +306,7 @@ const SocialMedia = () => {
 
   const handleGenerateMultipageReel = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
-    if (!hasEnough("generate_social_post")) {
+    if (!creditsLoading && !hasEnough("generate_social_post")) {
       setShowCreditsDialog(true);
       return;
     }
@@ -405,7 +405,7 @@ const SocialMedia = () => {
 
   const handleGenerateHeygenTemplate = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
-    if (!hasEnough("heygen_video")) {
+    if (!creditsLoading && !hasEnough("heygen_video")) {
       setShowCreditsDialog(true);
       return;
     }
@@ -551,7 +551,7 @@ const SocialMedia = () => {
 
   const handleGenerateHeygenAgent = useCallback(async (idea: SocialPostIdea) => {
     if (generatingPostId) return;
-    if (!hasEnough("heygen_video")) {
+    if (!creditsLoading && !hasEnough("heygen_video")) {
       setShowCreditsDialog(true);
       return;
     }
@@ -648,7 +648,7 @@ const SocialMedia = () => {
     }
 
     if (generatingPostId) return;
-    if (!hasEnough("generate_social_post")) {
+    if (!creditsLoading && !hasEnough("generate_social_post")) {
       setShowCreditsDialog(true);
       return;
     }

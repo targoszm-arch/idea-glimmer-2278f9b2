@@ -59,7 +59,7 @@ const EditArticle = () => {
   const [metaDescription, setMetaDescription] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCreditsDialog, setShowCreditsDialog] = useState(false);
-  const { credits, hasEnough } = useCredits();
+  const { credits, loading: creditsLoading, hasEnough } = useCredits();
 
   const editor = useEditor({
     extensions: [
@@ -222,7 +222,7 @@ const EditArticle = () => {
       toast({ title: "Enter a title first", variant: "destructive" });
       return;
     }
-    if (!hasEnough("generate_cover_image")) {
+    if (!creditsLoading && !hasEnough("generate_cover_image")) {
       setShowCreditsDialog(true);
       return;
     }

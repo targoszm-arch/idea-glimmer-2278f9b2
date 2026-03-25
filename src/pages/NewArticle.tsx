@@ -42,7 +42,7 @@ const NewArticle = () => {
   const [authorName, setAuthorName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCreditsDialog, setShowCreditsDialog] = useState(false);
-  const { credits, hasEnough, deductLocally } = useCredits();
+  const { credits, loading: creditsLoading, hasEnough, deductLocally } = useCredits();
 
   const [aiSettings, setAiSettings] = useState<{
     tone_key: string;
@@ -87,7 +87,7 @@ const NewArticle = () => {
       toast({ title: "Enter a topic", description: "Please provide a topic to generate an article.", variant: "destructive" });
       return;
     }
-    if (!hasEnough("generate_article")) {
+    if (!creditsLoading && !hasEnough("generate_article")) {
       setShowCreditsDialog(true);
       return;
     }
@@ -165,7 +165,7 @@ const NewArticle = () => {
       toast({ title: "Enter a topic or title first", variant: "destructive" });
       return;
     }
-    if (!hasEnough("generate_cover_image")) {
+    if (!creditsLoading && !hasEnough("generate_cover_image")) {
       setShowCreditsDialog(true);
       return;
     }

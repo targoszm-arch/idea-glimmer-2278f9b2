@@ -42,7 +42,7 @@ const ContentIdeas = () => {
   const [schedulingId, setSchedulingId] = useState<string | null>(null);
   const [generatingArticleId, setGeneratingArticleId] = useState<string | null>(null);
   const [showCreditsDialog, setShowCreditsDialog] = useState(false);
-  const { credits, hasEnough, deductLocally } = useCredits();
+  const { credits, loading: creditsLoading, hasEnough, deductLocally } = useCredits();
   const [aiSettings, setAiSettings] = useState<{
     app_description: string;
     app_audience: string;
@@ -81,7 +81,7 @@ const ContentIdeas = () => {
       toast({ title: "No context available", description: "Enter a niche or configure your AI Settings first.", variant: "destructive" });
       return;
     }
-    if (!hasEnough("generate_ideas")) {
+    if (!creditsLoading && !hasEnough("generate_ideas")) {
       setShowCreditsDialog(true);
       return;
     }
@@ -142,7 +142,7 @@ const ContentIdeas = () => {
 
   const handleUseIdea = useCallback(async (idea: ContentIdea) => {
     if (generatingArticleId) return;
-    if (!hasEnough("generate_article")) {
+    if (!creditsLoading && !hasEnough("generate_article")) {
       setShowCreditsDialog(true);
       return;
     }

@@ -70,7 +70,7 @@ export default function HeyGenPanel() {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
   const [showCreditsDialog, setShowCreditsDialog] = useState(false);
-  const { credits, hasEnough, deductLocally } = useCredits();
+  const { credits, loading: creditsLoading, hasEnough, deductLocally } = useCredits();
 
   useEffect(() => {
     return () => {
@@ -131,7 +131,7 @@ export default function HeyGenPanel() {
 
   const handleGenerate = useCallback(async () => {
     if (!selectedTemplate || generating) return;
-    if (!hasEnough("heygen_video")) {
+    if (!creditsLoading && !hasEnough("heygen_video")) {
       setShowCreditsDialog(true);
       return;
     }
