@@ -202,7 +202,7 @@ serve(async (req) => {
       if (contentField) {
         fieldData[contentField.id] = {
           type: "formattedText",
-          value: body.content ?? "",
+          value: cleanContentForPublish(body.content ?? ""),
           contentType: "html",
         };
       }

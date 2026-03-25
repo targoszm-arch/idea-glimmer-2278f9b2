@@ -71,7 +71,7 @@ serve(async (req) => {
     const { data: article } = await supabase.from("articles").select("*").eq("id", article_id).single();
     if (!article) return new Response(JSON.stringify({ error: "Article not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const contentBlocks = htmlToNotionBlocks(article.content || "");
+    const contentBlocks = htmlToNotionBlocks(cleanContentForPublish(article.content || ""));
     const pageProperties: Record<string, any> = {
       "Name": { title: [{ text: { content: article.title } }] },
       "Status": { select: { name: article.status === "published" ? "Published" : "Draft" } },

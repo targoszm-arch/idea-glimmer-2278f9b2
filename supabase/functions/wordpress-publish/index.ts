@@ -80,7 +80,7 @@ serve(async (req) => {
       // Get article
       const { data: article } = await adminSupabase
         .from("articles")
-        .select("*")
+        .select("id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, updated_at, reading_time_minutes, author_name, wp_post_id, wp_permalink, source, automation_name")
         .eq("id", article_id)
         .eq("user_id", user.id)
         .single();
@@ -115,7 +115,7 @@ serve(async (req) => {
       // Publish to WordPress
       const postPayload: any = {
         title: article.title,
-        content: article.content,
+        content: cleanContentForPublish(article.content),
         status: "publish",
         excerpt: article.excerpt || "",
         ...(wpCategoryId ? { categories: [wpCategoryId] } : {}),
