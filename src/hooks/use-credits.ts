@@ -3,12 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 export const STRIPE_URLS = {
-  signup:        "https://buy.stripe.com/4gMfZg81854T77Of3E1sQ04", // test
-  upgrade:       "https://buy.stripe.com/fZu8wOchogNB3VC08K1sQ00",
-  topUp25:       "https://buy.stripe.com/6oUcN4gxE0ODgIo2gS1sQ01",
-  topUp50:       "https://buy.stripe.com/eVq28qdls1SH3VCf3E1sQ02",
-  topUp100:      "https://buy.stripe.com/14AfZg8187d177O6x81sQ03",
-  customerPortal:"https://billing.stripe.com/p/login/fZu8wOchogNB3VC08K1sQ00",
+  signup: "https://buy.stripe.com/fZu8wOchogNB3VC08K1sQ00", // test
+  upgrade: "https://buy.stripe.com/fZu8wOchogNB3VC08K1sQ00",
+  topUp25: "https://buy.stripe.com/6oUcN4gxE0ODgIo2gS1sQ01",
+  topUp50: "https://buy.stripe.com/eVq28qdls1SH3VCf3E1sQ02",
+  topUp100: "https://buy.stripe.com/14AfZg8187d177O6x81sQ03",
+  customerPortal: "https://billing.stripe.com/p/login/fZu8wOchogNB3VC08K1sQ00",
 } as const;
 
 export const TOP_UP_OPTIONS = [
@@ -37,7 +37,11 @@ export const useCredits = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchCredits = useCallback(async () => {
-    if (!user) { setCredits(null); setLoading(false); return; }
+    if (!user) {
+      setCredits(null);
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase
       .from("user_credits")
       .select("credits, plan")
@@ -61,7 +65,9 @@ export const useCredits = () => {
     setLoading(false);
   }, [user]);
 
-  useEffect(() => { fetchCredits(); }, [fetchCredits]);
+  useEffect(() => {
+    fetchCredits();
+  }, [fetchCredits]);
 
   const hasEnough = (action: CreditAction) => {
     if (loading || credits === null) return true; // still loading — don't block
