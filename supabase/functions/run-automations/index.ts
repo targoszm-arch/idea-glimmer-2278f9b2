@@ -209,10 +209,7 @@ serve(async (req) => {
             .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
             .replace(/\*(.+?)\*/g, "<em>$1</em>")
             // Markdown tables → HTML tables
-            .replace(/(\|.+\|
-)([\|\-: ]+\|
-)((?:\|.+\|
-)*)/gm, (match) => {
+            .replace(new RegExp("(\\|.+\\|\n)([\\|\\-: ]+\\|\n)((?:\\|.+\\|\n)*)", "gm"), (match) => {
               const rows = match.trim().split("\n").filter(r => r.trim());
               const headers = rows[0].split("|").filter(c => c.trim()).map(c => `<th>${c.trim()}</th>`).join("");
               const bodyRows = rows.slice(2).map(r =>
