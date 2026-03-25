@@ -13,20 +13,20 @@ import { PLUGIN_DATA_KEY } from "./constants"
 const SIGNUP_URL = "https://content-lab.ie/signup"
 
 const F = {
-  title:       "fldaaa",
-  body:        "fldbbb",
-  excerpt:     "fldccc",
-  category:    "fldddd",
-  metaDesc:    "fldeee",
-  pubDate:     "fldfff",
-  image:       "fldggg",
-  readingTime: "fldhhh",
-  author:      "fldiii",
+  title:       "Title",
+  body:        "Content",
+  excerpt:     "Excerpt",
+  category:    "Category",
+  metaDesc:    "Meta Description",
+  pubDate:     "Publication Date",
+  image:       "Preview Image",
+  readingTime: "Reading Time",
+  author:      "Author",
 } as const
 
 const FIELDS = [
   { id: F.title,    name: "Title",            type: "string" as const },
-  { id: F.body,     name: "Body",             type: "formattedText" as const },
+  { id: F.body,     name: "Body (Rich Text)",  type: "formattedText" as const },
   { id: F.excerpt,  name: "Excerpt",          type: "string" as const },
   { id: F.category, name: "Category",         type: "string" as const },
   { id: F.metaDesc, name: "Meta Description", type: "string" as const },
@@ -98,15 +98,15 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
 // ── App ───────────────────────────────────────────────────────────────────────
 
 const FIELD_DEFS = [
-  { key: "title",       label: "Title" },
-  { key: "body",        label: "Body (Rich Text)" },
-  { key: "excerpt",     label: "Excerpt" },
-  { key: "category",    label: "Category" },
-  { key: "metaDesc",    label: "Meta Description" },
-  { key: "pubDate",     label: "Published Date" },
-  { key: "image",       label: "Cover Image" },
-  { key: "readingTime", label: "Reading Time (min)" },
-  { key: "author",      label: "Author" },
+  { key: "title",       label: "Title",              default: "Title" },
+  { key: "body",        label: "Body (Rich Text)",   default: "Content" },
+  { key: "excerpt",     label: "Excerpt",            default: "Excerpt" },
+  { key: "category",    label: "Category",           default: "Category" },
+  { key: "metaDesc",    label: "Meta Description",   default: "Meta Description" },
+  { key: "pubDate",     label: "Published Date",     default: "Publication Date" },
+  { key: "image",       label: "Cover Image",        default: "Preview Image" },
+  { key: "readingTime", label: "Reading Time (min)", default: "Reading Time" },
+  { key: "author",      label: "Author",             default: "Author" },
 ] as const
 
 const STORAGE_KEY = "contentlab_field_mapping"
@@ -115,7 +115,7 @@ function FieldMappingEditor() {
   const [mapping, setMapping] = useState<Record<string, string>>(() => {
     const saved = framer.getPluginData(STORAGE_KEY)
     if (saved) { try { return JSON.parse(saved) } catch {} }
-    return Object.fromEntries(FIELD_DEFS.map(f => [f.key, F[f.key as keyof typeof F] as string]))
+    return Object.fromEntries(FIELD_DEFS.map(f => [f.key, f.default]))
   })
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [tempValue, setTempValue] = useState("")
@@ -129,7 +129,7 @@ function FieldMappingEditor() {
 
   function startEdit(key: string) {
     setEditingKey(key)
-    setTempValue(mapping[key] || F[key as keyof typeof F] as string)
+    setTempValue(mapping[key])
   }
 
   function commit(key: string) {
@@ -139,25 +139,30 @@ function FieldMappingEditor() {
   }
 
   function reset() {
-    setMapping(Object.fromEntries(FIELD_DEFS.map(f => [f.key, F[f.key as keyof typeof F] as string])))
+    setMapping(Object.fromEntries(FIELD_DEFS.map(f => [f.key, f.default])))
     setDirty(true)
   }
 
   return (
     <div style={{ fontSize: 11 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
         <div style={{ fontWeight: 600, color: "var(--framer-color-text,#111)" }}>Field Mapping</div>
-        <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
-          <button onClick={reset} style={{ fontSize: 10, background: "none", border: "none", cursor: "pointer", color: "#aaa", padding: "1px 0" }}>Reset</button>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button onClick={reset} style={{ fontSize: 10, background: "none", border: "none", cursor: "pointer", color: "#aaa", padding: 0 }}>Reset</button>
           {dirty && <button onClick={save} style={{ fontSize: 10, background: "#2563EB", color: "white", border: "none", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>Save</button>}
         </div>
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "#bbb", marginBottom: 2, padding: "0 2px" }}>
-        <span>ContentLab field</span><span>Framer field ID</span>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "#bbb", marginBottom: 3, padding: "0 2px" }}>
+        <span>Column</span><span>Field</span>
       </div>
       {FIELD_DEFS.map(({ key, label }) => (
         <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 2px", borderBottom: "1px solid var(--framer-color-divider,#eee)" }}>
-          <span style={{ color: "var(--framer-color-text,#111)" }}>{label}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, flex: 1 }}>
+            <div style={{ width: 14, height: 14, borderRadius: 3, background: "#2563EB", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1.5 4h5M4 1.5l2.5 2.5L4 6.5" stroke="white" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+            <span style={{ color: "var(--framer-color-text,#111)" }}>{label}</span>
+          </div>
           {editingKey === key ? (
             <input
               value={tempValue}
@@ -165,15 +170,15 @@ function FieldMappingEditor() {
               onBlur={() => commit(key)}
               onKeyDown={e => { if (e.key === "Enter") commit(key); if (e.key === "Escape") setEditingKey(null) }}
               autoFocus
-              style={{ fontFamily: "monospace", fontSize: 10, width: 75, padding: "2px 5px", border: "1.5px solid #2563EB", borderRadius: 4, outline: "none", background: "#EFF6FF", color: "#1E40AF" }}
+              style={{ fontSize: 11, width: 120, padding: "2px 6px", border: "1.5px solid #2563EB", borderRadius: 4, outline: "none", background: "#EFF6FF", color: "#1E40AF" }}
             />
           ) : (
             <span
               onClick={() => startEdit(key)}
-              title="Click to edit"
-              style={{ fontFamily: "monospace", fontSize: 10, color: "#2563EB", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 4, padding: "2px 6px", cursor: "pointer" }}
+              title="Click to rename"
+              style={{ fontSize: 11, color: "var(--framer-color-text,#111)", background: "var(--framer-color-bg-secondary,#f5f5f5)", border: "1px solid var(--framer-color-divider,#e5e5e5)", borderRadius: 4, padding: "2px 8px", cursor: "pointer", minWidth: 80, textAlign: "center" }}
             >
-              {mapping[key] || F[key as keyof typeof F]}
+              {mapping[key]}
             </span>
           )}
         </div>
