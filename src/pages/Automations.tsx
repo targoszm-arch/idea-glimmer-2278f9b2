@@ -84,7 +84,7 @@ function nextRunFromCron(cron: string): string {
 }
 
 export default function Automations({ embedded = false }: { embedded?: boolean }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [runState, setRunState] = useState<{
@@ -95,12 +95,20 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
     error: string | null;
   } | null>(null);
   const [runs, setRuns] = useState<Record<string, AutomationRun>>({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
 
-  useEffect(() => { if (user) { loadAutomations(); loadConnectedPlatforms(); } }, [user]);
+  useEffect(() => {
+    if (authLoading) return; // wait for auth to resolve
+    if (user) {
+      loadAutomations();
+      loadConnectedPlatforms();
+    } else {
+      setLoading(false); // auth resolved, no user
+    }
+  }, [user, authLoading]);
 
   async function publishPreviewArticle() {
     if (!previewArticle) return;
@@ -192,7 +200,8 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
     }
   }
 
-  async function loadAutomations() {
+  async function loadAutomations()
+  // eslint-disable-next-line {
     setLoading(true);
     const { data } = await supabase.from("automations" as any).select("*").order("created_at", { ascending: false });
     if (data) {
@@ -247,8 +256,8 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
         </button>
       </div>
 
-      {loading ? (
-        <div className="text-center py-20 text-muted-foreground">Loading…</div>
+      {(loading || authLoading) ? (
+        <div className="text-center py-20 text-muted-foreground flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /> Loading…</div>
       ) : automations.length === 0 ? (
         <div className="text-center py-20">
           <Zap className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
