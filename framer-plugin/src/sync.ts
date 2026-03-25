@@ -6,21 +6,24 @@ export const PLUGIN_KEYS = {
     CONFIGURED: "configured",
 } as const
 
-// Field definitions
+// Field IDs — must match F object in App.tsx exactly
 export const FIELDS = [
-    { id: "title",        name: "Title",            type: "string"        },
-    { id: "body",         name: "Body",             type: "formattedText" },
-    { id: "excerpt",      name: "Excerpt",          type: "string"        },
-    { id: "category",     name: "Category",         type: "string"        },
-    { id: "metaDesc",     name: "Meta Description", type: "string"        },
-    { id: "pubDate",      name: "Published Date",   type: "date"          },
-    { id: "coverImage",   name: "Cover Image",      type: "image"         },
+    { id: "Title",            name: "Title",               type: "string"        },
+    { id: "Content",          name: "Body (Rich Text)",    type: "formattedText" },
+    { id: "Excerpt",          name: "Excerpt",             type: "string"        },
+    { id: "Category",         name: "Category",            type: "string"        },
+    { id: "Meta Description", name: "Meta Description",    type: "string"        },
+    { id: "Publication Date", name: "Published Date",      type: "date"          },
+    { id: "Preview Image",    name: "Cover Image",         type: "image"         },
+    { id: "Reading Time",     name: "Reading Time (min)",  type: "number"        },
+    { id: "Author",           name: "Author",              type: "string"        },
 ] as const satisfies { id: string; name: string; type: string }[]
 
 type Article = {
     id: string; title: string; slug: string; content: string
     excerpt: string; meta_description: string; category: string
     cover_image_url: string | null; created_at: string
+    reading_time_minutes: number | null; author_name: string | null
 }
 
 async function getStoredApiKey(): Promise<string | null> {
@@ -66,14 +69,16 @@ export async function performSync(collection: ManagedCollection, category = "all
         const imageAsset = a.cover_image_url ? await uploadImageSafe(a.cover_image_url) : null
 
         const fieldData: Record<string, any> = {
-            title:      { type: "string",        value: a.title ?? "" },
-            body:       { type: "formattedText", value: a.content ?? "" },
-            excerpt:    { type: "string",        value: a.excerpt ?? "" },
-            category:   { type: "string",        value: a.category ?? "" },
-            metaDesc:   { type: "string",        value: a.meta_description ?? "" },
-            pubDate:    { type: "date",          value: a.created_at ?? "" },
+            "Title":            { type: "string",        value: a.title ?? "" },
+            "Content":          { type: "formattedText", value: a.content ?? "" },
+            "Excerpt":          { type: "string",        value: a.excerpt ?? "" },
+            "Category":         { type: "string",        value: a.category ?? "" },
+            "Meta Description": { type: "string",        value: a.meta_description ?? "" },
+            "Publication Date": { type: "date",          value: a.created_at ?? "" },
+            "Preview Image":    { type: "image",         value: imageAsset },
+            "Reading Time":     { type: "number",        value: a.reading_time_minutes ?? 0 },
+            "Author":           { type: "string",        value: a.author_name ?? "" },
         }
-        fieldData.coverImage = { type: "image", value: imageAsset }
 
         items.push({ id: a.id, slug: a.slug, draft: false, fieldData })
     }
