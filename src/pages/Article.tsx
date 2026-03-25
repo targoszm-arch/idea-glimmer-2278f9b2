@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Calendar, Edit3, Loader2, Copy, Check, User, Clock } from "lucide-react";
 import DOMPurify from "dompurify";
@@ -69,6 +69,31 @@ const Article = () => {
     day: "numeric",
     year: "numeric",
   });
+
+  const articleRef = useRef<HTMLElement>(null);
+
+  const handleArticleClick = (e: React.MouseEvent<HTMLElement>) => {
+    const target = e.target as HTMLElement;
+    const anchor = target.closest("a");
+    if (!anchor) return;
+    const href = anchor.getAttribute("href");
+    if (!href) return;
+    // Internal anchor link (TOC) — scroll to section
+    if (href.startsWith("#")) {
+      e.preventDefault();
+      const id = href.slice(1);
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+    // External links open in new tab
+    else if (href.startsWith("http")) {
+      e.preventDefault();
+      window.open(href, "_blank", "noopener,noreferrer");
+    }
+  };
+
 
   return (
     <PageLayout className="max-w-3xl">
@@ -141,6 +166,8 @@ const Article = () => {
           )}
 
           <article
+            ref={articleRef}
+            onClick={handleArticleClick}
             className="prose prose-sm sm:prose max-w-none text-foreground prose-headings:text-foreground prose-a:text-primary prose-strong:text-foreground"
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content, {
                 ALLOWED_TAGS: [
