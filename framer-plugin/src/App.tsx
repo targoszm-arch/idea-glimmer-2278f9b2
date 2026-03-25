@@ -10,7 +10,7 @@ type Article = {
 
 import { PLUGIN_DATA_KEY } from "./constants"
 
-const SIGNUP_URL = "https://content-lab.ie/signup"
+const SIGNUP_URL = "https://www.app.content-lab.ie/signup"
 
 const F = {
   title:       "Title",
