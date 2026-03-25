@@ -20,7 +20,7 @@ const Dashboard = () => {
     try {
       const { data: articles, error } = await supabase
         .from("articles")
-        .select("id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, wp_permalink, source, automation_name")
+        .select("id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, source, automation_name")
         .eq("status", "published");
 
       if (error) throw error;

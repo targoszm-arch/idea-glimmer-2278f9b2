@@ -99,6 +99,8 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
   const [showNew, setShowNew] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
+  const [previewArticle, setPreviewArticle] = useState<{ id: string; title: string; content: string; cover_image_url: string | null; automation: Automation } | null>(null);
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     if (authLoading) return; // wait for auth to resolve
