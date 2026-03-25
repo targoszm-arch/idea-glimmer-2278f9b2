@@ -1,5 +1,5 @@
+import React, { useState, useEffect } from "react"
 import { framer } from "framer-plugin"
-import { useState, useEffect } from "react"
 import { SYNC_ENDPOINT, SUPABASE_ANON_KEY, REGISTER_ENDPOINT } from "./config"
 
 type Article = {
@@ -84,7 +84,7 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
       [F.category]: { type: "string",        value: a.category ?? "" },
       [F.metaDesc]: { type: "string",        value: a.meta_description ?? "" },
       [F.pubDate]:  { type: "date",          value: a.created_at ?? "" },
-      ...(a.cover_image_url ? { [F.image]: { type: "image" as const, value: a.cover_image_url } } : {}),
+      [F.image]: { type: "image" as const, value: (typeof a.cover_image_url === "string" && a.cover_image_url.length > 0) ? a.cover_image_url : null },
       ...(a.reading_time_minutes != null ? { [F.readingTime]: { type: "number" as const, value: a.reading_time_minutes } } : {}),
       ...(a.author_name ? { [F.author]: { type: "string" as const, value: a.author_name } } : {}),
     },
@@ -112,7 +112,7 @@ const FIELD_DEFS = [
 const STORAGE_KEY = "contentlab_field_mapping"
 
 function FieldMappingEditor() {
-  const [mapping, setMapping] = React.useState<Record<string, string>>(() => {
+  const [mapping, setMapping] = useState<Record<string, string>>(() => {
     // Load saved mapping or use defaults from F
     const saved = framer.getPluginData(STORAGE_KEY)
     if (saved) { try { return JSON.parse(saved) } catch {} }
