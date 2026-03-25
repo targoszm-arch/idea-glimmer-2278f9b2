@@ -144,7 +144,7 @@ const Landing = () => {
                   </li>
                 ))}
               </ul>
-              <a href="https://buy.stripe.com/7sY3cv9XBgmHcNKdZh7EQ0g" target="_blank" rel="noopener noreferrer" className="mt-8 block w-full rounded-lg border border-border py-3 text-center text-sm font-semibold text-foreground hover:bg-secondary transition-colors">
+              <a href="https://buy.stripe.com/6oUcN4gxE0ODgIo2gS1sQ01" target="_blank" rel="noopener noreferrer" className="mt-8 block w-full rounded-lg border border-border py-3 text-center text-sm font-semibold text-foreground hover:bg-secondary transition-colors">
                 Buy 100 Credits
               </a>
             </div>
@@ -164,7 +164,7 @@ const Landing = () => {
                   </li>
                 ))}
               </ul>
-              <a href="https://buy.stripe.com/fZu7sL2v92vR1526wP7EQ0h" target="_blank" rel="noopener noreferrer" className="mt-8 block w-full rounded-lg border border-border py-3 text-center text-sm font-semibold text-foreground hover:bg-secondary transition-colors">
+              <a href="https://buy.stripe.com/eVq28qdls1SH3VCf3E1sQ02" target="_blank" rel="noopener noreferrer" className="mt-8 block w-full rounded-lg border border-border py-3 text-center text-sm font-semibold text-foreground hover:bg-secondary transition-colors">
                 Buy 200 Credits
               </a>
             </div>
