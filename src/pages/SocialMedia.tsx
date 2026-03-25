@@ -18,6 +18,8 @@ import TopUpModal from "@/components/TopUpModal";
 import { useUpgrade } from "@/hooks/use-upgrade";
 import { useAuth } from "@/contexts/AuthContext";
 import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
+import { CanvaDesignPicker } from "@/components/CanvaDesignPicker";
+import { ImageLibraryPicker } from "@/components/ImageLibraryPicker";
 const platforms = [
   { key: "linkedin", label: "LinkedIn", icon: Linkedin },
   { key: "youtube", label: "YouTube", icon: Youtube },
@@ -61,7 +63,10 @@ const SocialMedia = () => {
   const [loading, setLoading] = useState(true);
   const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
   const [generatingPostId, setGeneratingPostId] = useState<string | null>(null);
-  const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
+  const [expandedPostIds, setExpandedPostIds] = useState<Set<string>>(new Set());
+  const [canvaConnected, setCanvaConnected] = useState(false);
+  const [showCanvaPickerForIdea, setShowCanvaPickerForIdea] = useState<string | null>(null);
+  const [showImageLibraryForIdea, setShowImageLibraryForIdea] = useState<string | null>(null);
   const [streamingContent, setStreamingContent] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [videoProgress, setVideoProgress] = useState<string | null>(null);
@@ -89,6 +94,9 @@ const SocialMedia = () => {
     fetchData();
     supabase.from("ai_settings").select("*").limit(1).single().then(({ data }) => {
       if (data) setAiSettings(data as any);
+    });
+    supabase.from("user_integrations").select("id").eq("platform", "canva").limit(1).then(({ data }) => {
+      setCanvaConnected(!!(data && data.length > 0));
     });
     supabase.from("brand_assets").select("*").then(({ data }) => {
       if (data) {
@@ -210,7 +218,7 @@ const SocialMedia = () => {
       return;
     }
     setGeneratingPostId(idea.id);
-    setExpandedPostId(idea.id);
+    setExpandedPostIds(prev => new Set(prev).add(idea.id));
     setVideoProgress("Generating video prompt...");
     setVideoProgressPercent(5);
 
@@ -311,7 +319,7 @@ const SocialMedia = () => {
       return;
     }
     setGeneratingPostId(idea.id);
-    setExpandedPostId(idea.id);
+    setExpandedPostIds(prev => new Set(prev).add(idea.id));
     setStreamingContent("");
 
     let accumulated = "";
@@ -417,7 +425,7 @@ const SocialMedia = () => {
     }
 
     setGeneratingPostId(idea.id);
-    setExpandedPostId(idea.id);
+    setExpandedPostIds(prev => new Set(prev).add(idea.id));
     setVideoProgress("Fetching template variables...");
     setVideoProgressPercent(5);
 
@@ -556,7 +564,7 @@ const SocialMedia = () => {
       return;
     }
     setGeneratingPostId(idea.id);
-    setExpandedPostId(idea.id);
+    setExpandedPostIds(prev => new Set(prev).add(idea.id));
     setVideoProgress("Sending to HeyGen Video Agent...");
     setVideoProgressPercent(5);
 
@@ -653,7 +661,7 @@ const SocialMedia = () => {
       return;
     }
     setGeneratingPostId(idea.id);
-    setExpandedPostId(idea.id);
+    setExpandedPostIds(prev => new Set(prev).add(idea.id));
     setStreamingContent("");
 
     let accumulated = "";
@@ -732,7 +740,7 @@ const SocialMedia = () => {
     const isGeneratingThis = generatingPostId === idea.id;
     const hasPost = !!idea.post_id;
     const post = idea.post_id ? posts[idea.post_id] : null;
-    const isExpanded = expandedPostId === idea.id;
+    const isExpanded = expandedPostIds.has(idea.id);
     const isReel = idea.platform === "instagram_reel";
     const isCarousel = idea.platform === "instagram_carousel";
     const displayContent = isGeneratingThis ? streamingContent : post?.content;
@@ -858,7 +866,7 @@ const SocialMedia = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setExpandedPostId(isExpanded ? null : idea.id)}
+                onClick={() => setExpandedPostIds(prev => { const s = new Set(prev); isExpanded ? s.delete(idea.id) : s.add(idea.id); return s; })}
                 className="text-xs gap-1"
               >
                 {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -976,6 +984,32 @@ const SocialMedia = () => {
                 )}
               </Button>
             )}
+
+            {/* Image buttons — Canva (if connected) or Library */}
+            <div className="flex items-center gap-2 pt-1 border-t border-border/40 mt-1">
+              {canvaConnected ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCanvaPickerForIdea(idea.id)}
+                  className="text-xs gap-1 text-muted-foreground hover:text-foreground"
+                >
+                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-.055 18.222c-3.417 0-5.556-2.417-5.556-5.556 0-3.5 2.5-6.222 6.278-6.222.75 0 1.444.111 2.055.305l-.694 2.556c-.444-.139-.889-.222-1.361-.222-2 0-3.389 1.417-3.389 3.389 0 1.5.917 2.417 2.334 2.417.694 0 1.333-.167 1.861-.472l.694 2.389c-.75.333-1.639.416-2.222.416z"/></svg>
+                  Use Canva Design
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowImageLibraryForIdea(idea.id)}
+                  className="text-xs gap-1 text-muted-foreground hover:text-foreground"
+                >
+                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                  Pick from Library
+                </Button>
+              )}
+            </div>
+
           </div>
         </div>
       </motion.div>
@@ -983,7 +1017,7 @@ const SocialMedia = () => {
   }, [
     generatingPostId,
     posts,
-    expandedPostId,
+    expandedPostIds,
     streamingContent,
     videoProgress,
     videoProgressPercent,
@@ -992,6 +1026,7 @@ const SocialMedia = () => {
     heygenTemplates,
     loadingHeygenTemplates,
     selectedHeygenTemplateByIdea,
+    canvaConnected,
     fetchHeygenTemplates,
     handleGeneratePost,
     handleCopy,
@@ -1000,6 +1035,32 @@ const SocialMedia = () => {
 
   return (
     <>
+      {/* Canva Design Picker */}
+      <CanvaDesignPicker
+        open={!!showCanvaPickerForIdea}
+        onClose={() => setShowCanvaPickerForIdea(null)}
+        onSelect={(url) => {
+          if (showCanvaPickerForIdea) {
+            supabase.from("social_post_ideas").update({ canva_design_token: url }).eq("id", showCanvaPickerForIdea);
+            setIdeas(prev => prev.map(i => i.id === showCanvaPickerForIdea ? { ...i, canva_design_token: url } : i));
+            toast({ title: "Design attached!", description: "Canva design linked to this post." });
+          }
+          setShowCanvaPickerForIdea(null);
+        }}
+      />
+      {/* Image Library Picker */}
+      <ImageLibraryPicker
+        open={!!showImageLibraryForIdea}
+        onClose={() => setShowImageLibraryForIdea(null)}
+        onSelect={(url) => {
+          if (showImageLibraryForIdea) {
+            supabase.from("social_post_ideas").update({ canva_design_token: url }).eq("id", showImageLibraryForIdea);
+            setIdeas(prev => prev.map(i => i.id === showImageLibraryForIdea ? { ...i, canva_design_token: url } : i));
+            toast({ title: "Image attached!", description: "Image linked to this post." });
+          }
+          setShowImageLibraryForIdea(null);
+        }}
+      />
     <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
     <TopUpModal open={showTopUp} onClose={() => setShowTopUp(false)} />
     <PageLayout>
