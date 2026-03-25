@@ -16,14 +16,18 @@ const APIKey = () => {
 
   async function fetchKey() {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    const { data } = await supabase.functions.invoke("generate-api-key");
+    if (!session) { setLoading(false); return; }
+    // GET — only reads the existing key, never generates a new one
+    const { data } = await supabase.functions.invoke("generate-api-key", {
+      method: "GET",
+    } as any);
     setApiKey(data?.key ?? null);
     setLoading(false);
   }
 
   async function handleGenerate() {
     setGenerating(true);
+    // POST — explicitly generates / regenerates a key
     const { data, error } = await supabase.functions.invoke("generate-api-key", {
       method: "POST",
     } as any);
@@ -54,9 +58,9 @@ const APIKey = () => {
 
         <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
           <div>
-            <h2 className="font-semibold text-gray-900 mb-1">Framer Plugin API Key</h2>
+            <h2 className="font-semibold text-gray-900 mb-1">ContentLab API Key</h2>
             <p className="text-sm text-gray-500">
-              Use this key in the ContentLab Framer plugin to sync your published articles into your Framer CMS collection.
+              Use this key in the ContentLab Framer plugin or Canva app to connect your account.
             </p>
           </div>
 
@@ -98,10 +102,10 @@ const APIKey = () => {
         <div className="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-5">
           <h3 className="font-semibold text-blue-900 mb-2">How to use</h3>
           <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-            <li>Install the ContentLab plugin in Framer from the Marketplace</li>
-            <li>Open the plugin — you'll see an API Key field</li>
-            <li>Copy your key above and paste it into the plugin</li>
-            <li>Click Next, then Sync to import your articles</li>
+            <li>Copy your API key above</li>
+            <li>In the Framer plugin — paste it into the API Key field and click Next</li>
+            <li>In the Canva app — paste it into the Connect ContentLab screen</li>
+            <li>Click Sync to import your articles</li>
           </ol>
         </div>
       </div>

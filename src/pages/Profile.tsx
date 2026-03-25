@@ -74,7 +74,7 @@ const Profile = () => {
 
   async function fetchApiKey() {
     setLoadingKey(true);
-    const { data, error } = await supabase.functions.invoke("generate-api-key");
+    const { data, error } = await supabase.functions.invoke("generate-api-key", { method: "GET" } as any);
     if (!error) setApiKey(data?.key ?? null);
     setLoadingKey(false);
   }
