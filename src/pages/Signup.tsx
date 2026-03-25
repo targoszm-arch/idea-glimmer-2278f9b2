@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-const STRIPE_CHECKOUT_URL = "https://buy.stripe.com/4gMfZg81854T77Of3E1sQ04";
+const STRIPE_CHECKOUT_URL = "https://buy.stripe.com/fZu8wOchogNB3VC08K1sQ00";
 
 const Signup = () => {
   const [email, setEmail] = useState("");
@@ -42,25 +42,31 @@ const Signup = () => {
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <div className="w-full max-w-sm space-y-6 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
-              <rect width="20" height="16" x="2" y="4" rx="2"/>
-              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="text-primary"
+            >
+              <rect width="20" height="16" x="2" y="4" rx="2" />
+              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
             </svg>
           </div>
           <div className="space-y-2">
             <h1 className="text-2xl font-bold">Check your email</h1>
             <p className="text-muted-foreground text-sm">
-              We sent a magic link to <strong>{email}</strong>.<br/>
+              We sent a magic link to <strong>{email}</strong>.<br />
               Click it to confirm your email and complete signup.
             </p>
           </div>
           <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
-            After confirming, you'll be taken to complete your subscription — then your ContentLab account will be ready.
+            After confirming, you'll be taken to complete your subscription — then your ContentLab account will be
+            ready.
           </div>
-          <button
-            onClick={() => setSent(false)}
-            className="text-sm text-primary hover:underline"
-          >
+          <button onClick={() => setSent(false)} className="text-sm text-primary hover:underline">
             ← Use a different email
           </button>
         </div>
@@ -76,9 +82,7 @@ const Signup = () => {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Content<span className="text-primary">Lab</span>
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Create your account — €49/mo includes 200 AI credits
-          </p>
+          <p className="text-sm text-muted-foreground">Create your account — €49/mo includes 200 AI credits</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -97,12 +101,12 @@ const Signup = () => {
             {loading ? "Sending magic link…" : "Continue with email →"}
           </Button>
         </form>
-        <p className="text-center text-xs text-muted-foreground">
-          We'll email you a magic link — no password needed.
-        </p>
+        <p className="text-center text-xs text-muted-foreground">We'll email you a magic link — no password needed.</p>
         <p className="text-center text-sm text-muted-foreground">
           Already have an account?{" "}
-          <Link to="/login" className="text-primary hover:underline font-medium">Sign in</Link>
+          <Link to="/login" className="text-primary hover:underline font-medium">
+            Sign in
+          </Link>
         </p>
       </div>
     </div>
