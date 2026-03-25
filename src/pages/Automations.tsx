@@ -206,9 +206,9 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
     setLoading(true);
     const { data } = await supabase.from("automations" as any).select("*").order("created_at", { ascending: false });
     if (data) {
-      setAutomations(data as Automation[]);
+      setAutomations(data as unknown as Automation[]);
       // Load last run for each
-      const ids = (data as Automation[]).map(a => a.id);
+      const ids = (data as unknown as Automation[]).map(a => a.id);
       if (ids.length) {
         const { data: runData } = await supabase
           .from("automation_runs" as any)
