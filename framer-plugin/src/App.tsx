@@ -101,8 +101,8 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
       [F.metaDesc]: { type: "string",        value: a.meta_description ?? "" },
       [F.pubDate]:  { type: "date",          value: a.created_at ?? "" },
       ...(typeof a.cover_image_url === "string" && a.cover_image_url.length > 0
-        ? { [F.image]: { type: "image" as const, value: { url: a.cover_image_url } } }
-        : {}),
+        ? { [F.image]: { type: "image" as const, value: a.cover_image_url } }
+        : { [F.image]: { type: "image" as const, value: null } }),
       ...(a.reading_time_minutes != null ? { [F.readingTime]: { type: "number" as const, value: a.reading_time_minutes } } : {}),
       ...(a.author_name ? { [F.author]: { type: "string" as const, value: a.author_name } } : {}),
     },
