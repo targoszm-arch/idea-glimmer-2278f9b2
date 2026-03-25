@@ -64,7 +64,7 @@ export const useCredits = () => {
   useEffect(() => { fetchCredits(); }, [fetchCredits]);
 
   const hasEnough = (action: CreditAction) => {
-    if (credits === null) return true; // still loading — don't block
+    if (loading || credits === null) return true; // still loading — don't block
     return credits >= CREDIT_COSTS[action];
   };
 
