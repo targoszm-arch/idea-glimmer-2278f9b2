@@ -107,7 +107,7 @@ serve(async (req) => {
     // ACTION: generate
     if (action === "generate") {
       if (!template_id) throw new Error("template_id is required");
-      const body: Record<string, unknown> = { test: false, caption: false };
+      const body: Record<string, unknown> = { test: true, caption: false };
       if (title) body.title = title;
       if (variables && Object.keys(variables).length > 0) body.variables = variables;
 
