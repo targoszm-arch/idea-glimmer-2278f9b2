@@ -61,6 +61,16 @@ export async function syncManagedCollection() {
   }
 }
 
+function toSlug(str: string): string {
+  return str
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "") || "article"
+}
+
 export async function syncArticles(collection: any, category: string, apiKey?: string): Promise<number> {
   const param = category !== "all" ? `&category=${encodeURIComponent(category)}` : ""
   const key = apiKey || SUPABASE_ANON_KEY
@@ -82,7 +92,7 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
 
   const items = articles.map((a) => ({
     id: a.id,
-    slug: a.slug,
+    slug: toSlug(a.slug || a.title || a.id),
     fieldData: {
       [F.title]:    { type: "string",        value: a.title ?? "" },
       [F.body]:     { type: "formattedText", value: a.content ?? "" },
