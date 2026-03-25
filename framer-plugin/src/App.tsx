@@ -39,6 +39,10 @@ const FIELDS = [
 export async function configureManagedCollection() {
   const collection = await framer.getManagedCollection()
   if (!collection) return
+  if (!framer.isAllowedTo("ManagedCollection.setFields")) {
+    framer.notify("Permission denied — please re-open the plugin")
+    return
+  }
   await collection.setFields(FIELDS)
   framer.notify("ContentLab: Collection configured ✓")
 }
@@ -46,7 +50,9 @@ export async function configureManagedCollection() {
 export async function syncManagedCollection() {
   const collection = await framer.getManagedCollection()
   if (!collection) return
-  await collection.setFields(FIELDS)
+  if (framer.isAllowedTo("ManagedCollection.setFields")) {
+    await collection.setFields(FIELDS)
+  }
   try {
     const count = await syncArticles(collection, "all")
     framer.notify(count > 0 ? `Synced ${count} article(s) ✓` : "No articles to sync.")
@@ -276,7 +282,9 @@ export default function App() {
     try {
       const collection = await framer.getManagedCollection()
       if (!collection) throw new Error("No collection — add plugin via CMS → Add Plugin first.")
-      await collection.setFields(FIELDS)
+      if (framer.isAllowedTo("ManagedCollection.setFields")) {
+        await collection.setFields(FIELDS)
+      }
       const count = await syncArticles(collection, selectedCategory, savedKey)
       setLastSync(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))
       setStatus("success")
