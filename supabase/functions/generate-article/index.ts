@@ -166,6 +166,23 @@ CRITICAL: Article title in <h1> MUST be under 60 characters.
 CRITICAL: NEVER include citation brackets like [1], [2], [3].
 CRITICAL: NEVER append disclaimers or caveats after the META comments.
 CRITICAL: At the very end, after META comments, add: <!-- COVER_IMAGE_PROMPT: [a vivid 10-15 word photorealistic scene that represents this article's topic] -->
+CRITICAL: After COVER_IMAGE_PROMPT, add this metadata block (fill in all fields from your research):
+<!-- ARTICLE_META_JSON:
+{
+  "keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
+  "tone": "[the writing tone used, e.g. informative, casual, professional]",
+  "headings": ["H2 heading 1", "H2 heading 2", "H2 heading 3"],
+  "sources": [
+    {"title": "Source name", "url": "https://..."},
+    {"title": "Source name", "url": "https://..."}
+  ],
+  "facts": [
+    "Specific statistic or fact used in article",
+    "Another key fact with number or data point"
+  ],
+  "primary_focus": "[main topic/entity the article is about]"
+}
+-->
 CRITICAL: Write as a confident subject matter expert for this product/brand.
 
 Tone: ${tone}. ${tone_description ? `Tone details: ${tone_description}` : ""}

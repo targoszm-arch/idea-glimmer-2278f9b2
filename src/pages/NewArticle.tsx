@@ -31,6 +31,7 @@ const NewArticle = () => {
   const [title, setTitle] = useState("");
   const [topic, setTopic] = useState(prefillTopic);
   const [tone, setTone] = useState("informative");
+  const [articleMeta, setArticleMeta] = useState<any>(null);
   const [category, setCategory] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -130,6 +131,12 @@ const NewArticle = () => {
           setGeneratedMetaDescription(metaDescMatch[1].trim());
         }
 
+        // Extract ARTICLE_META_JSON
+        const metaJsonMatch = accumulated.match(/<!--\s*ARTICLE_META_JSON:\s*([\s\S]*?)\s*-->/i);
+        if (metaJsonMatch?.[1]) {
+          try { setArticleMeta(JSON.parse(metaJsonMatch[1].trim())); } catch {}
+        }
+
         const cleanContent = accumulated
           .replace(/<!--\s*META_TITLE:.*?-->/gi, "")
           .replace(/<!--\s*META_DESCRIPTION:.*?-->/gi, "")
@@ -139,6 +146,7 @@ const NewArticle = () => {
           .replace(/<p>\s*<em>Disclaimer:.*?<\/em>\s*<\/p>/gis, "")
           .replace(/<p>\s*_?Disclaimer:.*?<\/p>/gis, "")
           .replace(/\[\d+\]/g, "")
+          .replace(/<!--\s*ARTICLE_META_JSON:[\s\S]*?-->/gi, "")
           .replace(/^```html\s*/i, "")
           .replace(/```\s*$/g, "")
           .replace(/^html\s*/i, "")
@@ -277,6 +285,7 @@ const NewArticle = () => {
           cover_image_url: coverImageUrl,
           author_name: authorName.trim(),
           reading_time_minutes,
+          ...(articleMeta ? { article_meta: articleMeta } : {}),
           faq_html
         })
         .select()

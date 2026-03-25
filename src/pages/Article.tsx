@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Calendar, Edit3, Loader2, Copy, Check, User, Clock } from "lucide-react";
+import { ArrowLeft, Calendar, Edit3, Loader2, Copy, Check, User, Clock, Tag, FileText, Link2, Hash, BookOpen } from "lucide-react";
 import DOMPurify from "dompurify";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
@@ -90,8 +90,11 @@ const Article = () => {
 
 
   return (
-    <PageLayout className="max-w-3xl">
+    <PageLayout className="max-w-6xl">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <div className="flex gap-8 items-start">
+        {/* Main article column */}
+        <div className="flex-1 min-w-0">
           <div className="mb-6 flex items-center justify-between">
             <button onClick={() => navigate("/dashboard")} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
               <ArrowLeft className="h-4 w-4" />
@@ -172,6 +175,107 @@ const Article = () => {
                 ALLOWED_ATTR: ["href","src","alt","title","id","class","target","rel","width","height"],
               }) }}
           />
+        </div>{/* end main column */}
+
+        {/* Article Sources Sidebar */}
+        {(article as any).article_meta && (
+          <aside className="w-72 flex-shrink-0 sticky top-6 space-y-4">
+            <div className="rounded-xl border border-border bg-card p-5 space-y-4 text-sm">
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-primary" />
+                Article Sources
+              </h3>
+
+              {/* Primary Focus */}
+              {(article as any).article_meta?.primary_focus && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5">
+                    <Hash className="h-3 w-3" /> Primary focus
+                  </div>
+                  <p className="text-foreground font-medium">&ldquo;{(article as any).article_meta.primary_focus}&rdquo;</p>
+                </div>
+              )}
+
+              {/* Keywords */}
+              {(article as any).article_meta?.keywords?.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5">
+                    <Tag className="h-3 w-3" /> Keywords
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(article as any).article_meta.keywords.map((kw: string) => (
+                      <span key={kw} className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary font-medium">{kw}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tone */}
+              {(article as any).article_meta?.tone && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5">
+                    <FileText className="h-3 w-3" /> Tone
+                  </div>
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium capitalize">{(article as any).article_meta.tone}</span>
+                </div>
+              )}
+
+              {/* Headings */}
+              {(article as any).article_meta?.headings?.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5">
+                    <Hash className="h-3 w-3" /> Headings
+                  </div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1">{(article as any).article_meta.headings.length} selected</div>
+                  <ul className="space-y-1">
+                    {(article as any).article_meta.headings.slice(0, 5).map((h: string, i: number) => (
+                      <li key={i} className="text-xs text-foreground leading-snug truncate" title={h}>• {h}</li>
+                    ))}
+                    {(article as any).article_meta.headings.length > 5 && (
+                      <li className="text-xs text-muted-foreground">+{(article as any).article_meta.headings.length - 5} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {/* References / Sources */}
+              {(article as any).article_meta?.sources?.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5">
+                    <Link2 className="h-3 w-3" /> References
+                  </div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1">{(article as any).article_meta.sources.length} selected</div>
+                  <ul className="space-y-1.5">
+                    {(article as any).article_meta.sources.map((s: any, i: number) => (
+                      <li key={i}>
+                        <a href={s.url} target="_blank" rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline truncate block" title={s.title}>
+                          {s.title}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Facts */}
+              {(article as any).article_meta?.facts?.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5">
+                    <FileText className="h-3 w-3" /> Facts used
+                  </div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1">{(article as any).article_meta.facts.length} selected</div>
+                  <ul className="space-y-1.5">
+                    {(article as any).article_meta.facts.map((f: string, i: number) => (
+                      <li key={i} className="text-xs text-foreground leading-snug">• {f}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </aside>
+        )}
+        </div>{/* end flex row */}
         </motion.div>
     </PageLayout>
   );

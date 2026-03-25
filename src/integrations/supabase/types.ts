@@ -82,6 +82,7 @@ export type Database = {
       }
       articles: {
         Row: {
+          article_meta: Json | null
           author_name: string
           category: string
           content: string
@@ -103,6 +104,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          article_meta?: Json | null
           author_name?: string
           category?: string
           content?: string
@@ -124,6 +126,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          article_meta?: Json | null
           author_name?: string
           category?: string
           content?: string
