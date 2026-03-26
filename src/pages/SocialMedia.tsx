@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 import { CanvaDesignPicker } from "@/components/CanvaDesignPicker";
 import { ImageLibraryPicker } from "@/components/ImageLibraryPicker";
+import { MediaLibraryPicker } from "@/components/MediaLibraryPicker";
 const platforms = [
   { key: "linkedin", label: "LinkedIn", icon: Linkedin },
   { key: "youtube", label: "YouTube", icon: Youtube },
@@ -68,6 +69,9 @@ const SocialMedia = () => {
   const [canvaConnected, setCanvaConnected] = useState(false);
   const [showCanvaPickerForIdea, setShowCanvaPickerForIdea] = useState<string | null>(null);
   const [showImageLibraryForIdea, setShowImageLibraryForIdea] = useState<string | null>(null);
+  const [showMediaLibraryForIdea, setShowMediaLibraryForIdea] = useState<string | null>(null);
+  const [scheduleModal, setScheduleModal] = useState<{ ideaId: string; imageUrl: string } | null>(null);
+  const [scheduleDate, setScheduleDate] = useState("");
   const [streamingContent, setStreamingContent] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [videoProgress, setVideoProgress] = useState<string | null>(null);
@@ -849,7 +853,7 @@ const SocialMedia = () => {
                 </div>
               </div>
             ) : carouselData ? (
-              <CarouselSlidePreview data={carouselData} />
+              <CarouselSlidePreview data={carouselData} postTitle={idea.topic} onSchedule={(imgUrl) => setScheduleModal({ ideaId: idea.id, imageUrl: imgUrl })} />
             ) : (
               <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap text-sm max-h-80 overflow-y-auto">
                 {displayContent}
@@ -1011,12 +1015,23 @@ const SocialMedia = () => {
             )}
 
             {/* Attached image preview */}
-            {idea.canva_design_token && (
-              <div className="relative mt-2 rounded-lg overflow-hidden border border-border">
+            {idea.canva_design_token && idea.canva_design_token.startsWith("http") && (
+              <div className="relative mt-2 rounded-lg overflow-hidden border border-border bg-muted/30">
                 <img
                   src={idea.canva_design_token}
                   alt="Attached design"
                   className="w-full h-32 object-cover"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = "none";
+                    const parent = target.parentElement;
+                    if (parent) {
+                      const fallback = document.createElement("div");
+                      fallback.className = "flex flex-col items-center justify-center h-32 text-muted-foreground gap-1";
+                      fallback.innerHTML = `<svg class="h-6 w-6 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg><span class="text-xs opacity-60">Image unavailable</span>`;
+                      parent.insertBefore(fallback, target);
+                    }
+                  }}
                 />
                 <button
                   onClick={() => {
@@ -1033,9 +1048,18 @@ const SocialMedia = () => {
               </div>
             )}
 
-            {/* Image buttons — Canva (if connected) or Library */}
-            <div className="flex items-center gap-2 pt-1 border-t border-border/40 mt-1">
-              {canvaConnected ? (
+            {/* Image buttons */}
+            <div className="flex items-center gap-2 pt-1 border-t border-border/40 mt-1 flex-wrap">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowMediaLibraryForIdea(idea.id)}
+                className="text-xs gap-1 text-muted-foreground hover:text-foreground"
+              >
+                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                {idea.canva_design_token?.startsWith("http") ? "Change Image" : "Pick from Library"}
+              </Button>
+              {canvaConnected && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1043,17 +1067,7 @@ const SocialMedia = () => {
                   className="text-xs gap-1 text-muted-foreground hover:text-foreground"
                 >
                   <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-.055 18.222c-3.417 0-5.556-2.417-5.556-5.556 0-3.5 2.5-6.222 6.278-6.222.75 0 1.444.111 2.055.305l-.694 2.556c-.444-.139-.889-.222-1.361-.222-2 0-3.389 1.417-3.389 3.389 0 1.5.917 2.417 2.334 2.417.694 0 1.333-.167 1.861-.472l.694 2.389c-.75.333-1.639.416-2.222.416z"/></svg>
-                  {idea.canva_design_token ? "Change Design" : "Use Canva Design"}
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowImageLibraryForIdea(idea.id)}
-                  className="text-xs gap-1 text-muted-foreground hover:text-foreground"
-                >
-                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-                  {idea.canva_design_token ? "Change Image" : "Pick from Library"}
+                  Canva
                 </Button>
               )}
             </div>
@@ -1075,6 +1089,7 @@ const SocialMedia = () => {
     loadingHeygenTemplates,
     selectedHeygenTemplateByIdea,
     canvaConnected,
+    showMediaLibraryForIdea,
     fetchHeygenTemplates,
     handleGeneratePost,
     handleCopy,
@@ -1109,6 +1124,60 @@ const SocialMedia = () => {
           setShowImageLibraryForIdea(null);
         }}
       />
+      {/* Media Library (Canva designs) Picker */}
+      <MediaLibraryPicker
+        open={!!showMediaLibraryForIdea}
+        onClose={() => setShowMediaLibraryForIdea(null)}
+        onSelect={async (url) => {
+          if (showMediaLibraryForIdea) {
+            await supabase.from("social_post_ideas").update({ canva_design_token: url } as any).eq("id", showMediaLibraryForIdea);
+            setIdeas(prev => prev.map(i => i.id === showMediaLibraryForIdea ? { ...i, canva_design_token: url } : i));
+            toast({ title: "Image attached!", description: "Design linked to this post." });
+          }
+          setShowMediaLibraryForIdea(null);
+        }}
+      />
+      {/* Schedule to Planner Modal */}
+      {scheduleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setScheduleModal(null)}>
+          <div className="bg-background rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-1">Add to Content Planner</h3>
+            <p className="text-sm text-muted-foreground mb-4">Pick a date to schedule this carousel in your planner.</p>
+            <img src={scheduleModal.imageUrl} alt="carousel preview" className="w-full aspect-square object-cover rounded-lg mb-4 border border-border" />
+            <label className="text-xs font-medium text-muted-foreground block mb-1">Scheduled Date & Time</label>
+            <input
+              type="datetime-local"
+              value={scheduleDate}
+              onChange={e => setScheduleDate(e.target.value)}
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background mb-4"
+            />
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setScheduleModal(null)}>Cancel</Button>
+              <Button size="sm" disabled={!scheduleDate} onClick={async () => {
+                try {
+                  const idea = ideas.find(i => i.id === scheduleModal.ideaId);
+                  await supabase.from("social_posts" as any).insert({
+                    platform: "instagram_carousel",
+                    topic: idea?.topic || "IG Carousel",
+                    title: idea?.topic || "IG Carousel",
+                    content: idea?.generated_post || "",
+                    image_url: scheduleModal.imageUrl,
+                    scheduled_at: new Date(scheduleDate).toISOString(),
+                    status: "scheduled",
+                  });
+                  toast({ title: "Added to Planner! ✓", description: `Scheduled for ${new Date(scheduleDate).toLocaleDateString()}.` });
+                  setScheduleModal(null);
+                  setScheduleDate("");
+                } catch(e) {
+                  toast({ title: "Error", description: String(e), variant: "destructive" });
+                }
+              }}>
+                Schedule It
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
     <TopUpModal open={showTopUp} onClose={() => setShowTopUp(false)} />
     <PageLayout>

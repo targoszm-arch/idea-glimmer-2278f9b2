@@ -140,6 +140,7 @@ export default function CalendarPage() {
   const navigate = useNavigate();
 
   const [automations, setAutomations] = useState<Automation[]>([]);
+  const [scheduledPosts, setScheduledPosts] = useState<any[]>([]);
   const [runs, setRuns] = useState<AutomationRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
@@ -173,12 +174,14 @@ export default function CalendarPage() {
 
   async function loadAll() {
     setLoading(true);
-    const [{ data: aData }, { data: rData }] = await Promise.all([
+    const [{ data: aData }, { data: rData }, { data: spData }] = await Promise.all([
       supabase.from("automations" as any).select("*").order("created_at", { ascending: false }),
       supabase.from("automation_runs" as any).select("*").order("run_at", { ascending: false }).limit(200),
+      supabase.from("social_posts" as any).select("*").not("scheduled_at", "is", null).order("scheduled_at", { ascending: true }),
     ]);
     if (aData) setAutomations(aData as unknown as Automation[]);
     if (rData) setRuns(rData as unknown as AutomationRun[]);
+    if (spData) setScheduledPosts(spData as any[]);
     setLoading(false);
   }
 

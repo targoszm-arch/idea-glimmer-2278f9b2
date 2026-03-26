@@ -22,6 +22,7 @@ import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
 import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 import PlatformLogo from "@/components/PlatformLogo";
 import DOMPurify from "dompurify";
+import { MediaLibraryPicker } from "../components/MediaLibraryPicker";
 import { CanvaDesignPicker } from "@/components/CanvaDesignPicker";
 import { ImageLibraryPicker } from "@/components/ImageLibraryPicker";
 
@@ -43,6 +44,7 @@ const EditArticle = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showCanvaPicker, setShowCanvaPicker] = useState(false);
   const [showImageLibrary, setShowImageLibrary] = useState(false);
+  const [showMediaLibrary, setShowMediaLibrary] = useState(false);
   const [isSyncingIntercom, setIsSyncingIntercom] = useState(false);
   const [intercomCollections, setIntercomCollections] = useState<{ id: string; name: string }[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
@@ -713,19 +715,10 @@ const EditArticle = () => {
                       Regenerate
                     </button>
                     <button
-                    onClick={() => connectedPlatforms.includes("canva") ? setShowCanvaPicker(true) : setShowImageLibrary(true)}
+                    onClick={() => setShowMediaLibrary(true)}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background">
-                      {connectedPlatforms.includes("canva") ? (
-                        <>
-                          <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-.055 18.222c-3.417 0-5.556-2.417-5.556-5.556 0-3.5 2.5-6.222 6.278-6.222.75 0 1.444.111 2.055.305l-.694 2.556c-.444-.139-.889-.222-1.361-.222-2 0-3.389 1.417-3.389 3.389 0 1.5.917 2.417 2.334 2.417.694 0 1.333-.167 1.861-.472l.694 2.389c-.75.333-1.639.416-2.222.416z"/></svg>
-                          From Canva
-                        </>
-                      ) : (
-                        <>
-                          <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-                          Library
-                        </>
-                      )}
+                      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                      Library
                     </button>
                   </div>
                 </div> :
@@ -752,20 +745,11 @@ const EditArticle = () => {
                     Generate AI Cover
                   </button>
                   <button
-                    onClick={() => connectedPlatforms.includes("canva") ? setShowCanvaPicker(true) : setShowImageLibrary(true)}
+                    onClick={() => setShowMediaLibrary(true)}
                     className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
                   >
-                    {connectedPlatforms.includes("canva") ? (
-                      <>
-                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-.055 18.222c-3.417 0-5.556-2.417-5.556-5.556 0-3.5 2.5-6.222 6.278-6.222.75 0 1.444.111 2.055.305l-.694 2.556c-.444-.139-.889-.222-1.361-.222-2 0-3.389 1.417-3.389 3.389 0 1.5.917 2.417 2.334 2.417.694 0 1.333-.167 1.861-.472l.694 2.389c-.75.333-1.639.416-2.222.416z"/></svg>
-                        From Canva
-                      </>
-                    ) : (
-                      <>
-                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-                        Image Library
-                      </>
-                    )}
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                    Media Library
                   </button>
                 </div>
               }
@@ -854,6 +838,11 @@ const EditArticle = () => {
       open={showImageLibrary}
       onClose={() => setShowImageLibrary(false)}
       onSelect={(url) => { setCoverImageUrl(url); setShowImageLibrary(false); }}
+    />
+    <MediaLibraryPicker
+      open={showMediaLibrary}
+      onClose={() => setShowMediaLibrary(false)}
+      onSelect={(url) => { setCoverImageUrl(url); setShowMediaLibrary(false); }}
     />
     </>);
 
