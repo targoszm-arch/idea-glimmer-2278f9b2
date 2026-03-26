@@ -302,6 +302,30 @@ export type Database = {
         }
         Relationships: []
       }
+      canva_designs: {
+        Row: {
+          created_at: string | null
+          id: string
+          image_url: string
+          name: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          image_url: string
+          name?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          image_url?: string
+          name?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       category_labels: {
         Row: {
           created_at: string
@@ -426,33 +450,39 @@ export type Database = {
       }
       social_post_ideas: {
         Row: {
+          canva_design_token: string | null
           created_at: string
           description: string
           id: string
           platform: string
           post_id: string | null
+          scheduled_at: string | null
           status: string
           title_suggestion: string
           topic: string
           user_id: string
         }
         Insert: {
+          canva_design_token?: string | null
           created_at?: string
           description?: string
           id?: string
           platform: string
           post_id?: string | null
+          scheduled_at?: string | null
           status?: string
           title_suggestion: string
           topic: string
           user_id: string
         }
         Update: {
+          canva_design_token?: string | null
           created_at?: string
           description?: string
           id?: string
           platform?: string
           post_id?: string | null
+          scheduled_at?: string | null
           status?: string
           title_suggestion?: string
           topic?: string

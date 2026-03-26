@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { cleanContentForPublish } from "../_shared/content.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,13 +59,13 @@ if (OrigWS) {
   };
   // framer-api calls ws.postMessage(); Deno WebSocket uses ws.send()
   const OrigProto = OrigWS.prototype;
-  if (!OrigProto.postMessage) {
-    OrigProto.postMessage = function(data: unknown) {
+  if (!(OrigProto as any).postMessage) {
+    (OrigProto as any).postMessage = function(data: unknown) {
       this.send(typeof data === "string" ? data : JSON.stringify(data));
     };
   }
   Object.setPrototypeOf(globalThis.WebSocket, OrigWS);
-  globalThis.WebSocket.prototype = OrigProto;
+  Object.defineProperty(globalThis.WebSocket, 'prototype', { value: OrigProto });
 }
 
 serve(async (req) => {

@@ -45,7 +45,7 @@ if (OrigWS) {
     return new OrigWS(fixedUrl);
   };
   Object.setPrototypeOf(globalThis.WebSocket, OrigWS);
-  globalThis.WebSocket.prototype = OrigWS.prototype;
+  Object.defineProperty(globalThis.WebSocket, 'prototype', { value: OrigWS.prototype });
 }
 
 serve(async (req) => {
