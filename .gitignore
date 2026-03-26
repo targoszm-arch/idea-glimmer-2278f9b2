@@ -27,3 +27,4 @@ dist-ssr
 framer-plugin/dist
 framer-plugin/plugin.zip
 framer-plugin/node_modules
+canva-app/node_modules
