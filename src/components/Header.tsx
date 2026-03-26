@@ -17,33 +17,41 @@ const NAV_GROUPS = [
   {
     label: "Create",
     items: [
-      { label: "Library",  href: "/dashboard", icon: Library,     desc: "Your article library" },
-      { label: "Media",    href: "/brand",      icon: Video,       desc: "Brand assets & media" },
-      { label: "Social",   href: "/social",     icon: Share2,      desc: "Social post ideas" },
-      { label: "Ideas",    href: "/ideas",      icon: Lightbulb,   desc: "Content idea bank" },
+      { label: "Library",  href: "/dashboard", icon: Library,      desc: "Your article library" },
+      { label: "Media",    href: "/brand",      icon: Video,        desc: "Brand assets & media" },
+      { label: "Social",   href: "/social",     icon: Share2,       desc: "Social post ideas" },
+      { label: "Ideas",    href: "/ideas",       icon: Lightbulb,   desc: "Content idea bank" },
     ],
   },
   {
     label: "Publish",
     items: [
-      { label: "Post",     href: "/new",        icon: PenSquare,   desc: "Write a new article" },
-      { label: "Schedule", href: "/calendar",   icon: CalendarDays,desc: "Calendar & automations" },
+      { label: "Post",     href: "/new",         icon: PenSquare,   desc: "Write a new article" },
+      { label: "Schedule", href: "/calendar",    icon: CalendarDays,desc: "Calendar & automations" },
     ],
   },
   {
     label: "Monitor",
     items: [
-      { label: "Analytics", href: "/dashboard", icon: BarChart2,  desc: "Content performance" },
-      { label: "Reports",   href: "/dashboard", icon: FileText,   desc: "Detailed reports" },
+      { label: "Analytics", href: "/analytics",  icon: BarChart2,   desc: "Content performance" },
+      { label: "Reports",   href: "/reports",    icon: FileText,    desc: "Detailed reports" },
     ],
   },
 ];
+
+// Exact match hrefs per group — used to avoid false positives
+const GROUP_HREFS: Record<string, string[]> = {
+  Create:  ["/dashboard", "/brand", "/social", "/ideas"],
+  Publish: ["/new", "/calendar", "/automations"],
+  Monitor: ["/analytics", "/reports"],
+};
 
 function NavDropdown({ group }: { group: typeof NAV_GROUPS[number] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const location = useLocation();
-  const isGroupActive = group.items.some(i => location.pathname === i.href);
+  const groupHrefs = GROUP_HREFS[group.label] ?? [];
+  const isGroupActive = groupHrefs.includes(location.pathname);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
