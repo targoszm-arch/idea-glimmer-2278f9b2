@@ -98,7 +98,7 @@ function SettingsUi({ updatePublishSettings }: any) {
 }
 
 export default {
-  renderSettingsUi: (request: any) => {
+  renderPublishSettingsPanel: (request: any) => {
     const { createRoot }    = require("react-dom/client");
     const { AppUiProvider } = require("@canva/app-ui-kit");
     createRoot(document.getElementById("root")!).render(
@@ -107,7 +107,7 @@ export default {
       </AppUiProvider>,
     );
   },
-  renderPreviewUi: (_request: any) => {
+  renderPublishPreview: (_request: any) => {
     const { createRoot }    = require("react-dom/client");
     const { AppUiProvider } = require("@canva/app-ui-kit");
     createRoot(document.getElementById("root")!).render(

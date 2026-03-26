@@ -16,10 +16,7 @@ import {
 import { addElementAtPoint, createRichtextRange } from "@canva/design";
 import { requestOpenExternalUrl } from "@canva/platform";
 import { upload } from "@canva/asset";
-import type {
-  DesignEditorIntent,
-  RenderAppUiRequest,
-} from "@canva/intents/design";
+import type { DesignEditorIntent } from "@canva/intents/design";
 import {
   fetchArticles,
   getStoredApiKey,
@@ -282,7 +279,7 @@ function App() {
 }
 
 const designEditor: DesignEditorIntent = {
-  renderAppUi: (_request: RenderAppUiRequest) => {
+  render: () => {
     const { createRoot } = require("react-dom/client");
     const { AppUiProvider } = require("@canva/app-ui-kit");
     const root = createRoot(document.getElementById("root")!);
