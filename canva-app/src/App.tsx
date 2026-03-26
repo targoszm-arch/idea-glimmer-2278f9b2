@@ -118,7 +118,15 @@ export function App() {
         throw new Error("Export cancelled");
       }
       setStatus("uploading");
-      const blob     = result.exportBlobs[0].blob;
+      const exportEntry = result.exportBlobs[0];
+      // Canva returns blob directly or via a url depending on environment
+      let blob: Blob;
+      if (exportEntry.blob instanceof Blob) {
+        blob = exportEntry.blob;
+      } else {
+        const blobRes = await fetch((exportEntry as any).url);
+        blob = await blobRes.blob();
+      }
       const formData = new FormData();
       formData.append("file", blob, "canva-design.png");
       const res = await fetch(`${API_BASE}/upload-article-cover`, {

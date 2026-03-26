@@ -14,6 +14,7 @@ import {
   Column,
 } from "@canva/app-ui-kit";
 import { addElementAtPoint, createRichtextRange } from "@canva/design";
+import { openExternalUrl } from "@canva/platform";
 import { upload } from "@canva/asset";
 import type {
   DesignEditorIntent,
@@ -267,10 +268,7 @@ function App() {
                 variant="primary"
                 stretch
                 onClick={() =>
-                  window.open(
-                    "https://www.app.content-lab.ie/dashboard",
-                    "_blank",
-                  )
+                  openExternalUrl({ url: "https://www.app.content-lab.ie/dashboard" })
                 }
               >
                 Open ContentLab →
