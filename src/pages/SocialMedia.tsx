@@ -41,6 +41,7 @@ type SocialPostIdea = {
   status: string;
   post_id: string | null;
   created_at: string;
+  canva_design_token: string | null;
 };
 
 type SocialPost = {
@@ -815,13 +816,37 @@ const SocialMedia = () => {
               )}
             </div>
             {hasVideo ? (
-              <div className="rounded-lg overflow-hidden bg-black aspect-[9/16] max-h-96 mx-auto">
-                <video
-                  src={post!.video_url!}
-                  controls
-                  className="w-full h-full object-contain"
-                  preload="metadata"
-                />
+              <div>
+                <div className="rounded-lg overflow-hidden bg-black aspect-[9/16] max-h-96 mx-auto">
+                  <video
+                    src={post!.video_url!}
+                    controls
+                    className="w-full h-full object-contain"
+                    preload="metadata"
+                  />
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <a
+                    href={post!.video_url!}
+                    download="contentlab-reel.mp4"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors"
+                  >
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download Video
+                  </a>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(post!.video_url!);
+                      toast({ title: "Link copied!", description: "Video URL copied to clipboard." });
+                    }}
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors"
+                  >
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy Link
+                  </button>
+                </div>
               </div>
             ) : carouselData ? (
               <CarouselSlidePreview data={carouselData} />
@@ -985,6 +1010,29 @@ const SocialMedia = () => {
               </Button>
             )}
 
+            {/* Attached image preview */}
+            {idea.canva_design_token && (
+              <div className="relative mt-2 rounded-lg overflow-hidden border border-border">
+                <img
+                  src={idea.canva_design_token}
+                  alt="Attached design"
+                  className="w-full h-32 object-cover"
+                />
+                <button
+                  onClick={() => {
+                    supabase.from("social_post_ideas").update({ canva_design_token: null } as any).eq("id", idea.id);
+                    setIdeas(prev => prev.map(i => i.id === idea.id ? { ...i, canva_design_token: null } : i));
+                  }}
+                  className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"
+                >
+                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+                <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
+                  Image attached ✓
+                </div>
+              </div>
+            )}
+
             {/* Image buttons — Canva (if connected) or Library */}
             <div className="flex items-center gap-2 pt-1 border-t border-border/40 mt-1">
               {canvaConnected ? (
@@ -995,7 +1043,7 @@ const SocialMedia = () => {
                   className="text-xs gap-1 text-muted-foreground hover:text-foreground"
                 >
                   <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-.055 18.222c-3.417 0-5.556-2.417-5.556-5.556 0-3.5 2.5-6.222 6.278-6.222.75 0 1.444.111 2.055.305l-.694 2.556c-.444-.139-.889-.222-1.361-.222-2 0-3.389 1.417-3.389 3.389 0 1.5.917 2.417 2.334 2.417.694 0 1.333-.167 1.861-.472l.694 2.389c-.75.333-1.639.416-2.222.416z"/></svg>
-                  Use Canva Design
+                  {idea.canva_design_token ? "Change Design" : "Use Canva Design"}
                 </Button>
               ) : (
                 <Button
@@ -1005,7 +1053,7 @@ const SocialMedia = () => {
                   className="text-xs gap-1 text-muted-foreground hover:text-foreground"
                 >
                   <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-                  Pick from Library
+                  {idea.canva_design_token ? "Change Image" : "Pick from Library"}
                 </Button>
               )}
             </div>
@@ -1039,11 +1087,11 @@ const SocialMedia = () => {
       <CanvaDesignPicker
         open={!!showCanvaPickerForIdea}
         onClose={() => setShowCanvaPickerForIdea(null)}
-        onSelect={(url) => {
+        onSelect={async (url) => {
           if (showCanvaPickerForIdea) {
-            supabase.from("social_post_ideas").update({ canva_design_token: url } as any).eq("id", showCanvaPickerForIdea);
+            await supabase.from("social_post_ideas").update({ canva_design_token: url } as any).eq("id", showCanvaPickerForIdea);
             setIdeas(prev => prev.map(i => i.id === showCanvaPickerForIdea ? { ...i, canva_design_token: url } : i));
-            toast({ title: "Design attached!", description: "Canva design linked to this post." });
+            toast({ title: "Design attached!", description: "Image linked to this post." });
           }
           setShowCanvaPickerForIdea(null);
         }}
@@ -1052,9 +1100,9 @@ const SocialMedia = () => {
       <ImageLibraryPicker
         open={!!showImageLibraryForIdea}
         onClose={() => setShowImageLibraryForIdea(null)}
-        onSelect={(url) => {
+        onSelect={async (url) => {
           if (showImageLibraryForIdea) {
-            supabase.from("social_post_ideas").update({ canva_design_token: url } as any).eq("id", showImageLibraryForIdea);
+            await supabase.from("social_post_ideas").update({ canva_design_token: url } as any).eq("id", showImageLibraryForIdea);
             setIdeas(prev => prev.map(i => i.id === showImageLibraryForIdea ? { ...i, canva_design_token: url } : i));
             toast({ title: "Image attached!", description: "Image linked to this post." });
           }
