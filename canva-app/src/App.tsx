@@ -1,38 +1,59 @@
 import React, { useEffect, useState } from "react";
 import {
-  Box, Button, Columns, Column, FormField,
-  LoadingIndicator, Rows, Text, TextInput, Title,
+  Box,
+  Button,
+  Columns,
+  Column,
+  FormField,
+  LoadingIndicator,
+  Rows,
+  Text,
+  TextInput,
+  Title,
 } from "@canva/app-ui-kit";
 import { requestExport } from "@canva/design";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const API_BASE   = "https://rnshobvpqegttrpaowxe.supabase.co/functions/v1";
-const APP_URL    = "https://www.app.content-lab.ie";
-const KEY_STORE  = "contentlab_api_key";
+const API_BASE    = "https://rnshobvpqegttrpaowxe.supabase.co/functions/v1";
+const APP_URL     = "https://www.app.content-lab.ie";
+const KEY_STORAGE = "contentlab_api_key";
 
-const getKey  = () => { try { return localStorage.getItem(KEY_STORE); } catch { return null; } };
-const saveKey = (k: string) => { try { localStorage.setItem(KEY_STORE, k); } catch {} };
-const clearKey = () => { try { localStorage.removeItem(KEY_STORE); } catch {} };
+function getKey(): string | null {
+  try { return localStorage.getItem(KEY_STORAGE); } catch { return null; }
+}
+function saveKey(k: string) {
+  try { localStorage.setItem(KEY_STORAGE, k); } catch {}
+}
+function clearKey() {
+  try { localStorage.removeItem(KEY_STORAGE); } catch {}
+}
 
-// ─── Login ────────────────────────────────────────────────────────────────────
-function Login({ onConnected }: { onConnected: (k: string) => void }) {
-  const [key, setKey]     = useState("");
-  const [error, setError] = useState("");
+type Status = "idle" | "exporting" | "uploading" | "done" | "error";
+
+function LoginScreen({ onConnected }: { onConnected: (k: string) => void }) {
+  const [key, setKey]         = useState("");
+  const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
 
   async function connect() {
-    const k = key.trim();
-    if (!k.startsWith("cl_")) { setError("API key must start with cl_"); return; }
-    setLoading(true); setError("");
+    const trimmed = key.trim();
+    if (!trimmed.startsWith("cl_")) {
+      setError("API key must start with cl_");
+      return;
+    }
+    setLoading(true);
+    setError("");
     try {
       const res = await fetch(`${API_BASE}/framer-sync-articles`, {
-        headers: { Authorization: "Bearer " + k },
+        headers: { Authorization: "Bearer " + trimmed },
       });
       if (!res.ok) throw new Error("Invalid API key");
-      saveKey(k);
-      onConnected(k);
-    } catch { setError("Could not connect. Check your API key."); }
-    finally { setLoading(false); }
+      saveKey(trimmed);
+      onConnected(trimmed);
+    } catch {
+      setError("Could not connect. Check your API key.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -50,16 +71,30 @@ function Login({ onConnected }: { onConnected: (k: string) => void }) {
               {...props}
               placeholder="cl_xxxxxxxxxxxxxxxx"
               value={key}
-              onChange={(v) => { setKey(v); setError(""); }}
+              onChange={(v) => {
+                setKey(v);
+                setError("");
+              }}
             />
           )}
         />
-        <Button variant="primary" stretch loading={loading} disabled={!key.trim()} onClick={connect}>
+        <Button
+          variant="primary"
+          stretch
+          loading={loading}
+          disabled={!key.trim()}
+          onClick={connect}
+        >
           Connect
         </Button>
         <Text size="xsmall" tone="secondary">
           No account?{" "}
-          <a href={`${APP_URL}/signup`} target="_blank" rel="noopener noreferrer" style={{ color: "#0066CC" }}>
+          <a
+            href={`${APP_URL}/signup`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "#0066CC" }}
+          >
             Sign up free
           </a>
         </Text>
@@ -68,31 +103,33 @@ function Login({ onConnected }: { onConnected: (k: string) => void }) {
   );
 }
 
-// ─── Main App ─────────────────────────────────────────────────────────────────
-type Status = "idle" | "exporting" | "uploading" | "done" | "error";
-
 export function App() {
   const [apiKey, setApiKey]   = useState<string | null>(null);
   const [status, setStatus]   = useState<Status>("idle");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [error, setError]     = useState<string | null>(null);
 
-  useEffect(() => { setApiKey(getKey()); }, []);
+  useEffect(() => {
+    setApiKey(getKey());
+  }, []);
 
   async function handleSave() {
     if (!apiKey) return;
-    setStatus("exporting"); setError(null);
+    setStatus("exporting");
+    setError(null);
     try {
       const result = await requestExport({ acceptedFileTypes: ["png"] });
-      if (result.status !== "completed" || !result.exportBlobs?.[0])
+      if (result.status !== "completed" || !result.exportBlobs?.[0]) {
         throw new Error("Export cancelled");
+      }
       setStatus("uploading");
+      const blob     = result.exportBlobs[0].blob;
       const formData = new FormData();
-      formData.append("file", result.exportBlobs[0].blob, "canva-design.png");
+      formData.append("file", blob, "canva-design.png");
       const res = await fetch(`${API_BASE}/upload-article-cover`, {
-        method: "POST",
+        method:  "POST",
         headers: { Authorization: "Bearer " + apiKey },
-        body: formData,
+        body:    formData,
       });
       if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
       const data = await res.json();
@@ -104,19 +141,27 @@ export function App() {
     }
   }
 
-  function reset() { setStatus("idle"); setImageUrl(null); setError(null); }
+  function reset() {
+    setStatus("idle");
+    setImageUrl(null);
+    setError(null);
+  }
 
-  if (!apiKey) return <Login onConnected={setApiKey} />;
+  if (!apiKey) return <LoginScreen onConnected={(k) => setApiKey(k)} />;
 
   return (
     <Box padding="2u">
       <Rows spacing="2u">
-
         <Columns spacing="1u" alignY="center">
-          <Column><Title size="small">Save to ContentLab</Title></Column>
+          <Column>
+            <Title size="small">Save to ContentLab</Title>
+          </Column>
           <Column width="content">
-            <Button variant="tertiary" size="small"
-              onClick={() => { clearKey(); setApiKey(null); }}>
+            <Button
+              variant="tertiary"
+              size="small"
+              onClick={() => { clearKey(); setApiKey(null); }}
+            >
               Disconnect
             </Button>
           </Column>
@@ -125,7 +170,8 @@ export function App() {
         {status === "idle" && (
           <Rows spacing="1u">
             <Text size="small" tone="secondary">
-              Design your graphic, then save it to ContentLab as a blog cover or social post image.
+              Design your graphic in Canva, then save it to ContentLab to use as
+              a blog cover or social post image.
             </Text>
             <Button variant="primary" stretch onClick={handleSave}>
               Save Design to ContentLab
@@ -155,7 +201,7 @@ export function App() {
                     style={{ width: "100%", borderRadius: 6, maxHeight: 200, objectFit: "cover" }} />
                 )}
                 <Text size="xsmall" tone="secondary">
-                  Go to ContentLab to attach this design to a post.
+                  Go to ContentLab to attach this design to a blog post or social post.
                 </Text>
               </Rows>
             </Box>
@@ -177,7 +223,6 @@ export function App() {
             <Button variant="secondary" stretch onClick={reset}>Try Again</Button>
           </Rows>
         )}
-
       </Rows>
     </Box>
   );
