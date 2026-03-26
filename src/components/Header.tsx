@@ -33,7 +33,7 @@ const Header = () => {
     <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
     <TopUpModal open={showTopUp} onClose={() => setShowTopUp(false)} />
     <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 w-full">
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 flex h-14 items-center justify-between gap-2">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 flex h-14 items-center justify-between gap-4">
 
         {/* Logo */}
         <Link to="/dashboard" className="flex items-center gap-2 font-bold text-foreground shrink-0">
@@ -42,7 +42,7 @@ const Header = () => {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-[3px]">
+        <nav className="hidden md:flex items-center flex-1 min-w-0 gap-[3px]">
           {/* Settings icon — first, left of Library */}
           <Link to="/settings"
             className={`rounded-md p-1.5 transition-all shrink-0 outline-none ${
