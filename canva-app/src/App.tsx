@@ -197,13 +197,13 @@ export function App() {
                     style={{ width: "100%", borderRadius: 6, maxHeight: 200, objectFit: "cover" }} />
                 )}
                 <Text size="xsmall" tone="secondary">
-                  Go to ContentLab to attach this design to a blog post or social post.
+                  Your design is saved to your Media Library. Open ContentLab to attach it to any post or article.
                 </Text>
               </Rows>
             </Box>
             <Button variant="primary" stretch
-              onClick={() => requestOpenExternalUrl({ url: `${APP_URL}/social` })}>
-              Go to ContentLab →
+              onClick={() => requestOpenExternalUrl({ url: `${APP_URL}/brand` })}>
+              View in Media Library →
             </Button>
             <Button variant="secondary" stretch onClick={reset}>
               Save Another Design

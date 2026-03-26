@@ -16,6 +16,7 @@ import Settings from "./pages/Settings";
 import Article from "./pages/Article";
 import SocialMedia from "./pages/SocialMedia";
 import BrandAssets from "./pages/BrandAssets";
+import MediaLibrary from "./pages/MediaLibrary";
 import NotFound from "./pages/NotFound";
 import FramerPlugin from "./pages/FramerPlugin";
 import Login from "./pages/Login";
@@ -52,7 +53,7 @@ const App = () => (
             <Route path="/social" element={<ProtectedRoute><SocialMedia /></ProtectedRoute>} />
             <Route path="/automations" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
             <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
-            <Route path="/brand" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/brand" element={<ProtectedRoute><MediaLibrary /></ProtectedRoute>} />
             <Route path="/framer-plugin-setup" element={<ProtectedRoute><FramerPlugin /></ProtectedRoute>} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/reset-password" element={<ResetPassword />} />
