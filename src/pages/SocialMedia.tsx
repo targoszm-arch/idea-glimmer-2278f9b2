@@ -1041,7 +1041,7 @@ const SocialMedia = () => {
         onClose={() => setShowCanvaPickerForIdea(null)}
         onSelect={(url) => {
           if (showCanvaPickerForIdea) {
-            supabase.from("social_post_ideas").update({ canva_design_token: url }).eq("id", showCanvaPickerForIdea);
+            supabase.from("social_post_ideas").update({ canva_design_token: url } as any).eq("id", showCanvaPickerForIdea);
             setIdeas(prev => prev.map(i => i.id === showCanvaPickerForIdea ? { ...i, canva_design_token: url } : i));
             toast({ title: "Design attached!", description: "Canva design linked to this post." });
           }
@@ -1054,7 +1054,7 @@ const SocialMedia = () => {
         onClose={() => setShowImageLibraryForIdea(null)}
         onSelect={(url) => {
           if (showImageLibraryForIdea) {
-            supabase.from("social_post_ideas").update({ canva_design_token: url }).eq("id", showImageLibraryForIdea);
+            supabase.from("social_post_ideas").update({ canva_design_token: url } as any).eq("id", showImageLibraryForIdea);
             setIdeas(prev => prev.map(i => i.id === showImageLibraryForIdea ? { ...i, canva_design_token: url } : i));
             toast({ title: "Image attached!", description: "Image linked to this post." });
           }

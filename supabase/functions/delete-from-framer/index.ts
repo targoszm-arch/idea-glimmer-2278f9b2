@@ -42,7 +42,7 @@ if (OrigWS) {
     return ws;
   };
   Object.setPrototypeOf(globalThis.WebSocket, OrigWS);
-  globalThis.WebSocket.prototype = OrigWS.prototype;
+  Object.defineProperty(globalThis.WebSocket, 'prototype', { value: OrigWS.prototype });
 }
 
 function env(name: string) {
