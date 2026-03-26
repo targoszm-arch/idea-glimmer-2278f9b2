@@ -12,6 +12,7 @@ import {
   Title,
 } from "@canva/app-ui-kit";
 import { requestExport } from "@canva/design";
+import { openExternalUrl } from "@canva/platform";
 
 const API_BASE    = "https://rnshobvpqegttrpaowxe.supabase.co/functions/v1";
 const APP_URL     = "https://www.app.content-lab.ie";
@@ -71,10 +72,7 @@ function LoginScreen({ onConnected }: { onConnected: (k: string) => void }) {
               {...props}
               placeholder="cl_xxxxxxxxxxxxxxxx"
               value={key}
-              onChange={(v) => {
-                setKey(v);
-                setError("");
-              }}
+              onChange={(v) => { setKey(v); setError(""); }}
             />
           )}
         />
@@ -89,14 +87,13 @@ function LoginScreen({ onConnected }: { onConnected: (k: string) => void }) {
         </Button>
         <Text size="xsmall" tone="secondary">
           No account?{" "}
-          <a
-            href={`${APP_URL}/signup`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: "#0066CC" }}
+          <Button
+            variant="tertiary"
+            size="small"
+            onClick={() => openExternalUrl({ url: `${APP_URL}/signup` })}
           >
             Sign up free
-          </a>
+          </Button>
         </Text>
       </Rows>
     </Box>
@@ -104,14 +101,12 @@ function LoginScreen({ onConnected }: { onConnected: (k: string) => void }) {
 }
 
 export function App() {
-  const [apiKey, setApiKey]   = useState<string | null>(null);
-  const [status, setStatus]   = useState<Status>("idle");
+  const [apiKey, setApiKey]     = useState<string | null>(null);
+  const [status, setStatus]     = useState<Status>("idle");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [error, setError]     = useState<string | null>(null);
+  const [error, setError]       = useState<string | null>(null);
 
-  useEffect(() => {
-    setApiKey(getKey());
-  }, []);
+  useEffect(() => { setApiKey(getKey()); }, []);
 
   async function handleSave() {
     if (!apiKey) return;
@@ -141,11 +136,7 @@ export function App() {
     }
   }
 
-  function reset() {
-    setStatus("idle");
-    setImageUrl(null);
-    setError(null);
-  }
+  function reset() { setStatus("idle"); setImageUrl(null); setError(null); }
 
   if (!apiKey) return <LoginScreen onConnected={(k) => setApiKey(k)} />;
 
@@ -157,11 +148,8 @@ export function App() {
             <Title size="small">Save to ContentLab</Title>
           </Column>
           <Column width="content">
-            <Button
-              variant="tertiary"
-              size="small"
-              onClick={() => { clearKey(); setApiKey(null); }}
-            >
+            <Button variant="tertiary" size="small"
+              onClick={() => { clearKey(); setApiKey(null); }}>
               Disconnect
             </Button>
           </Column>
@@ -206,7 +194,7 @@ export function App() {
               </Rows>
             </Box>
             <Button variant="primary" stretch
-              onClick={() => window.open(`${APP_URL}/social`, "_blank")}>
+              onClick={() => openExternalUrl({ url: `${APP_URL}/social` })}>
               Go to ContentLab →
             </Button>
             <Button variant="secondary" stretch onClick={reset}>
