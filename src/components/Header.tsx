@@ -1,13 +1,13 @@
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, LogOut, Coins, HelpCircle, ExternalLink, UserCircle, Zap } from "lucide-react";
+import { CalendarDays, useState } from "react";
+import { CalendarDays, Link, useLocation } from "react-router-dom";
+import { CalendarDays, Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, LogOut, Coins, HelpCircle, ExternalLink, UserCircle, Zap } from "lucide-react";
 import contentLabLogo from "@/assets/ContentLab_Logo.png";
-import { motion, AnimatePresence } from "framer-motion";
-import { useAuth } from "@/contexts/AuthContext";
-import { useCredits, CREDIT_COSTS, STRIPE_URLS } from "@/hooks/use-credits";
+import { CalendarDays, motion, AnimatePresence } from "framer-motion";
+import { CalendarDays, useAuth } from "@/contexts/AuthContext";
+import { CalendarDays, useCredits, CREDIT_COSTS, STRIPE_URLS } from "@/hooks/use-credits";
 import UpgradeModal from "@/components/UpgradeModal";
 import TopUpModal from "@/components/TopUpModal";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarDays, Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // New Article removed — Create button does the same job
 // Brand, Integrations moved inside Settings tabs
@@ -15,7 +15,7 @@ const navItems = [
   { label: "Library",  href: "/dashboard", icon: Library },
   { label: "Ideas",    href: "/ideas",     icon: Lightbulb },
   { label: "Social",   href: "/social",    icon: Share2 },
-  { label: "Automations", href: "/automations", icon: Zap },
+  { label: "Calendar", href: "/calendar", icon: CalendarDays },
 ];
 
 const Header = () => {
