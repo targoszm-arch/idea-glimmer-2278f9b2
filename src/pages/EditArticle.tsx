@@ -68,7 +68,7 @@ const EditArticle = () => {
   const [metaDescription, setMetaDescription] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCreditsDialog, setShowCreditsDialog] = useState(false);
-  const { credits, loading: creditsLoading, hasEnough } = useCredits();
+  const { credits, loading: creditsLoading, hasEnough, deductLocally } = useCredits();
 
   const editor = useEditor({
     extensions: [

@@ -267,6 +267,7 @@ const { data: { user: currentUser } } = await supabase.auth.getUser();
           i.id === idea.id ? { ...i, status: "used", article_id: articleData.id } : i
         ));
 
+        deductLocally("generate_article");
         setGeneratingArticleId(null);
         toast({ title: "Article generated!", description: `"${articleTitle}" saved as draft.` });
       },

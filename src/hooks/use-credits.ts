@@ -44,7 +44,7 @@ export const useCredits = () => {
     }
     const { data, error } = await supabase
       .from("user_credits")
-      .select("credits, plan")
+      .select("credits, plan, stripe_payment_status")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -60,7 +60,11 @@ export const useCredits = () => {
       setPlan(inserted?.plan ?? "free");
     } else {
       setCredits(data.credits);
-      setPlan(data.plan ?? "free");
+      // If Stripe says active, treat as paid even if plan column not yet updated
+      const effectivePlan = data.stripe_payment_status === "active" && data.plan === "free"
+        ? "pro"
+        : (data.plan ?? "free");
+      setPlan(effectivePlan);
     }
     setLoading(false);
   }, [user]);

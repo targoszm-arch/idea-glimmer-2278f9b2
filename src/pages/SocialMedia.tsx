@@ -350,6 +350,7 @@ const SocialMedia = () => {
         setStreamingContent(accumulated);
       },
       onDone: async () => {
+        deductLocally("generate_social_post");
         const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
         user_id: user?.id,
           platform: idea.platform,
@@ -694,6 +695,7 @@ const SocialMedia = () => {
         setStreamingContent(accumulated);
       },
       onDone: async () => {
+        deductLocally("generate_social_post");
         const { data: postData, error: saveError } = await supabase.from("social_posts").insert({
         user_id: user?.id,
           platform: idea.platform,
