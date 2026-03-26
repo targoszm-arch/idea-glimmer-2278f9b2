@@ -14,6 +14,7 @@ import { App } from "./App";
 prepareContentPublisher(contentPublisher);
 prepareDesignEditor(designEditor);
 
+// Render the main app UI
 const root = createRoot(document.getElementById("root") as HTMLElement);
 root.render(
   <AppUiProvider>

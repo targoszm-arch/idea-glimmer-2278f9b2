@@ -279,16 +279,7 @@ function App() {
 }
 
 const designEditor: DesignEditorIntent = {
-  render: () => {
-    const { createRoot } = require("react-dom/client");
-    const { AppUiProvider } = require("@canva/app-ui-kit");
-    const root = createRoot(document.getElementById("root")!);
-    root.render(
-      <AppUiProvider>
-        <App />
-      </AppUiProvider>,
-    );
-  },
+  render: () => <App />,
 };
 
 export default designEditor;

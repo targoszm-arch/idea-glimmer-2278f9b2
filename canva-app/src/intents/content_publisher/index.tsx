@@ -98,28 +98,12 @@ function SettingsUi({ updatePublishSettings }: any) {
 }
 
 export default {
-  renderPublishSettingsPanel: (request: any) => {
-    const { createRoot }    = require("react-dom/client");
-    const { AppUiProvider } = require("@canva/app-ui-kit");
-    createRoot(document.getElementById("root")!).render(
-      <AppUiProvider>
-        <SettingsUi {...request} />
-      </AppUiProvider>,
-    );
-  },
-  renderPublishPreview: (_request: any) => {
-    const { createRoot }    = require("react-dom/client");
-    const { AppUiProvider } = require("@canva/app-ui-kit");
-    createRoot(document.getElementById("root")!).render(
-      <AppUiProvider>
-        <Box padding="2u">
-          <Text size="small" tone="secondary">
-            Design preview will appear here
-          </Text>
-        </Box>
-      </AppUiProvider>,
-    );
-  },
+  renderPublishSettingsPanel: (request: any) => <SettingsUi {...request} />,
+  renderPublishPreview: () => (
+    <Box padding="2u">
+      <Text size="small" tone="secondary">Design preview will appear here</Text>
+    </Box>
+  ),
   getPublishConfiguration: async () => ({
     status: "completed",
     outputTypes: [
