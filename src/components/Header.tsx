@@ -42,7 +42,7 @@ const Header = () => {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center flex-1 min-w-0 gap-[3px]">
+        <nav className="hidden md:flex items-center gap-0.5 flex-1 min-w-0">
           {/* Settings icon — first, left of Library */}
           <Link to="/settings"
             className={`rounded-md p-1.5 transition-all shrink-0 outline-none ${
@@ -67,7 +67,7 @@ const Header = () => {
         </nav>
 
         {/* Right side */}
-        <div className="flex items-center shrink-0 gap-[10px]">
+        <div className="flex items-center gap-2 shrink-0">
 
           {/* Credits */}
           <div className="flex items-center gap-1">
@@ -82,7 +82,7 @@ const Header = () => {
             <Popover>
               <PopoverTrigger asChild>
                 <button className="rounded-full p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-                  <HelpCircle className="w-[20px] h-[20px]" />
+                  <HelpCircle className="h-4 w-4" />
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-72 text-sm" align="end">
@@ -131,11 +131,11 @@ const Header = () => {
 
           {/* Profile + logout */}
           <div className="hidden md:flex items-center gap-1">
-            <Link to="/profile" className="rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors px-[10px] py-[10px]" title="My Profile">
-              <UserCircle className="w-[22px] h-[22px]" />
+            <Link to="/profile" className="rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="My Profile">
+              <UserCircle className="h-4 w-4" />
             </Link>
-            <button onClick={() => signOut()} className="rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors px-[10px] py-[10px]" title="Sign out">
-              <LogOut className="w-[22px] h-[22px]" />
+            <button onClick={() => signOut()} className="rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Sign out">
+              <LogOut className="h-4 w-4" />
             </button>
           </div>
 
