@@ -2,39 +2,53 @@
 
 ## Problem
 
-Two issues need fixing:
+There are 9 build errors across edge functions and the frontend preventing the app from loading:
 
-1. **Build error**: `supabase/functions/run-automations/index.ts` has an unterminated regexp literal at line 212. The regex for matching Markdown tables uses literal newlines (`\n` as actual line breaks) inside a regex pattern, which Deno's parser rejects.
-
-2. **Broken reset password link**: The password reset email redirects to `https://contentlab.skillstudio.ai` — this appears to be a stale/incorrect Supabase Site URL configuration. The Supabase project's **Site URL** and **Redirect URLs** need to be updated in the Supabase dashboard to point to the correct domain (`content-lab.ie` or the Lovable preview URL).
-
-   The link in the error also shows `type=signup`, suggesting this is actually a signup confirmation link, not a password reset — but the root cause is the same: the redirect URL is wrong.
+1. **`cleanContentForPublish` not defined** in 3 edge functions (`publish-to-framer`, `sync-to-notion`, `wordpress-publish`) — the function is called but never declared or imported
+2. **`createClient` not imported** in `framer-probe/index.ts` — used on line 22 but no import statement
+3. **`WebSocket.prototype` read-only assignment** in 3 files (`delete-from-framer`, `publish-to-framer`, `reconcile-framer`) — `globalThis.WebSocket.prototype = ...` is not allowed in Deno
+4. **`postMessage` not on WebSocket** in `publish-to-framer` — Deno's WebSocket type doesn't have `postMessage`
+5. **`canva_design_token` not in types** in `SocialMedia.tsx` — the column exists in the database but not in the generated Supabase types
 
 ## Plan
 
-### Step 1 — Fix the unterminated regexp in `run-automations/index.ts`
+### Step 1 — Add `cleanContentForPublish` to shared module
 
-Replace the multi-line regex literal (lines 212-215) with a `new RegExp()` constructor that uses `\\n` string escapes instead of actual newlines:
+Add a `cleanContentForPublish` function to `supabase/functions/_shared/auth.ts` (or a new `_shared/content.ts`). This function strips unnecessary HTML artifacts before publishing. Then import it in the 3 affected files.
 
+### Step 2 — Add missing `createClient` import to `framer-probe`
+
+Add `import { createClient } from "https://esm.sh/@supabase/supabase-js@2";` at the top of `framer-probe/index.ts`.
+
+### Step 3 — Fix WebSocket prototype assignments
+
+In `delete-from-framer`, `publish-to-framer`, and `reconcile-framer`, replace:
 ```typescript
-.replace(new RegExp("(\\|.+\\|\n)([\\|\\-: ]+\\|\n)((?:\\|.+\\|\n)*)", "gm"), (match) => {
+globalThis.WebSocket.prototype = OrigWS.prototype;
+```
+with:
+```typescript
+Object.defineProperty(globalThis.WebSocket, 'prototype', { value: OrigWS.prototype });
 ```
 
-This produces the same regex pattern but avoids the parser error.
+### Step 4 — Fix `postMessage` type error in `publish-to-framer`
 
-### Step 2 — Fix the redirect URL for password reset and signup
+Cast through `any` to avoid the type error on the WebSocket prototype:
+```typescript
+if (!(OrigProto as any).postMessage) {
+  (OrigProto as any).postMessage = function(data: unknown) { ... };
+}
+```
 
-The redirect URLs in the code use `window.location.origin`, which is correct at runtime. However, the **Supabase Auth Site URL** setting must be updated in the Supabase dashboard:
+### Step 5 — Add `canva_design_token` column migration
 
-- Go to **Supabase Dashboard → Authentication → URL Configuration**
-- Set **Site URL** to `https://content-lab.ie` (or your production domain)
-- Add `https://content-lab.ie/reset-password` and `https://content-lab.ie/signup/confirm` to the **Redirect URLs** allowlist
-- Remove any stale `contentlab.skillstudio.ai` entries
+Create a database migration to add the `canva_design_token` column to `social_post_ideas` if it doesn't exist. This will regenerate the Supabase types and fix the SocialMedia.tsx errors.
 
-This is a dashboard-only change — no code modification needed for the redirect issue.
+Alternatively, cast the update calls with `as any` to unblock the build immediately.
 
 ### Technical details
 
-- The regexp fix is a single-line change in the edge function
-- The Supabase URL Configuration change requires manual action in the dashboard at: `https://supabase.com/dashboard/project/rnshobvpqegttrpaowxe/auth/url-configuration`
+- 6 edge function files need edits
+- 1 migration or type workaround for SocialMedia.tsx
+- The `cleanContentForPublish` function should strip `<style>` tags, editor artifacts, and normalize whitespace — a simple implementation that covers the common cases
 
