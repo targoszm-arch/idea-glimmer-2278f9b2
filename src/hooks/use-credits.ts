@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 export const STRIPE_URLS = {
-  signup: "https://buy.stripe.com/fZu8wOchogNB3VC08K1sQ00", // test
+  signup: "https://buy.stripe.com/fZu8wOchogNB3VC08K1sQ00",
   upgrade: "https://buy.stripe.com/fZu8wOchogNB3VC08K1sQ00",
   topUp25: "https://buy.stripe.com/6oUcN4gxE0ODgIo2gS1sQ01",
   topUp50: "https://buy.stripe.com/eVq28qdls1SH3VCf3E1sQ02",
@@ -30,10 +30,14 @@ export const CREDIT_COSTS = {
 
 export type CreditAction = keyof typeof CREDIT_COSTS;
 
+export const TRIAL_DAYS = 14;
+
 export const useCredits = () => {
   const { user } = useAuth();
   const [credits, setCredits] = useState<number | null>(null);
   const [plan, setPlan] = useState<string>("free");
+  const [stripeStatus, setStripeStatus] = useState<string>("unpaid");
+  const [trialEndsAt, setTrialEndsAt] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchCredits = useCallback(async () => {
@@ -44,27 +48,41 @@ export const useCredits = () => {
     }
     const { data, error } = await supabase
       .from("user_credits")
-      .select("credits, plan, stripe_payment_status")
+      .select("credits, plan, stripe_payment_status, trial_started_at, trial_ends_at")
       .eq("user_id", user.id)
       .maybeSingle();
 
     if (error) {
       setCredits(null);
     } else if (!data) {
+      // New user — create record with 14-day trial
+      const now = new Date();
+      const trialEnd = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
       const { data: inserted } = await supabase
         .from("user_credits")
-        .insert({ user_id: user.id, credits: 20, plan: "free" })
-        .select("credits, plan")
+        .insert({
+          user_id: user.id,
+          credits: 20,
+          plan: "free",
+          trial_started_at: now.toISOString(),
+          trial_ends_at: trialEnd.toISOString(),
+        })
+        .select("credits, plan, stripe_payment_status, trial_started_at, trial_ends_at")
         .single();
       setCredits(inserted?.credits ?? 20);
       setPlan(inserted?.plan ?? "free");
+      setStripeStatus(inserted?.stripe_payment_status ?? "unpaid");
+      setTrialEndsAt(inserted?.trial_ends_at ? new Date(inserted.trial_ends_at) : trialEnd);
     } else {
       setCredits(data.credits);
       // If Stripe says active, treat as paid even if plan column not yet updated
-      const effectivePlan = data.stripe_payment_status === "active" && data.plan === "free"
-        ? "pro"
-        : (data.plan ?? "free");
+      const effectivePlan =
+        data.stripe_payment_status === "active" && data.plan === "free"
+          ? "pro"
+          : (data.plan ?? "free");
       setPlan(effectivePlan);
+      setStripeStatus(data.stripe_payment_status ?? "unpaid");
+      setTrialEndsAt(data.trial_ends_at ? new Date(data.trial_ends_at) : null);
     }
     setLoading(false);
   }, [user]);
@@ -73,8 +91,22 @@ export const useCredits = () => {
     fetchCredits();
   }, [fetchCredits]);
 
+  // Paid = Stripe confirmed active subscription
+  const isPaidPlan = stripeStatus === "active" || (plan !== "free" && stripeStatus !== "cancelled");
+
+  // Trial is active = free plan, trial not expired, not yet paid
+  const isTrialActive = !isPaidPlan && trialEndsAt !== null && new Date() < trialEndsAt;
+
+  // Trial expired = free plan, trial end date is in the past
+  const isTrialExpired = !isPaidPlan && trialEndsAt !== null && new Date() >= trialEndsAt;
+
+  // Days remaining in trial (0 if expired)
+  const trialDaysLeft = isTrialActive
+    ? Math.max(0, Math.ceil((trialEndsAt!.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
+
   const hasEnough = (action: CreditAction) => {
-    if (loading || credits === null) return true; // still loading — don't block
+    if (loading || credits === null) return true;
     return credits >= CREDIT_COSTS[action];
   };
 
@@ -82,7 +114,18 @@ export const useCredits = () => {
     setCredits((prev) => (prev !== null ? prev - CREDIT_COSTS[action] : prev));
   };
 
-  const isPaidPlan = plan !== "free";
-
-  return { credits, plan, isPaidPlan, loading, refetch: fetchCredits, hasEnough, deductLocally };
+  return {
+    credits,
+    plan,
+    stripeStatus,
+    isPaidPlan,
+    isTrialActive,
+    isTrialExpired,
+    trialDaysLeft,
+    trialEndsAt,
+    loading,
+    refetch: fetchCredits,
+    hasEnough,
+    deductLocally,
+  };
 };

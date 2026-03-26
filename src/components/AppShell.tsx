@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 import Header from "@/components/Header";
+import TrialBanner from "@/components/TrialBanner";
 import Footer from "@/components/Footer";
 
 // Routes that should NOT show the header/footer
@@ -16,6 +17,7 @@ const AppShell = ({ children }: AppShellProps) => {
   return (
     <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
       {showHeader && <Header />}
+      {showHeader && <TrialBanner />}
       <main className="flex-1">
         {children}
       </main>
