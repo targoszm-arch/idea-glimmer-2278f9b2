@@ -717,17 +717,17 @@ const EditArticle = () => {
                       Regenerate
                     </button>
                     <button
-                    onClick={() => setShowMediaLibrary(true)}
+                    onClick={() => setShowUnsplash(true)}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background">
-                      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-                      Library
-                    </button>
-                    <button
-                      onClick={() => setShowUnsplash(true)}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background"
-                    >
                       <svg className="h-3 w-3" viewBox="0 0 32 32" fill="currentColor"><path d="M10 9V0h12v9H10zm12 5h10v18H0V14h10v9h12v-9z"/></svg>
                       Unsplash
+                    </button>
+                    <button
+                      onClick={() => setShowMediaLibrary(true)}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background"
+                    >
+                      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                      Library
                     </button>
                   </div>
                 </div> :
@@ -805,7 +805,7 @@ const EditArticle = () => {
                   className={`px-4 py-2.5 text-sm font-medium transition-colors ${previewMode ? "text-primary border-b-2 border-primary -mb-px bg-background" : "text-muted-foreground hover:text-foreground"}`}>
                   Preview
                 </button>
-                {!previewMode && <div className="flex-1"><EditorToolbar editor={editor} /></div>}
+                {!previewMode && <div className="flex-1"><EditorToolbar editor={editor} onUnsplash={() => setShowUnsplash(true)} /></div>}
               </div>
               {previewMode ? (
                 <div className="px-6 py-6 min-h-[400px]">
@@ -858,7 +858,15 @@ const EditArticle = () => {
     <UnsplashPicker
       open={showUnsplash}
       onClose={() => setShowUnsplash(false)}
-      onSelect={(url, _credit) => { setCoverImageUrl(url); setShowUnsplash(false); }}
+      onSelect={(url, _credit) => {
+        // If editor is focused/active, insert into editor body; otherwise set as cover
+        if (editor && editor.isFocused) {
+          editor.chain().focus().setImage({ src: url }).run();
+        } else {
+          setCoverImageUrl(url);
+        }
+        setShowUnsplash(false);
+      }}
     />
     <MediaLibraryPicker
       open={showMediaLibrary}

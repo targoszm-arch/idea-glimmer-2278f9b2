@@ -25,9 +25,10 @@ import InfographicDialog from "./InfographicDialog";
 
 interface EditorToolbarProps {
   editor: Editor | null;
+  onUnsplash?: () => void;
 }
 
-const EditorToolbar = ({ editor }: EditorToolbarProps) => {
+const EditorToolbar = ({ editor, onUnsplash }: EditorToolbarProps) => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -180,6 +181,15 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
       >
         {isUploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
       </button>
+      {onUnsplash && (
+        <button
+          onClick={onUnsplash}
+          className={btnClass(false)}
+          title="Insert from Unsplash"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 32 32" fill="currentColor"><path d="M10 9V0h12v9H10zm12 5h10v18H0V14h10v9h12v-9z"/></svg>
+        </button>
+      )}
 
       {/* Video upload */}
       <input
