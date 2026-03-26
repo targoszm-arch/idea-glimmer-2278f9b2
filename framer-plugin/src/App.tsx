@@ -332,9 +332,12 @@ export default function App() {
         Connect your ContentLab collection set to sync articles to Framer.
       </div>
 
-      <a href={SIGNUP_URL} target="_blank" rel="noreferrer" style={s.visitLink}>
+      <button
+        onClick={() => framer.openExternalURL(SIGNUP_URL)}
+        style={s.visitLink}
+      >
         Visit ContentLab Website →
-      </a>
+      </button>
 
       <div style={s.divider}/>
 
@@ -360,9 +363,12 @@ export default function App() {
 
       <p style={s.hint}>
         Don't have an account?{" "}
-        <a href={SIGNUP_URL} target="_blank" rel="noreferrer" style={{ color: "#2563EB" }}>
+        <button
+          onClick={() => framer.openExternalURL(SIGNUP_URL)}
+          style={{ color: "#2563EB", background: "none", border: "none", cursor: "pointer", padding: 0, font: "inherit" }}
+        >
           Sign up free →
-        </a>
+        </button>
       </p>
     </main>
   )
@@ -409,9 +415,12 @@ export default function App() {
 
       <FieldMappingEditor />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <a href={SIGNUP_URL} target="_blank" rel="noreferrer" style={{ ...s.visitLink, fontSize: 11 }}>
+        <button
+          onClick={() => framer.openExternalURL(SIGNUP_URL)}
+          style={{ ...s.visitLink, fontSize: 11 }}
+        >
           Visit ContentLab →
-        </a>
+        </button>
         <button onClick={handleDisconnect} style={s.disconnectBtn}>Disconnect</button>
       </div>
     </main>

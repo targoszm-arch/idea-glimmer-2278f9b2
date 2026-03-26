@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle, XCircle, Loader2, ExternalLink } from "lucide-react";
 
-type Platform = "framer" | "notion" | "shopify" | "intercom" | "google" | "wordpress";
+type Platform = "framer" | "notion" | "shopify" | "intercom" | "google" | "wordpress" | "canva";
 
 type Integration = {
   platform: Platform;
@@ -56,12 +56,18 @@ const PLATFORMS = [
     name: "Google Workspace",
     description: "Export articles to Google Docs",
   },
+  {
+    id: "canva" as Platform,
+    name: "Canva",
+    description: "Design social graphics in Canva and save them directly to ContentLab",
+    requiresSecrets: true,
+  },
 ];
 
 export default function Integrations({ embedded = false }: { embedded?: boolean }) {
   const { toast } = useToast();
   const [connected, setConnected] = useState<Record<Platform, Integration | null>>({
-    framer: null, notion: null, shopify: null, intercom: null, google: null, wordpress: null,
+    framer: null, notion: null, shopify: null, intercom: null, google: null, wordpress: null, canva: null,
   });
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<Platform | null>(null);
@@ -104,7 +110,7 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
     setLoading(true);
     const { data } = await supabase.from("user_integrations" as any).select("platform, platform_user_name, platform_user_id");
     if (data) {
-      const map: Record<string, Integration | null> = { framer: null, notion: null, shopify: null, intercom: null, google: null };
+      const map: Record<string, Integration | null> = { framer: null, notion: null, shopify: null, intercom: null, google: null, wordpress: null, canva: null };
       for (const item of data as any[]) map[item.platform] = item as Integration;
       setConnected(map as Record<Platform, Integration | null>);
     }
@@ -120,6 +126,27 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
     }
     if (platform === "wordpress") {
       setShowWordPressForm(true);
+      return;
+    }
+    if (platform === "canva") {
+      // Canva connects via the Canva App — just mark as connected in user_integrations
+      setConnecting("canva");
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("Not logged in");
+        await supabase.from("user_integrations" as any).upsert({
+          user_id: session.user.id,
+          platform: "canva",
+          platform_user_name: "Canva",
+          platform_user_id: session.user.id,
+        }, { onConflict: "user_id,platform" });
+        await loadIntegrations();
+        toast({ title: "Canva connected!", description: "You can now save Canva designs to ContentLab." });
+      } catch (e: any) {
+        toast({ title: "Error", description: e.message, variant: "destructive" });
+      } finally {
+        setConnecting(null);
+      }
       return;
     }
     setConnecting(platform);
