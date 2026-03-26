@@ -49,14 +49,14 @@ const Header = () => {
               isSettingsActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}
             title="Settings">
-            <Settings className="h-4 w-4" />
+            <Settings className="w-[20px] h-[20px]" />
           </Link>
 
           {navItems.map((item) => {
             const isActive = location.pathname === item.href;
             return (
               <Link key={item.label} to={item.href}
-                className={`rounded-md px-2.5 py-1.5 text-sm font-medium transition-all whitespace-nowrap shrink-0 outline-none ${
+                className={`rounded-md mx-[3px] px-2.5 py-1.5 text-sm font-medium transition-all whitespace-nowrap shrink-0 outline-none ${
                   isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                 }`}
                 style={{ fontVariantNumeric: "tabular-nums" }}>
@@ -82,7 +82,7 @@ const Header = () => {
             <Popover>
               <PopoverTrigger asChild>
                 <button className="rounded-full p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-                  <HelpCircle className="h-4 w-4" />
+                  <HelpCircle className="w-[20px] h-[20px]" />
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-72 text-sm" align="end">
@@ -132,7 +132,7 @@ const Header = () => {
           {/* Profile + logout */}
           <div className="hidden md:flex items-center gap-1">
             <Link to="/profile" className="rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="My Profile">
-              <UserCircle className="h-4 w-4" />
+              <UserCircle className="w-[20px] h-[20px]" />
             </Link>
             <button onClick={() => signOut()} className="rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Sign out">
               <LogOut className="h-4 w-4" />
