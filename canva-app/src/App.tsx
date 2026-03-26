@@ -12,7 +12,7 @@ import {
   Title,
 } from "@canva/app-ui-kit";
 import { requestExport } from "@canva/design";
-import { openExternalUrl } from "@canva/platform";
+import { requestOpenExternalUrl } from "@canva/platform";
 
 const API_BASE    = "https://rnshobvpqegttrpaowxe.supabase.co/functions/v1";
 const APP_URL     = "https://www.app.content-lab.ie";
@@ -90,7 +90,7 @@ function LoginScreen({ onConnected }: { onConnected: (k: string) => void }) {
           <Button
             variant="tertiary"
             size="small"
-            onClick={() => openExternalUrl({ url: `${APP_URL}/signup` })}
+            onClick={() => requestOpenExternalUrl({ url: `${APP_URL}/signup` })}
           >
             Sign up free
           </Button>
@@ -202,7 +202,7 @@ export function App() {
               </Rows>
             </Box>
             <Button variant="primary" stretch
-              onClick={() => openExternalUrl({ url: `${APP_URL}/social` })}>
+              onClick={() => requestOpenExternalUrl({ url: `${APP_URL}/social` })}>
               Go to ContentLab →
             </Button>
             <Button variant="secondary" stretch onClick={reset}>
