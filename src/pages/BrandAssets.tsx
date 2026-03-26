@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Upload, Trash2, Image, Star, FileImage, Loader2, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
+import { getEdgeFunctionHeaders } from "@/lib/edge-function-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -75,6 +76,7 @@ const BrandAssets = ({ embedded = false }: { embedded?: boolean }) => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              ...(await getEdgeFunctionHeaders()),
             },
             body: JSON.stringify({
               action: "upload",
@@ -115,7 +117,7 @@ const BrandAssets = ({ embedded = false }: { embedded?: boolean }) => {
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-brand-asset`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(await getEdgeFunctionHeaders()) },
           body: JSON.stringify({
             action: "delete",
             id: asset.id,

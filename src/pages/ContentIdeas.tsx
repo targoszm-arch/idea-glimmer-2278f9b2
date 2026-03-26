@@ -132,6 +132,7 @@ const ContentIdeas = () => {
         );
         if (error) throw new Error(error.message);
         await fetchIdeas();
+        deductLocally("generate_ideas");
         toast({ title: "Ideas generated!", description: `${result.ideas.length} new content ideas created.` });
       }
     } catch (e) {

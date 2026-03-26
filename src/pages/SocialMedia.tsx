@@ -154,7 +154,7 @@ const SocialMedia = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ""}`,
           },
           body: JSON.stringify({
             platform,
@@ -187,6 +187,7 @@ const SocialMedia = () => {
         ).select();
         if (error) throw new Error(error.message);
         if (data) setIdeas((prev) => [...(data as SocialPostIdea[]), ...prev]);
+        deductLocally("generate_social_ideas");
         toast({ title: "Ideas generated!", description: `${result.ideas.length} new ${platform} ideas created.` });
       }
     } catch (e) {
@@ -305,6 +306,7 @@ const SocialMedia = () => {
       setVideoProgress(null);
       setVideoProgressPercent(0);
       setStreamingContent("");
+      deductLocally("generate_reel_video");
       setGeneratingPostId(null);
       toast({ title: "Reel video generated!", description: `"${idea.title_suggestion}" video is ready.` });
     } catch (e) {
@@ -552,6 +554,7 @@ const SocialMedia = () => {
       setVideoProgress(null);
       setVideoProgressPercent(0);
       setGeneratingPostId(null);
+      deductLocally("heygen_video");
       toast({ title: "HeyGen video ready!", description: `"${idea.title_suggestion}" generated from template.` });
     } catch (e) {
       if (pollingRef.current) clearInterval(pollingRef.current);
@@ -635,6 +638,7 @@ const SocialMedia = () => {
       setVideoProgress(null);
       setVideoProgressPercent(0);
       setGeneratingPostId(null);
+      deductLocally("heygen_video");
       toast({ title: "HeyGen Agent video ready!", description: `"${idea.title_suggestion}" created by AI agent.` });
     } catch (e) {
       if (pollingRef.current) clearInterval(pollingRef.current);
