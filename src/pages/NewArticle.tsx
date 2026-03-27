@@ -22,6 +22,8 @@ import { supabase } from "@/lib/supabase";
 import { TONE_PRESETS } from "@/lib/tones";
 import { streamAI } from "@/lib/ai-stream";
 import { toast } from "@/hooks/use-toast";
+import { MediaLibraryPicker } from "../components/MediaLibraryPicker";
+import { UnsplashPicker } from "../components/UnsplashPicker";
 
 const NewArticle = () => {
   const navigate = useNavigate();
@@ -43,6 +45,8 @@ const NewArticle = () => {
   const [authorName, setAuthorName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCreditsDialog, setShowCreditsDialog] = useState(false);
+  const [showMediaLibrary, setShowMediaLibrary] = useState(false);
+  const [showUnsplash, setShowUnsplash] = useState(false);
   const { credits, loading: creditsLoading, hasEnough, deductLocally } = useCredits();
 
   const [aiSettings, setAiSettings] = useState<{
@@ -456,6 +460,18 @@ const NewArticle = () => {
                       {isGeneratingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
                       Generate AI Cover
                     </button>
+                    <button
+                      onClick={() => setShowUnsplash(true)}
+                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+                      <svg className="h-4 w-4" viewBox="0 0 32 32" fill="currentColor"><path d="M10 9V0h12v9H10zm12 5h10v18H0V14h10v9h12v-9z"/></svg>
+                      Unsplash
+                    </button>
+                    <button
+                      onClick={() => setShowMediaLibrary(true)}
+                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                      Media Library
+                    </button>
                   </div>
                 }
               </div>
@@ -491,6 +507,16 @@ const NewArticle = () => {
         </motion.div>
     </PageLayout>
     <OutOfCreditsDialog open={showCreditsDialog} onOpenChange={setShowCreditsDialog} creditsNeeded={CREDIT_COSTS.generate_article} creditsAvailable={credits ?? 0} />
+    <UnsplashPicker
+      open={showUnsplash}
+      onClose={() => setShowUnsplash(false)}
+      onSelect={(url) => { setCoverImageUrl(url); setShowUnsplash(false); }}
+    />
+    <MediaLibraryPicker
+      open={showMediaLibrary}
+      onClose={() => setShowMediaLibrary(false)}
+      onSelect={(url) => { setCoverImageUrl(url); setShowMediaLibrary(false); }}
+    />
     </>
   );
 };
