@@ -66,6 +66,16 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
       loadContacts();
       loadResendAudiences();
       loadHistory();
+      // Load brand settings to pre-fill form
+      import("@/integrations/supabase/client").then(({ supabase }) => {
+        supabase.from("ai_settings" as any).select("newsletter_from_name,newsletter_from_email,newsletter_reply_to").limit(1).maybeSingle().then(({ data }: any) => {
+          if (data) {
+            if (data.newsletter_from_name) setFromName(data.newsletter_from_name);
+            if (data.newsletter_from_email) setFromEmail(data.newsletter_from_email);
+            if (data.newsletter_reply_to) setReplyTo(data.newsletter_reply_to);
+          }
+        });
+      });
       // Default scheduled_at to tomorrow 9am
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -113,38 +123,71 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingCsv(true);
-    const text = await file.text();
-    const lines = text.split("\n").filter(Boolean);
-    const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/"/g, ""));
-    const emailIdx = headers.findIndex(h => h.includes("email"));
-    const firstIdx = headers.findIndex(h => h.includes("first") || h === "name");
-    const lastIdx = headers.findIndex(h => h.includes("last"));
-
-    if (emailIdx === -1) {
-      toast({ title: "CSV must have an 'email' column", variant: "destructive" });
-      setUploadingCsv(false);
-      return;
-    }
-
-    const contacts = lines.slice(1).map(line => {
-      const cols = line.split(",").map(c => c.trim().replace(/"/g, ""));
-      return {
-        email: cols[emailIdx] || "",
-        first_name: firstIdx >= 0 ? cols[firstIdx] : null,
-        last_name: lastIdx >= 0 ? cols[lastIdx] : null,
+    try {
+      const text = await file.text();
+      // Proper CSV parser that handles quoted fields
+      const parseCSV = (csv: string) => {
+        const rows: string[][] = [];
+        let row: string[] = [];
+        let field = "";
+        let inQuotes = false;
+        for (let i = 0; i < csv.length; i++) {
+          const ch = csv[i];
+          if (ch === '"') { inQuotes = !inQuotes; }
+          else if (ch === ',' && !inQuotes) { row.push(field.trim()); field = ""; }
+          else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+            if (field || row.length) { row.push(field.trim()); rows.push(row); }
+            row = []; field = "";
+            if (ch === '\r' && csv[i + 1] === '\n') i++;
+          } else { field += ch; }
+        }
+        if (field || row.length) { row.push(field.trim()); rows.push(row); }
+        return rows;
       };
-    }).filter(c => c.email);
 
-    const authH = await authHeaders();
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/newsletter-audiences?action=upload`, {
-      method: "POST", headers: authH, body: JSON.stringify({ contacts }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      toast({ title: `✓ Imported ${data.imported} contacts` });
-      loadContacts();
-    } else {
-      toast({ title: "Import failed", description: data.error, variant: "destructive" });
+      const rows = parseCSV(text).filter(r => r.some(c => c));
+      if (rows.length < 2) {
+        toast({ title: "CSV is empty or has no data rows", variant: "destructive" });
+        setUploadingCsv(false);
+        return;
+      }
+
+      const headers = rows[0].map(h => h.toLowerCase().replace(/"/g, "").trim());
+      const emailIdx = headers.findIndex(h => h.includes("email"));
+      const firstIdx = headers.findIndex(h => h.includes("first") || h === "name");
+      const lastIdx = headers.findIndex(h => h.includes("last"));
+
+      if (emailIdx === -1) {
+        toast({ title: "CSV must have an 'email' column", variant: "destructive" });
+        setUploadingCsv(false);
+        return;
+      }
+
+      const contacts = rows.slice(1).map(cols => ({
+        email: (cols[emailIdx] || "").replace(/"/g, "").trim(),
+        first_name: firstIdx >= 0 ? (cols[firstIdx] || "").replace(/"/g, "").trim() || null : null,
+        last_name: lastIdx >= 0 ? (cols[lastIdx] || "").replace(/"/g, "").trim() || null : null,
+      })).filter(c => c.email && c.email.includes("@"));
+
+      if (contacts.length === 0) {
+        toast({ title: "No valid email addresses found in CSV", variant: "destructive" });
+        setUploadingCsv(false);
+        return;
+      }
+
+      const authH = await authHeaders();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/newsletter-audiences?action=upload`, {
+        method: "POST", headers: authH, body: JSON.stringify({ contacts }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast({ title: `✓ Imported ${data.imported} contacts` });
+        loadContacts();
+      } else {
+        toast({ title: "Import failed", description: data.error, variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "CSV parse error", description: String(err), variant: "destructive" });
     }
     setUploadingCsv(false);
     if (fileRef.current) fileRef.current.value = "";

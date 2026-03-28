@@ -879,8 +879,7 @@ const EditArticle = () => {
     <NewsletterEditor
       open={showNewsletter}
       onClose={() => setShowNewsletter(false)}
-      article={{ title, content: editor?.getHTML() || "", excerpt: metaDescription, category, cover_image_url: coverImageUrl, id: id }}
-      ctaUrl={`https://www.app.content-lab.ie`}
+      article={{ title, content: editor?.getHTML() || "", excerpt: metaDescription, category, cover_image_url: coverImageUrl, id: id, slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") }}
     />
     <ImageLibraryPicker
       open={showImageLibrary}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings, Save, Loader2, Plus, X, Check } from "lucide-react";
+import { Settings, Save, Loader2, Plus, X, Check, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import { supabase } from "@/lib/supabase";
@@ -18,6 +18,14 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
   const [saving, setSaving] = useState(false);
   const [settingsId, setSettingsId] = useState<string | null>(null);
 
+  // Newsletter brand settings
+  const [newsletterFromName, setNewsletterFromName] = useState("ContentLab");
+  const [newsletterFromEmail, setNewsletterFromEmail] = useState("");
+  const [newsletterReplyTo, setNewsletterReplyTo] = useState("");
+  const [newsletterFooterText, setNewsletterFooterText] = useState("");
+  const [newsletterBrandLogoUrl, setNewsletterBrandLogoUrl] = useState("");
+  const [newsletterWebsiteUrl, setNewsletterWebsiteUrl] = useState("");
+
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
@@ -32,6 +40,12 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
         setAppDescription(data.app_description || "");
         setAppAudience(data.app_audience || "");
         setReferenceUrls(data.reference_urls || []);
+        setNewsletterFromName((data as any).newsletter_from_name || "ContentLab");
+        setNewsletterFromEmail((data as any).newsletter_from_email || "");
+        setNewsletterReplyTo((data as any).newsletter_reply_to || "");
+        setNewsletterFooterText((data as any).newsletter_footer_text || "");
+        setNewsletterBrandLogoUrl((data as any).newsletter_brand_logo_url || "");
+        setNewsletterWebsiteUrl((data as any).newsletter_website_url || "");
       }
       setLoading(false);
     })();
@@ -49,6 +63,12 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
       app_description: appDescription,
       app_audience: appAudience,
       reference_urls: referenceUrls,
+      newsletter_from_name: newsletterFromName,
+      newsletter_from_email: newsletterFromEmail,
+      newsletter_reply_to: newsletterReplyTo,
+      newsletter_footer_text: newsletterFooterText,
+      newsletter_brand_logo_url: newsletterBrandLogoUrl,
+      newsletter_website_url: newsletterWebsiteUrl,
       updated_at: new Date().toISOString(),
     };
 
@@ -215,6 +235,57 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
                 ))}
               </div>
             )}
+          </section>
+
+          {/* Newsletter Brand Settings */}
+          <section className="mb-8 rounded-xl border border-border bg-card p-6">
+            <h2 className="mb-1 text-lg font-bold text-foreground flex items-center gap-2">
+              <Mail className="h-5 w-5 text-primary" /> Newsletter Settings
+            </h2>
+            <p className="mb-5 text-sm text-muted-foreground">
+              These settings are applied automatically to all newsletters you generate and send
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-medium text-foreground mb-1 block">From Name *</label>
+                <input value={newsletterFromName} onChange={e => setNewsletterFromName(e.target.value)}
+                  placeholder="Your Brand Name"
+                  className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-foreground mb-1 block">From Email *</label>
+                <input value={newsletterFromEmail} onChange={e => setNewsletterFromEmail(e.target.value)}
+                  placeholder="newsletter@yourdomain.com"
+                  className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                <p className="text-xs text-muted-foreground mt-1">Must be a verified Resend domain</p>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-foreground mb-1 block">Reply-To Email</label>
+                <input value={newsletterReplyTo} onChange={e => setNewsletterReplyTo(e.target.value)}
+                  placeholder="Same as from email"
+                  className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-foreground mb-1 block">Website URL</label>
+                <input value={newsletterWebsiteUrl} onChange={e => setNewsletterWebsiteUrl(e.target.value)}
+                  placeholder="https://yourwebsite.com"
+                  className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                <p className="text-xs text-muted-foreground mt-1">Used for "Read full article" links</p>
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs font-medium text-foreground mb-1 block">Brand Logo URL</label>
+                <input value={newsletterBrandLogoUrl} onChange={e => setNewsletterBrandLogoUrl(e.target.value)}
+                  placeholder="https://yourwebsite.com/logo.png"
+                  className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs font-medium text-foreground mb-1 block">Footer Text</label>
+                <textarea value={newsletterFooterText} onChange={e => setNewsletterFooterText(e.target.value)}
+                  placeholder="© 2026 Your Company. All rights reserved."
+                  rows={2}
+                  className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none" />
+              </div>
+            </div>
           </section>
 
           {/* Save */}

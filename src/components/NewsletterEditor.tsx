@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Copy, Download, Mail, RefreshCw, Check, Send } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { NewsletterScheduler } from "@/components/NewsletterScheduler";
+import { supabase } from "@/integrations/supabase/client";
 
 interface NewsletterData {
   subject_line: string;
@@ -27,6 +28,7 @@ interface Props {
     category: string;
     cover_image_url?: string | null;
     id?: string;
+    slug?: string;
   };
   brandName?: string;
   brandLogoUrl?: string;
@@ -39,11 +41,48 @@ export function NewsletterEditor({ open, onClose, article, brandName = "ContentL
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"preview" | "html">("preview");
   const [showScheduler, setShowScheduler] = useState(false);
+  const [brandSettings, setBrandSettings] = useState({
+    fromName: brandName || "ContentLab",
+    fromEmail: "",
+    replyTo: "",
+    footerText: "",
+    logoUrl: brandLogoUrl || "",
+    websiteUrl: ctaUrl || "",
+  });
+
+  // Load brand settings + generate on open
+  React.useEffect(() => {
+    if (!open) return;
+    supabase.from("ai_settings" as any).select("newsletter_from_name,newsletter_from_email,newsletter_reply_to,newsletter_footer_text,newsletter_brand_logo_url,newsletter_website_url").limit(1).maybeSingle().then(({ data }: any) => {
+      if (data) setBrandSettings({
+        fromName: data.newsletter_from_name || brandName || "ContentLab",
+        fromEmail: data.newsletter_from_email || "",
+        replyTo: data.newsletter_reply_to || "",
+        footerText: data.newsletter_footer_text || "",
+        logoUrl: data.newsletter_brand_logo_url || brandLogoUrl || "",
+        websiteUrl: data.newsletter_website_url || ctaUrl || "",
+      });
+    });
+    if (!newsletter) generate();
+  }, [open]);
+
+  // Build article CTA URL using the website URL + slug pattern
+  // e.g. https://www.skillstudio.ai/latest-articles/{slug}
+  const articleUrl = (() => {
+    const websiteBase = brandSettings.websiteUrl || ctaUrl || "";
+    if (!websiteBase) return "";
+    // If we have a slug, append it under /latest-articles/ (Framer's default)
+    if (article.slug) {
+      const base = websiteBase.replace(/\/$/, "");
+      return `${base}/latest-articles/${article.slug}`;
+    }
+    return websiteBase;
+  })();
 
   const generate = async () => {
     setLoading(true);
     try {
-      const { data: { session } } = await (await import("@/integrations/supabase/client")).supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-newsletter`, {
         method: "POST",
         headers: {
@@ -58,9 +97,9 @@ export function NewsletterEditor({ open, onClose, article, brandName = "ContentL
           category: article.category,
           cover_image_url: article.cover_image_url,
           cta_text: "Read the full article",
-          cta_url: ctaUrl || "",
-          brand_name: brandName,
-          brand_logo_url: brandLogoUrl,
+          cta_url: articleUrl,
+          brand_name: brandSettings.fromName || brandName,
+          brand_logo_url: brandSettings.logoUrl || brandLogoUrl,
         }),
       });
       const data = await res.json();
@@ -75,12 +114,12 @@ export function NewsletterEditor({ open, onClose, article, brandName = "ContentL
     setLoading(false);
   };
 
-  // Auto-generate when modal opens
-  React.useEffect(() => {
-    if (open && !newsletter) generate();
-  }, [open]);
-
-  const buildHtml = (n: NewsletterData) => `<!DOCTYPE html>
+  const buildHtml = (n: NewsletterData) => {
+    const logo = brandSettings.logoUrl || brandLogoUrl || "";
+    const footerName = brandSettings.fromName || brandName || "ContentLab";
+    const footerText = brandSettings.footerText || `© ${footerName}. All Rights Reserved.`;
+    const cta = articleUrl;
+    return `<!DOCTYPE html>
 <html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -92,12 +131,11 @@ export function NewsletterEditor({ open, onClose, article, brandName = "ContentL
 <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background-color:#ffffff;">
 <tbody>
 <!-- LOGO -->
-${brandLogoUrl ? `<tr><td style="padding:24px 24px 0 24px;text-align:center;"><img src="${brandLogoUrl}" height="50" style="height:50px;width:auto;" /></td></tr>` : ""}
+${logo ? `<tr><td style="padding:24px 24px 0 24px;text-align:center;"><img src="${logo}" height="50" style="height:50px;width:auto;" /></td></tr>` : ""}
 <!-- COVER IMAGE -->
 ${article.cover_image_url ? `<tr><td style="padding:16px 0 0 0;"><img src="${article.cover_image_url}" width="600" style="display:block;width:100%;height:auto;" /></td></tr>` : ""}
 <!-- TITLE -->
 <tr><td style="padding:24px 24px 0 24px;color:#0f171f;font-size:24px;font-weight:700;">${article.title}</td></tr>
-<!-- SPACER -->
 <tr><td style="height:16px;font-size:0;">&nbsp;</td></tr>
 <!-- GREETING -->
 <tr><td style="padding:0 24px;color:#0f171f;font-size:16px;">${n.greeting}</td></tr>
@@ -128,10 +166,10 @@ ${s.bullets.map(b => `
 </td></tr>
 <tr><td style="height:24px;font-size:0;">&nbsp;</td></tr>
 <!-- CTA -->
-${ctaUrl ? `<tr><td style="padding:0 24px;text-align:center;">
+${cta ? `<tr><td style="padding:0 24px;text-align:center;">
 <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
 <tbody><tr><td style="background-color:#0c61e9;border-radius:100px;padding:14px 32px;">
-<a href="${ctaUrl}" target="_blank" style="color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;">${n.cta_text}</a>
+<a href="${cta}" target="_blank" style="color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;">${n.cta_text}</a>
 </td></tr></tbody></table>
 </td></tr>
 <tr><td style="height:24px;font-size:0;">&nbsp;</td></tr>` : ""}
@@ -140,19 +178,20 @@ ${ctaUrl ? `<tr><td style="padding:0 24px;text-align:center;">
 <tr><td style="height:16px;font-size:0;">&nbsp;</td></tr>
 <tr><td style="padding:0 24px;color:#0f171f;font-size:16px;">– ${n.signoff}</td></tr>
 <tr><td style="height:32px;font-size:0;">&nbsp;</td></tr>
-<!-- FOOTER -->
+<!-- FOOTER — {{{ unsubscribe_url }}} is auto-replaced by Resend -->
 <tr><td style="background-color:#0f171f;padding:24px;">
 <table width="100%" cellpadding="0" cellspacing="0"><tbody><tr>
 <td style="color:#ffffff;font-size:13px;line-height:1.8;">
-<a href="#" style="color:#c2dcff;text-decoration:underline;">Unsubscribe</a> &nbsp;|&nbsp;
-<a href="#" style="color:#c2dcff;text-decoration:underline;">Privacy Notice</a><br>
-<span style="color:#888;">© ${brandName}. All Rights Reserved.</span>
+<a href="{{{ unsubscribe_url }}}" style="color:#c2dcff;text-decoration:underline;">Unsubscribe</a> &nbsp;|&nbsp;
+<a href="{{{ unsubscribe_url }}}" style="color:#c2dcff;text-decoration:underline;">Privacy Notice</a><br>
+<span style="color:#888;">${footerText}</span>
 </td>
 </tr></tbody></table>
 </td></tr>
 </tbody></table>
 </td></tr></tbody></table>
 </body></html>`;
+  };
 
   const handleCopyHtml = async () => {
     if (!newsletter) return;
