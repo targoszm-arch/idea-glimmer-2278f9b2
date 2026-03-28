@@ -33,8 +33,7 @@ const NAV_GROUPS = [
   {
     label: "Monitor",
     items: [
-      { label: "Analytics", href: "/analytics",              icon: BarChart2,   desc: "Content performance" },
-      { label: "Newsletter", href: "/newsletter/analytics",  icon: BarChart2,   desc: "Newsletter open & click rates" },
+      { label: "Analytics", href: "/newsletter/analytics",  icon: BarChart2,   desc: "Newsletter analytics" },
       { label: "Reports",   href: "/reports",                icon: FileText,    desc: "Detailed reports" },
     ],
   },
@@ -44,7 +43,7 @@ const NAV_GROUPS = [
 const GROUP_HREFS: Record<string, string[]> = {
   Create:  ["/dashboard", "/brand", "/social", "/ideas"],
   Publish: ["/new", "/calendar", "/automations"],
-  Monitor: ["/analytics", "/reports"],
+  Monitor: ["/analytics", "/newsletter/analytics", "/reports"],
 };
 
 function NavDropdown({ group }: { group: typeof NAV_GROUPS[number] }) {
