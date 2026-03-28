@@ -17,6 +17,8 @@ export const FIELDS = [
     { id: "Preview Image",    name: "Cover Image",         type: "image"         },
     { id: "Reading Time",     name: "Reading Time (min)",  type: "number"        },
     { id: "Author",           name: "Author",              type: "string"        },
+    { id: "Keywords",         name: "Keywords",            type: "string"        },
+    { id: "Facts",            name: "References & Facts",  type: "formattedText" },
 ] as const satisfies { id: string; name: string; type: string }[]
 
 type Article = {
@@ -24,6 +26,7 @@ type Article = {
     excerpt: string; meta_description: string; category: string
     cover_image_url: string | null; created_at: string
     reading_time_minutes: number | null; author_name: string | null
+    keywords: string | null; facts: string | null
 }
 
 async function getStoredApiKey(): Promise<string | null> {
@@ -78,6 +81,8 @@ export async function performSync(collection: ManagedCollection, category = "all
             "Preview Image":    { type: "image",         value: imageAsset },
             "Reading Time":     { type: "number",        value: a.reading_time_minutes ?? 0 },
             "Author":           { type: "string",        value: a.author_name ?? "" },
+            "Keywords":         { type: "string",        value: a.keywords ?? "" },
+            "Facts":            { type: "formattedText", value: a.facts ?? "" },
         }
 
         items.push({ id: a.id, slug: a.slug, draft: false, fieldData })
