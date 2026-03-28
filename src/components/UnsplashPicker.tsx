@@ -36,7 +36,7 @@ export function UnsplashPicker({ open, onClose, onSelect }: Props) {
         `https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&page=${p}&per_page=20&orientation=landscape`,
         {
           headers: {
-            Authorization: `Client-ID ${import.meta.env.VITE_UNSPLASH_ACCESS_KEY || "Dp5_GpCwzNvYJt7lnKz3vWpTacmNxvOHXAJJWkU8kGs"}`,
+            Authorization: `Client-ID ${import.meta.env.VITE_UNSPLASH_ACCESS_KEY || "uIkOmD7USi9rx_B6qoF3uBXxROJ1Wfw5iSLWbvl2X5M"}`,
           },
         }
       );
