@@ -9,7 +9,6 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // Accept key via Authorization: Bearer OR x-api-key header
   const authHeader = req.headers.get("Authorization") ?? "";
   const xApiKey = req.headers.get("x-api-key") ?? "";
   const token = (authHeader.replace("Bearer ", "").trim()) || xApiKey.trim();
@@ -27,7 +26,6 @@ serve(async (req) => {
   let userId: string | null = null;
 
   if (token.startsWith("cl_")) {
-    // Validate ContentLab API key
     const { data: keyData } = await adminSupabase
       .from("api_keys")
       .select("user_id")
@@ -43,7 +41,6 @@ serve(async (req) => {
     userId = keyData.user_id;
     await adminSupabase.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("key", token);
   } else {
-    // Fall back to Supabase JWT
     const anonSupabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -60,9 +57,10 @@ serve(async (req) => {
     const url = new URL(req.url);
     const categoryFilter = url.searchParams.get("category");
 
+    // Include article_meta so keywords, facts, references can be extracted
     let query = adminSupabase
       .from("articles")
-      .select("id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, updated_at, reading_time_minutes, author_name")
+      .select("id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, updated_at, reading_time_minutes, author_name, article_meta")
       .eq("status", "published")
       .eq("user_id", userId)
       .order("updated_at", { ascending: false })
@@ -74,6 +72,33 @@ serve(async (req) => {
 
     const { data, error } = await query;
     if (error) throw error;
+
+    // Flatten article_meta fields into top-level for Framer
+    const articles = (data ?? []).map((a: any) => {
+      const meta = a.article_meta || {};
+
+      // keywords: array of strings -> comma-separated
+      const keywords = Array.isArray(meta.keywords)
+        ? meta.keywords.join(", ")
+        : (meta.keywords ?? "");
+
+      // facts: array of strings -> bullet list
+      const facts = Array.isArray(meta.facts)
+        ? meta.facts.map((f: string) => `• ${f}`).join("\n")
+        : (meta.facts ?? "");
+
+      // sources/references: array of {url, title} -> newline-separated URLs
+      const references = Array.isArray(meta.sources)
+        ? meta.sources.map((s: any) => s.url || "").filter(Boolean).join("\n")
+        : (meta.references ?? "");
+
+      return {
+        ...a,
+        keywords,
+        facts,
+        references,
+      };
+    });
 
     const catResult = await adminSupabase
       .from("articles")
@@ -87,7 +112,7 @@ serve(async (req) => {
     )].sort();
 
     return new Response(
-      JSON.stringify({ ok: true, count: data?.length ?? 0, articles: data ?? [], categories }),
+      JSON.stringify({ ok: true, count: articles.length, articles, categories }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
