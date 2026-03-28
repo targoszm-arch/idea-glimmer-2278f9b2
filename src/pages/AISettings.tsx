@@ -19,14 +19,20 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
   const [settingsId, setSettingsId] = useState<string | null>(null);
 
   // Newsletter brand settings
-  const [newsletterFromName, setNewsletterFromName] = useState("ContentLab");
+  const [newsletterFromName, setNewsletterFromName] = useState("");
   const [newsletterFromEmail, setNewsletterFromEmail] = useState("");
   const [newsletterReplyTo, setNewsletterReplyTo] = useState("");
   const [newsletterFooterText, setNewsletterFooterText] = useState("");
   const [newsletterBrandLogoUrl, setNewsletterBrandLogoUrl] = useState("");
   const [newsletterWebsiteUrl, setNewsletterWebsiteUrl] = useState("");
+  const [brandLogos, setBrandLogos] = useState<{ id: string; name: string; file_url: string }[]>([]);
 
   useEffect(() => {
+    // Load logos from brand_assets
+    supabase.from("brand_assets" as any).select("id, name, file_url").eq("type", "logo").order("created_at", { ascending: true }).then(({ data }: any) => {
+      if (data) setBrandLogos(data);
+    });
+
     (async () => {
       const { data, error } = await supabase
         .from("ai_settings")
@@ -249,7 +255,7 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
               <div>
                 <label className="text-xs font-medium text-foreground mb-1 block">From Name *</label>
                 <input value={newsletterFromName} onChange={e => setNewsletterFromName(e.target.value)}
-                  placeholder="Your Brand Name"
+                  placeholder="e.g. Skill Studio AI"
                   className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
               </div>
               <div>
@@ -273,10 +279,29 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
                 <p className="text-xs text-muted-foreground mt-1">Used for "Read full article" links</p>
               </div>
               <div className="col-span-2">
-                <label className="text-xs font-medium text-foreground mb-1 block">Brand Logo URL</label>
-                <input value={newsletterBrandLogoUrl} onChange={e => setNewsletterBrandLogoUrl(e.target.value)}
-                  placeholder="https://yourwebsite.com/logo.png"
-                  className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                <label className="text-xs font-medium text-foreground mb-1 block">Brand Logo</label>
+                {brandLogos.length > 0 ? (
+                  <div className="flex flex-wrap gap-3">
+                    {brandLogos.map(logo => (
+                      <button
+                        key={logo.id}
+                        type="button"
+                        onClick={() => setNewsletterBrandLogoUrl(logo.file_url)}
+                        className={`relative rounded-lg border-2 p-2 transition-all bg-white ${newsletterBrandLogoUrl === logo.file_url ? "border-primary ring-2 ring-primary/30" : "border-border hover:border-primary/50"}`}
+                      >
+                        <img src={logo.file_url} alt={logo.name} className="h-12 w-auto max-w-[120px] object-contain" />
+                        {newsletterBrandLogoUrl === logo.file_url && (
+                          <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">✓</span>
+                        )}
+                      </button>
+                    ))}
+                    {newsletterBrandLogoUrl && (
+                      <button type="button" onClick={() => setNewsletterBrandLogoUrl("")} className="text-xs text-muted-foreground hover:text-destructive self-center">Clear</button>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No logos found. Upload logos in <a href="/settings/brand" className="text-primary underline">Settings → Brand → Logos</a>.</p>
+                )}
               </div>
               <div className="col-span-2">
                 <label className="text-xs font-medium text-foreground mb-1 block">Footer Text</label>

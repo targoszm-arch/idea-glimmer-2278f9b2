@@ -35,14 +35,14 @@ interface Props {
   ctaUrl?: string;
 }
 
-export function NewsletterEditor({ open, onClose, article, brandName = "ContentLab", brandLogoUrl, ctaUrl }: Props) {
+export function NewsletterEditor({ open, onClose, article, brandName, brandLogoUrl, ctaUrl }: Props) {
   const [newsletter, setNewsletter] = useState<NewsletterData | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"preview" | "html">("preview");
   const [showScheduler, setShowScheduler] = useState(false);
   const [brandSettings, setBrandSettings] = useState({
-    fromName: brandName || "ContentLab",
+    fromName: brandName || "",
     fromEmail: "",
     replyTo: "",
     footerText: "",
@@ -54,16 +54,31 @@ export function NewsletterEditor({ open, onClose, article, brandName = "ContentL
   React.useEffect(() => {
     if (!open) return;
 
-    // Load brand settings
-    supabase.from("ai_settings" as any).select("newsletter_from_name,newsletter_from_email,newsletter_reply_to,newsletter_footer_text,newsletter_brand_logo_url,newsletter_website_url").limit(1).maybeSingle().then(({ data }: any) => {
+    // Load brand settings + fallback logo from brand_assets
+    supabase.from("ai_settings" as any).select("newsletter_from_name,newsletter_from_email,newsletter_reply_to,newsletter_footer_text,newsletter_brand_logo_url,newsletter_website_url").limit(1).maybeSingle().then(async ({ data }: any) => {
+      let logoUrl = data?.newsletter_brand_logo_url || brandLogoUrl || "";
+
+      // If no logo set in newsletter settings, grab first logo from brand_assets
+      if (!logoUrl) {
+        const { data: logoAsset } = await supabase
+          .from("brand_assets" as any)
+          .select("file_url, name")
+          .eq("type", "logo")
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (logoAsset) logoUrl = (logoAsset as any).file_url || "";
+      }
+
       if (data) setBrandSettings({
-        fromName: data.newsletter_from_name || brandName || "ContentLab",
+        fromName: data.newsletter_from_name || brandName || "",
         fromEmail: data.newsletter_from_email || "",
         replyTo: data.newsletter_reply_to || "",
         footerText: data.newsletter_footer_text || "",
-        logoUrl: data.newsletter_brand_logo_url || brandLogoUrl || "",
+        logoUrl,
         websiteUrl: data.newsletter_website_url || ctaUrl || "",
       });
+      else if (logoUrl) setBrandSettings(prev => ({ ...prev, logoUrl }));
     });
 
     // Try to load saved newsletter from DB first — always, on every open
@@ -135,7 +150,7 @@ export function NewsletterEditor({ open, onClose, article, brandName = "ContentL
 
   const buildHtml = (n: NewsletterData) => {
     const logo = brandSettings.logoUrl || brandLogoUrl || "";
-    const footerName = brandSettings.fromName || brandName || "ContentLab";
+    const footerName = brandSettings.fromName || brandName || "";
     const footerText = brandSettings.footerText || `© ${footerName}. All Rights Reserved.`;
     const cta = articleUrl;
     return `<!DOCTYPE html>
