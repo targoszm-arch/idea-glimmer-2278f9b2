@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Copy, Download, Mail, RefreshCw, Check, Send } from "lucide-react";
+import { Loader2, Copy, Download, Mail, RefreshCw, Check, Send, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { NewsletterScheduler } from "@/components/NewsletterScheduler";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,7 +39,7 @@ export function NewsletterEditor({ open, onClose, article, brandName, brandLogoU
   const [newsletter, setNewsletter] = useState<NewsletterData | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<"preview" | "html">("preview");
+  const [activeTab, setActiveTab] = useState<"preview" | "edit" | "html">("preview");
   const [showScheduler, setShowScheduler] = useState(false);
   const [brandSettings, setBrandSettings] = useState({
     fromName: brandName || "",
@@ -277,6 +277,12 @@ ${cta ? `<tr><td style="padding:0 24px;text-align:center;">
               Preview
             </button>
             <button
+              onClick={() => setActiveTab("edit")}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${activeTab === "edit" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Pencil className="h-3.5 w-3.5" /> Edit
+            </button>
+            <button
               onClick={() => setActiveTab("html")}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "html" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
@@ -293,13 +299,206 @@ ${cta ? `<tr><td style="padding:0 24px;text-align:center;">
             </div>
           )}
 
+          {!loading && newsletter && activeTab === "edit" && (
+            <div className="space-y-5 max-w-2xl mx-auto">
+              {/* First Name variable helper */}
+              <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-4 py-2.5">
+                <span className="text-xs text-muted-foreground">Insert variable:</span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText("{{first_name}}");
+                    toast({ title: "Copied {{first_name}} to clipboard" });
+                  }}
+                  className="inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-mono px-2.5 py-1 rounded-md transition-colors"
+                >
+                  <Plus className="h-3 w-3" /> {"{{first_name}}"}
+                </button>
+                <span className="text-xs text-muted-foreground">— click to copy, then paste anywhere in the fields below</span>
+              </div>
+
+              {/* Subject & Preview */}
+              <div className="space-y-3 rounded-xl border border-border p-4">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Subject & Preview</h3>
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Subject Line</label>
+                  <input
+                    value={newsletter.subject_line}
+                    onChange={e => setNewsletter({ ...newsletter, subject_line: e.target.value })}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Preview Text</label>
+                  <input
+                    value={newsletter.preview_text}
+                    onChange={e => setNewsletter({ ...newsletter, preview_text: e.target.value })}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+              </div>
+
+              {/* Opening */}
+              <div className="space-y-3 rounded-xl border border-border p-4">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Opening</h3>
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Greeting</label>
+                  <input
+                    value={newsletter.greeting}
+                    onChange={e => setNewsletter({ ...newsletter, greeting: e.target.value })}
+                    placeholder='e.g. Hi {{first_name}},'
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Opening Hook</label>
+                  <textarea
+                    value={newsletter.opening_hook}
+                    onChange={e => setNewsletter({ ...newsletter, opening_hook: e.target.value })}
+                    rows={3}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Sections */}
+              <div className="space-y-3 rounded-xl border border-border p-4">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sections</h3>
+                {newsletter.sections.map((section, i) => (
+                  <div key={i} className="border border-border/50 rounded-lg p-3 space-y-2 bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">Section {i + 1}</span>
+                      <button
+                        onClick={() => setNewsletter({ ...newsletter, sections: newsletter.sections.filter((_, j) => j !== i) })}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <input
+                      value={section.heading}
+                      onChange={e => {
+                        const sections = [...newsletter.sections];
+                        sections[i] = { ...sections[i], heading: e.target.value };
+                        setNewsletter({ ...newsletter, sections });
+                      }}
+                      placeholder="Section heading"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                    <textarea
+                      value={section.body}
+                      onChange={e => {
+                        const sections = [...newsletter.sections];
+                        sections[i] = { ...sections[i], body: e.target.value };
+                        setNewsletter({ ...newsletter, sections });
+                      }}
+                      rows={3}
+                      placeholder="Section body"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                    />
+                    {section.bullets && section.bullets.length > 0 && (
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">Bullets</label>
+                        {section.bullets.map((bullet, j) => (
+                          <div key={j} className="flex gap-2">
+                            <input
+                              value={bullet}
+                              onChange={e => {
+                                const sections = [...newsletter.sections];
+                                const bullets = [...(sections[i].bullets || [])];
+                                bullets[j] = e.target.value;
+                                sections[i] = { ...sections[i], bullets };
+                                setNewsletter({ ...newsletter, sections });
+                              }}
+                              className="flex-1 rounded-lg border border-input bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            />
+                            <button
+                              onClick={() => {
+                                const sections = [...newsletter.sections];
+                                sections[i] = { ...sections[i], bullets: section.bullets!.filter((_, k) => k !== j) };
+                                setNewsletter({ ...newsletter, sections });
+                              }}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* What This Means */}
+              <div className="space-y-3 rounded-xl border border-border p-4">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">What This Means For You</h3>
+                <textarea
+                  value={newsletter.what_this_means}
+                  onChange={e => setNewsletter({ ...newsletter, what_this_means: e.target.value })}
+                  rows={3}
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                />
+              </div>
+
+              {/* CTA */}
+              <div className="space-y-3 rounded-xl border border-border p-4">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Call to Action</h3>
+                <div>
+                  <label className="text-xs font-medium mb-1 block">CTA Button Text</label>
+                  <input
+                    value={newsletter.cta_text}
+                    onChange={e => setNewsletter({ ...newsletter, cta_text: e.target.value })}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+              </div>
+
+              {/* Closing */}
+              <div className="space-y-3 rounded-xl border border-border p-4">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Closing</h3>
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Closing Line</label>
+                  <textarea
+                    value={newsletter.closing}
+                    onChange={e => setNewsletter({ ...newsletter, closing: e.target.value })}
+                    rows={2}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Sign-off</label>
+                  <input
+                    value={newsletter.signoff}
+                    onChange={e => setNewsletter({ ...newsletter, signoff: e.target.value })}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+              </div>
+
+              {/* Save edits */}
+              <Button
+                onClick={() => {
+                  if (article.id) {
+                    supabase.from("articles").update({ newsletter_data: newsletter } as any).eq("id", article.id).then(() => {
+                      toast({ title: "Newsletter saved ✓" });
+                    });
+                  }
+                  setActiveTab("preview");
+                }}
+                className="w-full"
+              >
+                Save & Preview
+              </Button>
+            </div>
+          )}
+
           {!loading && newsletter && activeTab === "preview" && (
             <div className="bg-[#f0f1f5] p-4 rounded-lg">
               <div className="max-w-[600px] mx-auto bg-white rounded-lg overflow-hidden shadow-sm">
                 {/* Logo */}
-                {brandLogoUrl && (
+                {brandSettings.logoUrl && (
                   <div className="p-6 pb-0 text-center">
-                    <img src={brandLogoUrl} alt={brandName} className="h-10 w-auto mx-auto" />
+                    <img src={brandSettings.logoUrl} alt={brandSettings.fromName} className="h-10 w-auto mx-auto" />
                   </div>
                 )}
                 {/* Cover image */}
@@ -359,7 +558,7 @@ ${cta ? `<tr><td style="padding:0 24px;text-align:center;">
                     {" "}|{" "}
                     <a href="#" className="text-[#c2dcff] underline">Privacy Notice</a>
                     <br />
-                    © {brandName}. All Rights Reserved.
+                    © {brandSettings.fromName}. All Rights Reserved.
                   </p>
                 </div>
               </div>
