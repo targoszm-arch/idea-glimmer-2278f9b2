@@ -826,6 +826,11 @@ const EditArticle = () => {
                   className={`px-4 py-2.5 text-sm font-medium transition-colors ${previewMode ? "text-primary border-b-2 border-primary -mb-px bg-background" : "text-muted-foreground hover:text-foreground"}`}>
                   Preview
                 </button>
+                <button
+                  onClick={() => setShowNewsletter(true)}
+                  className="px-4 py-2.5 text-sm font-medium transition-colors text-muted-foreground hover:text-foreground flex items-center gap-1.5">
+                  <Mail className="h-3.5 w-3.5" /> Newsletter
+                </button>
                 {!previewMode && <div className="flex-1"><EditorToolbar editor={editor} onUnsplash={() => setShowUnsplash(true)} /></div>}
               </div>
               {previewMode ? (

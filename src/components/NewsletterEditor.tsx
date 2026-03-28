@@ -43,11 +43,12 @@ export function NewsletterEditor({ open, onClose, article, brandName = "ContentL
   const generate = async () => {
     setLoading(true);
     try {
+      const { data: { session } } = await (await import("@/integrations/supabase/client")).supabase.auth.getSession();
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-newsletter`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          Authorization: `Bearer ${session?.access_token}`,
           apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
@@ -176,7 +177,7 @@ ${ctaUrl ? `<tr><td style="padding:0 24px;text-align:center;">
     <>
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0 sticky top-0 z-10 bg-background">
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5 text-primary" />
             Newsletter Editor
@@ -195,7 +196,7 @@ ${ctaUrl ? `<tr><td style="padding:0 24px;text-align:center;">
 
         {/* Tab Bar */}
         {newsletter && (
-          <div className="flex gap-1 px-6 pt-3 flex-shrink-0">
+          <div className="flex gap-1 px-6 pt-3 flex-shrink-0 sticky top-[89px] z-10 bg-background border-b border-border pb-3">
             <button
               onClick={() => setActiveTab("preview")}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
