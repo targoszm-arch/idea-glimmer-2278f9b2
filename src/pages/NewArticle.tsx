@@ -134,7 +134,12 @@ const NewArticle = () => {
             setTitle(lines[0].replace("# ", "").trim());
           }
         }
-        editor?.commands.setContent(accumulated);
+        // Strip leading code fences / "html" prefix during streaming
+        const live = accumulated
+          .replace(/^[\s\n]*```html[\s\n]*/i, "")
+          .replace(/^[\s\n]*```[\s\n]*/i, "")
+          .replace(/^[\s\n]*html[\s\n]+(?=<)/i, "");
+        editor?.commands.setContent(live);
       },
       onDone: () => {
         const metaDescMatch = accumulated.match(/<!--\s*META_DESCRIPTION:\s*(.*?)\s*-->/i)
@@ -159,9 +164,16 @@ const NewArticle = () => {
           .replace(/<p>\s*_?Disclaimer:.*?<\/p>/gis, "")
           .replace(/\[\d+\]/g, "")
           .replace(/<!--\s*ARTICLE_META_JSON:[\s\S]*?-->/gi, "")
-          .replace(/^```html\s*/i, "")
-          .replace(/```\s*$/g, "")
-          .replace(/^html\s*/i, "")
+          // Strip code fences and stray "html" prefix that Perplexity sometimes adds
+          .replace(/^[\s\n]*```html[\s\n]*/i, "")
+          .replace(/^[\s\n]*```[\s\n]*/i, "")
+          .replace(/[\s\n]*```[\s\n]*$/i, "")
+          .replace(/^[\s\n]*html[\s\n]+(?=<)/i, "")
+          // Strip any leading <!DOCTYPE html> or <html><head>...</head><body> wrappers
+          .replace(/^[\s\S]*?<body[^>]*>/i, "")
+          .replace(/<\/body>[\s\S]*$/i, "")
+          .replace(/^<!DOCTYPE[^>]*>/i, "")
+          .replace(/^<html[^>]*>[\s\S]*?<\/head>/i, "")
           .trim();
 
         if (cleanContent) {

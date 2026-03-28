@@ -119,7 +119,11 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
     const headers = await authHeaders();
     const res = await fetch(`${SUPABASE_URL}/functions/v1/schedule-newsletter`, { headers });
     const data = await res.json();
-    setSchedules(data.schedules || []);
+    // Sort newest first
+    const sorted = (data.schedules || []).sort((a: any, b: any) =>
+      new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()
+    );
+    setSchedules(sorted);
     setLoadingHistory(false);
   }
 

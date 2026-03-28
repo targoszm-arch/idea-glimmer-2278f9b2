@@ -162,6 +162,7 @@ Output order:
 9. At the very end: \`<!-- META_TITLE: ... -->\` and \`<!-- META_DESCRIPTION: ... -->\`
 
 CRITICAL: Output ONLY valid HTML. No Markdown. Every paragraph in <p> tags.
+CRITICAL: Your VERY FIRST character must be "<". Do NOT write "html", "```html", "```", or any other text before the opening tag.
 CRITICAL: Article title in <h1> MUST be under 60 characters.
 CRITICAL: NEVER include citation brackets like [1], [2], [3].
 CRITICAL: NEVER append disclaimers or caveats after the META comments.
