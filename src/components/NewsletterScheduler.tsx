@@ -54,6 +54,8 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
 
   // Resend audiences
   const [resendAudiences, setResendAudiences] = useState<ResendAudience[]>([]);
+  const [resendContacts, setResendContacts] = useState<{ contacts: any[]; count: number; unsubscribed: number } | null>(null);
+  const [loadingResendContacts, setLoadingResendContacts] = useState(false);
 
   // History
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -86,6 +88,16 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
     const res = await fetch(`${SUPABASE_URL}/functions/v1/newsletter-audiences?action=resend-lists`, { headers });
     const data = await res.json();
     setResendAudiences(data.audiences || []);
+  }
+
+  async function loadResendContacts(audienceId: string) {
+    if (!audienceId) { setResendContacts(null); return; }
+    setLoadingResendContacts(true);
+    const headers = await authHeaders();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/newsletter-audiences?action=resend-contacts&audience_id=${audienceId}`, { headers });
+    const data = await res.json();
+    setResendContacts(data);
+    setLoadingResendContacts(false);
   }
 
   async function loadHistory() {
@@ -171,6 +183,7 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
         audience_type: audienceType,
         resend_audience_id: audienceType === "resend_list" ? selectedResendAudience : null,
         scheduled_at: new Date(scheduledAt).toISOString(),
+        recipient_count: audienceType === "resend_list" ? (resendContacts?.count || 0) : contacts.length,
       }),
     });
     const data = await res.json();
@@ -280,7 +293,9 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
                 </div>
                 {audienceType === "resend_list" && (
                   <div className="mt-2 space-y-2">
-                    <select value={selectedResendAudience} onChange={e => setSelectedResendAudience(e.target.value)}
+                    <select
+                      value={selectedResendAudience}
+                      onChange={e => { setSelectedResendAudience(e.target.value); loadResendContacts(e.target.value); }}
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none">
                       <option value="">Select Resend audience...</option>
                       {resendAudiences.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -289,6 +304,46 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
                       <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
                         No Resend audiences found. Make sure your RESEND_API_KEY is set in Supabase secrets.
                       </p>
+                    )}
+                    {/* Show contacts for selected audience */}
+                    {selectedResendAudience && (
+                      <div className="rounded-lg border border-border overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b border-border">
+                          <span className="text-xs font-medium text-foreground">Audience contacts</span>
+                          {loadingResendContacts && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                          {resendContacts && !loadingResendContacts && (
+                            <span className="text-xs text-muted-foreground">
+                              {resendContacts.count} active
+                              {resendContacts.unsubscribed > 0 && ` · ${resendContacts.unsubscribed} unsubscribed`}
+                            </span>
+                          )}
+                        </div>
+                        {resendContacts && resendContacts.contacts.length > 0 && (
+                          <div className="max-h-40 overflow-y-auto divide-y divide-border">
+                            {resendContacts.contacts.slice(0, 20).map((c: any) => (
+                              <div key={c.id} className="flex items-center justify-between px-3 py-1.5 bg-background">
+                                <div>
+                                  <p className="text-xs text-foreground">{c.email}</p>
+                                  {(c.first_name || c.last_name) && (
+                                    <p className="text-[10px] text-muted-foreground">{[c.first_name, c.last_name].filter(Boolean).join(" ")}</p>
+                                  )}
+                                </div>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${c.unsubscribed ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"}`}>
+                                  {c.unsubscribed ? "unsub" : "active"}
+                                </span>
+                              </div>
+                            ))}
+                            {resendContacts.count > 20 && (
+                              <div className="px-3 py-2 text-xs text-muted-foreground text-center bg-muted/30">
+                                +{resendContacts.count - 20} more contacts
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {resendContacts && resendContacts.contacts.length === 0 && !loadingResendContacts && (
+                          <p className="text-xs text-muted-foreground px-3 py-2">No active contacts in this audience.</p>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
