@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Copy, Download, Mail, RefreshCw, Check } from "lucide-react";
+import { Loader2, Copy, Download, Mail, RefreshCw, Check, Send } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { NewsletterScheduler } from "@/components/NewsletterScheduler";
 
 interface NewsletterData {
   subject_line: string;
@@ -25,6 +26,7 @@ interface Props {
     excerpt: string;
     category: string;
     cover_image_url?: string | null;
+    id?: string;
   };
   brandName?: string;
   brandLogoUrl?: string;
@@ -36,6 +38,7 @@ export function NewsletterEditor({ open, onClose, article, brandName = "ContentL
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"preview" | "html">("preview");
+  const [showScheduler, setShowScheduler] = useState(false);
 
   const generate = async () => {
     setLoading(true);
@@ -170,6 +173,7 @@ ${ctaUrl ? `<tr><td style="padding:0 24px;text-align:center;">
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
@@ -307,13 +311,29 @@ ${ctaUrl ? `<tr><td style="padding:0 24px;text-align:center;">
               {copied ? <Check className="h-4 w-4 mr-1.5" /> : <Copy className="h-4 w-4 mr-1.5" />}
               Copy HTML
             </Button>
-            <Button size="sm" onClick={handleDownload} disabled={!newsletter}>
+            <Button variant="outline" size="sm" onClick={handleDownload} disabled={!newsletter}>
               <Download className="h-4 w-4 mr-1.5" />
-              Download HTML
+              Download
+            </Button>
+            <Button size="sm" onClick={() => setShowScheduler(true)} disabled={!newsletter}>
+              <Send className="h-4 w-4 mr-1.5" />
+              Schedule & Send
             </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
+
+    {newsletter && (
+      <NewsletterScheduler
+        open={showScheduler}
+        onClose={() => setShowScheduler(false)}
+        newsletterHtml={buildHtml(newsletter)}
+        subjectLine={newsletter.subject_line}
+        previewText={newsletter.preview_text}
+        articleId={article.id}
+      />
+    )}
+    </>
   );
 }

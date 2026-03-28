@@ -141,6 +141,7 @@ export default function CalendarPage() {
 
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [scheduledPosts, setScheduledPosts] = useState<any[]>([]);
+  const [newsletterSchedules, setNewsletterSchedules] = useState<any[]>([]);
   const [runs, setRuns] = useState<AutomationRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
@@ -174,14 +175,16 @@ export default function CalendarPage() {
 
   async function loadAll() {
     setLoading(true);
-    const [{ data: aData }, { data: rData }, { data: spData }] = await Promise.all([
+    const [{ data: aData }, { data: rData }, { data: spData }, { data: nlData }] = await Promise.all([
       supabase.from("automations" as any).select("*").order("created_at", { ascending: false }),
       supabase.from("automation_runs" as any).select("*").order("run_at", { ascending: false }).limit(200),
       supabase.from("social_posts" as any).select("*").not("scheduled_at", "is", null).order("scheduled_at", { ascending: true }),
+      supabase.from("newsletter_schedules" as any).select("*").order("scheduled_at", { ascending: true }),
     ]);
     if (aData) setAutomations(aData as unknown as Automation[]);
     if (rData) setRuns(rData as unknown as AutomationRun[]);
     if (spData) setScheduledPosts(spData as any[]);
+    if (nlData) setNewsletterSchedules(nlData as any[]);
     setLoading(false);
   }
 
@@ -362,6 +365,10 @@ export default function CalendarPage() {
                 const pastRuns = pastRunsByDay.get(day) || [];
                 const isSelected = selectedDay === day;
                 const isPast = new Date(calYear, calMonth, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const dayNewsletters = newsletterSchedules.filter(n => {
+                  const d = new Date(n.scheduled_at);
+                  return d.getFullYear() === calYear && d.getMonth() === calMonth && d.getDate() === day;
+                });
 
                 return (
                   <button
@@ -387,6 +394,15 @@ export default function CalendarPage() {
                       {scheduled.length > 2 && (
                         <div className="text-[10px] text-muted-foreground">+{scheduled.length - 2} more</div>
                       )}
+                      {/* Newsletter dots */}
+                      {dayNewsletters.slice(0, 1).map(n => (
+                        <div key={n.id} className="text-[10px] leading-tight bg-purple-100 text-purple-700 rounded px-1 truncate flex items-center gap-0.5">
+                          ✉ {n.subject_line}
+                        </div>
+                      ))}
+                      {dayNewsletters.length > 1 && (
+                        <div className="text-[10px] text-muted-foreground">+{dayNewsletters.length - 1} newsletter</div>
+                      )}
                     </div>
 
                     {/* Past run indicators */}
@@ -405,6 +421,7 @@ export default function CalendarPage() {
             {/* Legend */}
             <div className="px-6 py-3 border-t border-border flex items-center gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-100" /> Scheduled</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-purple-100" /> Newsletter</span>
               <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500" /> Ran successfully</span>
               <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-400" /> Failed</span>
             </div>
