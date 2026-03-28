@@ -33,8 +33,9 @@ const NAV_GROUPS = [
   {
     label: "Monitor",
     items: [
-      { label: "Analytics", href: "/analytics",  icon: BarChart2,   desc: "Content performance" },
-      { label: "Reports",   href: "/reports",    icon: FileText,    desc: "Detailed reports" },
+      { label: "Analytics", href: "/analytics",              icon: BarChart2,   desc: "Content performance" },
+      { label: "Newsletter", href: "/newsletter/analytics",  icon: BarChart2,   desc: "Newsletter open & click rates" },
+      { label: "Reports",   href: "/reports",                icon: FileText,    desc: "Detailed reports" },
     ],
   },
 ];

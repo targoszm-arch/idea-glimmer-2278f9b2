@@ -14,6 +14,7 @@ interface NewsletterData {
   sections: { heading: string; body: string; bullets?: string[] }[];
   what_this_means: string;
   cta_text: string;
+  cta_url?: string;
   closing: string;
   signoff: string;
 }
@@ -134,7 +135,7 @@ export function NewsletterEditor({ open, onClose, article, brandName, brandLogoU
       });
       const data = await res.json();
       if (data.ok) {
-        setNewsletter(data.newsletter);
+        setNewsletter({ ...data.newsletter, cta_url: data.newsletter.cta_url || articleUrl });
         // Save to DB so it loads instantly next time
         if (article.id) {
           supabase.from("articles").update({ newsletter_data: data.newsletter } as any).eq("id", article.id).then(() => {});
@@ -152,7 +153,7 @@ export function NewsletterEditor({ open, onClose, article, brandName, brandLogoU
     const logo = brandSettings.logoUrl || brandLogoUrl || "";
     const footerName = brandSettings.fromName || brandName || "";
     const footerText = brandSettings.footerText || `© ${footerName}. All Rights Reserved.`;
-    const cta = articleUrl;
+    const cta = n.cta_url || articleUrl;
     return `<!DOCTYPE html>
 <html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -451,6 +452,16 @@ ${cta ? `<tr><td style="padding:0 24px;text-align:center;">
                     className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block">CTA Button URL</label>
+                  <input
+                    value={newsletter.cta_url || ""}
+                    onChange={e => setNewsletter({ ...newsletter, cta_url: e.target.value })}
+                    placeholder="https://training.skillstudio.ai"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">This URL will be tracked for click analytics</p>
+                </div>
               </div>
 
               {/* Closing */}
@@ -537,14 +548,12 @@ ${cta ? `<tr><td style="padding:0 24px;text-align:center;">
                     <p className="text-sm text-[#0f171f] leading-relaxed">{newsletter.what_this_means}</p>
                   </div>
                   {/* CTA */}
-                  {ctaUrl && (
+                  {(newsletter.cta_url || ctaUrl) && (
                     <div className="text-center mb-6">
-                      <a
-                        href={ctaUrl}
-                        className="inline-block bg-[#0c61e9] text-white font-bold px-8 py-3 rounded-full text-base no-underline"
-                      >
+                      <a href={newsletter.cta_url || ctaUrl} className="inline-block bg-[#0c61e9] text-white font-bold px-8 py-3 rounded-full text-base no-underline">
                         {newsletter.cta_text}
                       </a>
+                      {newsletter.cta_url && <p className="text-xs text-muted-foreground mt-1">{newsletter.cta_url}</p>}
                     </div>
                   )}
                   {/* Closing */}

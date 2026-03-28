@@ -29,6 +29,7 @@ import Profile from "./pages/Profile";
 import Automations from "./pages/Automations";
 import CalendarPage from "./pages/Calendar";
 import SignupConfirm from "./pages/SignupConfirm";
+import NewsletterAnalytics from "./pages/NewsletterAnalytics";
 
 const queryClient = new QueryClient();
 
@@ -62,6 +63,7 @@ const App = () => (
             <Route path="/settings/api-key" element={<ProtectedRoute><APIKey /></ProtectedRoute>} />
             <Route path="/settings/brand" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/settings/integrations" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/newsletter/analytics" element={<ProtectedRoute><NewsletterAnalytics /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           </AppShell>

@@ -232,6 +232,10 @@ export default function CalendarPage() {
 
   const selectedDayAutomations = selectedDay ? (scheduledDays.get(selectedDay) || []) : [];
   const selectedDayRuns = selectedDay ? (pastRunsByDay.get(selectedDay) || []) : [];
+  const selectedDayNewsletters = selectedDay ? newsletterSchedules.filter(n => {
+    const d = new Date(n.scheduled_at);
+    return d.getFullYear() === calYear && d.getMonth() === calMonth && d.getDate() === selectedDay;
+  }) : [];
 
   async function toggleActive(id: string, current: boolean) {
     await supabase.from("automations" as any).update({ is_active: !current }).eq("id", id);
@@ -438,7 +442,7 @@ export default function CalendarPage() {
                   {MONTH_NAMES[calMonth]} {selectedDay}
                 </h3>
 
-                {selectedDayAutomations.length === 0 && selectedDayRuns.length === 0 && (
+                {selectedDayAutomations.length === 0 && selectedDayRuns.length === 0 && selectedDayNewsletters.length === 0 && (
                   <p className="text-xs text-muted-foreground">No automations scheduled for this day.</p>
                 )}
 
@@ -478,6 +482,32 @@ export default function CalendarPage() {
                           </div>
                         );
                       })}
+                    </div>
+                  </div>
+                )}
+
+                {selectedDayNewsletters.length > 0 && (
+                  <div className={selectedDayRuns.length > 0 || selectedDayAutomations.length > 0 ? "mt-3" : ""}>
+                    <p className="text-xs font-medium text-muted-foreground uppercase mb-2">📧 Newsletters</p>
+                    <div className="space-y-1.5">
+                      {selectedDayNewsletters.map(n => (
+                        <div key={n.id} className="flex items-center justify-between bg-purple-50 rounded-lg px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-purple-800 truncate">{n.subject_line}</p>
+                            <p className="text-[10px] text-purple-600">
+                              {new Date(n.scheduled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              {" · "}{n.status}
+                              {n.recipient_count ? ` · ${n.recipient_count} recipients` : ""}
+                            </p>
+                          </div>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ml-2 ${
+                            n.status === "sent" ? "bg-green-100 text-green-700" :
+                            n.status === "scheduled" ? "bg-purple-100 text-purple-700" :
+                            n.status === "failed" ? "bg-red-100 text-red-700" :
+                            "bg-gray-100 text-gray-600"
+                          }`}>{n.status}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -668,6 +698,28 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const [automationType, setAutomationType] = useState<"article" | "newsletter">("article");
+  const [newsletterArticleId, setNewsletterArticleId] = useState<string>("");
+  const [newsletterArticles, setNewsletterArticles] = useState<{ id: string; title: string; newsletter_data: any }[]>([]);
+  const [newsletterAudienceType, setNewsletterAudienceType] = useState<"contacts" | "resend_list">("contacts");
+  const [newsletterResendAudienceId, setNewsletterResendAudienceId] = useState<string>("");
+  const [resendAudiences, setResendAudiences] = useState<{ id: string; name: string }[]>([]);
+
+  // Load articles with newsletter data + resend audiences
+  useEffect(() => {
+    if (automationType === "newsletter") {
+      supabase.from("articles" as any).select("id, title, newsletter_data").eq("status", "published").order("updated_at", { ascending: false }).limit(50).then(({ data }: any) => {
+        if (data) setNewsletterArticles(data.filter((a: any) => a.newsletter_data));
+      });
+      const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo";
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/newsletter-audiences?action=resend-lists`, {
+          headers: { Authorization: `Bearer ${session?.access_token}`, apikey: ANON_KEY }
+        }).then(r => r.json()).then(d => { if (d.audiences) setResendAudiences(d.audiences); });
+      });
+    }
+  }, [automationType]);
+
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("My Automation");
@@ -720,18 +772,31 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
 
   async function save() {
     if (!name.trim()) { toast.error("Please enter a name"); return; }
+    if (automationType === "newsletter" && !newsletterArticleId) { toast.error("Please select a newsletter article"); return; }
     setSaving(true);
     try {
       const payload: any = {
         name: name.trim(), cron_expression: cron, next_run_at: nextRunFromCron(cron),
-        generate_mode: mode, funnel_stage_filter: funnelStage, tone: tone || null,
-        article_length: articleLength, improve_seo: improveSeo,
-        custom_prompt: mode === "custom_prompt" ? customPrompt : null,
-        prompt_variables: mode === "custom_prompt" && topicList.trim()
-          ? { topic: topicList.split("\n").map(t => t.trim()).filter(Boolean) } : {},
-        publish_destinations: destinations.filter(d => d !== "library"),
-        notify_email: notifyEmail.trim() || null,
-        preview_before_publish: previewBeforePublish, is_active: true,
+        automation_type: automationType,
+        ...(automationType === "newsletter" ? {
+          newsletter_article_id: newsletterArticleId,
+          newsletter_audience_type: newsletterAudienceType,
+          newsletter_resend_audience_id: newsletterAudienceType === "resend_list" ? newsletterResendAudienceId : null,
+          generate_mode: "custom_prompt",
+          article_length: "medium",
+          improve_seo: false,
+          publish_destinations: [],
+        } : {
+          generate_mode: mode, funnel_stage_filter: funnelStage, tone: tone || null,
+          article_length: articleLength, improve_seo: improveSeo,
+          custom_prompt: mode === "custom_prompt" ? customPrompt : null,
+          prompt_variables: mode === "custom_prompt" && topicList.trim()
+            ? { topic: topicList.split("\n").map(t => t.trim()).filter(Boolean) } : {},
+          publish_destinations: destinations.filter(d => d !== "library"),
+          notify_email: notifyEmail.trim() || null,
+          preview_before_publish: previewBeforePublish,
+        }),
+        is_active: true,
       };
       if (editingId) {
         const { error } = await supabase.from("automations" as any).update(payload).eq("id", editingId);
@@ -747,7 +812,7 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
     setSaving(false);
   }
 
-  const steps = ["Trigger", "Generate", "Publish"];
+  const steps = automationType === "newsletter" ? ["Trigger"] : ["Trigger", "Generate", "Publish"];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -774,6 +839,60 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
         <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
           {step === 1 && (
             <>
+              <div>
+                <label className="text-sm font-medium block mb-2">Automation Type</label>
+                <div className="flex gap-2">
+                  <button onClick={() => setAutomationType("article")}
+                    className={`flex-1 py-2.5 rounded-lg border text-sm font-medium flex items-center justify-center gap-2 ${automationType === "article" ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}>
+                    <FileText className="w-4 h-4" /> Article
+                  </button>
+                  <button onClick={() => setAutomationType("newsletter")}
+                    className={`flex-1 py-2.5 rounded-lg border text-sm font-medium flex items-center justify-center gap-2 ${automationType === "newsletter" ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}>
+                    ✉️ Newsletter
+                  </button>
+                </div>
+              </div>
+
+              {automationType === "newsletter" && (
+                <div className="space-y-4 bg-purple-50 rounded-xl p-4 border border-purple-100">
+                  <div>
+                    <label className="text-sm font-medium block mb-1">Newsletter Article</label>
+                    <select value={newsletterArticleId} onChange={e => setNewsletterArticleId(e.target.value)}
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white">
+                      <option value="">— Select an article —</option>
+                      {newsletterArticles.map(a => (
+                        <option key={a.id} value={a.id}>{a.title}</option>
+                      ))}
+                    </select>
+                    {newsletterArticles.length === 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">No articles with newsletters yet. Generate a newsletter from an article first.</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium block mb-2">Audience</label>
+                    <div className="flex gap-2 mb-2">
+                      <button onClick={() => setNewsletterAudienceType("contacts")}
+                        className={`flex-1 py-1.5 rounded-lg border text-xs font-medium ${newsletterAudienceType === "contacts" ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground"}`}>
+                        My Contacts
+                      </button>
+                      <button onClick={() => setNewsletterAudienceType("resend_list")}
+                        className={`flex-1 py-1.5 rounded-lg border text-xs font-medium ${newsletterAudienceType === "resend_list" ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground"}`}>
+                        Resend Audience
+                      </button>
+                    </div>
+                    {newsletterAudienceType === "resend_list" && (
+                      <select value={newsletterResendAudienceId} onChange={e => setNewsletterResendAudienceId(e.target.value)}
+                        className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white">
+                        <option value="">— Select audience —</option>
+                        {resendAudiences.map(a => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="text-sm font-medium block mb-1">Automation Name</label>
                 <input value={name} onChange={e => setName(e.target.value)} className="w-full border border-border rounded-lg px-3 py-2 text-sm" />
@@ -936,7 +1055,7 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
             {step > 1 && (
               <button onClick={() => setStep(s => s - 1)} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-secondary">Back</button>
             )}
-            {step < 3 ? (
+            {step < steps.length ? (
               <button onClick={() => setStep(s => s + 1)} className="px-5 py-2 text-sm bg-primary text-white rounded-lg font-medium hover:bg-primary/90">Next</button>
             ) : (
               <button onClick={save} disabled={saving} className="px-5 py-2 text-sm bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50">
