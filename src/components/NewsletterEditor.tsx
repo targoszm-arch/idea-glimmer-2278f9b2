@@ -156,6 +156,8 @@ export function NewsletterEditor({ open, onClose, article, brandName, brandLogoU
     const footerName = brandSettings.fromName || brandName || "";
     const footerText = brandSettings.footerText || `© ${footerName}. All Rights Reserved.`;
     const cta = n.cta_url || articleUrl;
+    // Article deep link — use articleUrl if available, otherwise cta_url as fallback
+    const articleLink = articleUrl || n.cta_url || "";
     return `<!DOCTYPE html>
 <html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -203,8 +205,8 @@ ${s.bullets.map(b => `
 </td></tr>
 <tr><td style="height:24px;font-size:0;">&nbsp;</td></tr>
 <!-- READ FULL ARTICLE LINK -->
-${articleUrl ? `<tr><td style="padding:0 24px 16px 24px;text-align:center;">
-<a href="${articleUrl}" target="_blank" style="color:#0c61e9;font-size:14px;font-weight:600;text-decoration:underline;">Read the full article →</a>
+${articleLink ? `<tr><td style="padding:0 24px 16px 24px;text-align:center;">
+<a href="${articleLink}" target="_blank" style="color:#0c61e9;font-size:14px;font-weight:600;text-decoration:underline;">Read the full article →</a>
 </td></tr>` : ""}
 <!-- CTA BUTTON -->
 <tr><td style="padding:0 24px;text-align:center;">
@@ -451,7 +453,7 @@ ${articleUrl ? `<tr><td style="padding:0 24px 16px 24px;text-align:center;">
               <div className="space-y-3 rounded-xl border border-border p-4">
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Call to Action Button</h3>
                 <div className="bg-muted/40 rounded-lg px-3 py-2 text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">Auto-link:</span> "Read the full article →" is automatically added above the button, linking to <span className="font-mono">{articleUrl || "your article URL"}</span>
+                  <span className="font-medium text-foreground">Auto-link:</span> "Read the full article →" text link appears above the button, linking to the article. Set your website URL in Newsletter Settings for the full slug URL.
                 </div>
                 <div>
                   <label className="text-xs font-medium mb-1 block">Button Text</label>
@@ -558,9 +560,9 @@ ${articleUrl ? `<tr><td style="padding:0 24px 16px 24px;text-align:center;">
                     <p className="text-sm text-[#0f171f] leading-relaxed">{newsletter.what_this_means}</p>
                   </div>
                   {/* Read full article link */}
-                  {articleUrl && (
+                  {(articleUrl || newsletter.cta_url) && (
                     <div className="text-center mb-3">
-                      <a href={articleUrl} className="text-[#0c61e9] text-sm font-semibold underline">
+                      <a href={articleUrl || newsletter.cta_url} className="text-[#0c61e9] text-sm font-semibold underline">
                         Read the full article →
                       </a>
                     </div>
