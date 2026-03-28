@@ -98,6 +98,10 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
     const res = await fetch(`${SUPABASE_URL}/functions/v1/newsletter-audiences?action=resend-lists`, { headers });
     const data = await res.json();
     setResendAudiences(data.audiences || []);
+    if (data.error) {
+      console.error("Resend audiences error:", data.error);
+      toast({ title: "Resend error", description: data.error, variant: "destructive" });
+    }
   }
 
   async function loadResendContacts(audienceId: string) {
@@ -345,7 +349,7 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
                     </select>
                     {resendAudiences.length === 0 && (
                       <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-                        No Resend audiences found. Make sure your RESEND_API_KEY is set in Supabase secrets.
+                        No Resend audiences found. Check that your key is named <strong>RESEND_API_KEY</strong> in Supabase secrets, and that you have created at least one audience at <a href="https://resend.com/audiences" target="_blank" style={{color:"#2563eb"}}>resend.com/audiences</a>.
                       </p>
                     )}
                     {/* Show contacts for selected audience */}
