@@ -50,9 +50,11 @@ export function NewsletterEditor({ open, onClose, article, brandName = "ContentL
     websiteUrl: ctaUrl || "",
   });
 
-  // Load brand settings + generate on open
+  // Load brand settings + saved newsletter (or generate fresh) on open
   React.useEffect(() => {
     if (!open) return;
+
+    // Load brand settings
     supabase.from("ai_settings" as any).select("newsletter_from_name,newsletter_from_email,newsletter_reply_to,newsletter_footer_text,newsletter_brand_logo_url,newsletter_website_url").limit(1).maybeSingle().then(({ data }: any) => {
       if (data) setBrandSettings({
         fromName: data.newsletter_from_name || brandName || "ContentLab",
@@ -63,7 +65,19 @@ export function NewsletterEditor({ open, onClose, article, brandName = "ContentL
         websiteUrl: data.newsletter_website_url || ctaUrl || "",
       });
     });
-    if (!newsletter) generate();
+
+    // Try to load saved newsletter from DB first
+    if (article.id && !newsletter) {
+      supabase.from("articles").select("newsletter_data").eq("id", article.id).maybeSingle().then(({ data }: any) => {
+        if (data?.newsletter_data) {
+          setNewsletter(data.newsletter_data as NewsletterData);
+        } else {
+          generate();
+        }
+      });
+    } else if (!newsletter) {
+      generate();
+    }
   }, [open]);
 
   // Build article CTA URL using the website URL + slug pattern
@@ -105,6 +119,10 @@ export function NewsletterEditor({ open, onClose, article, brandName = "ContentL
       const data = await res.json();
       if (data.ok) {
         setNewsletter(data.newsletter);
+        // Save to DB so it loads instantly next time
+        if (article.id) {
+          supabase.from("articles").update({ newsletter_data: data.newsletter } as any).eq("id", article.id).then(() => {});
+        }
       } else {
         toast({ title: "Failed to generate newsletter", description: data.error, variant: "destructive" });
       }
@@ -341,7 +359,7 @@ ${cta ? `<tr><td style="padding:0 24px;text-align:center;">
 
         {/* Footer actions */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/30 flex-shrink-0">
-          <Button variant="ghost" size="sm" onClick={() => { setNewsletter(null); generate(); }} disabled={loading}>
+          <Button variant="ghost" size="sm" onClick={() => { setNewsletter(null); if (article.id) supabase.from("articles").update({ newsletter_data: null } as any).eq("id", article.id).then(() => {}); generate(); }} disabled={loading}>
             <RefreshCw className="h-4 w-4 mr-1.5" />
             Regenerate
           </Button>
