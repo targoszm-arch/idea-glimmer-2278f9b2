@@ -874,7 +874,7 @@ const EditArticle = () => {
     <NewsletterEditor
       open={showNewsletter}
       onClose={() => setShowNewsletter(false)}
-      article={{ title, content: editor?.getHTML() || "", excerpt: metaDescription, category, cover_image_url: coverImageUrl, id: articleId as string }}
+      article={{ title, content: editor?.getHTML() || "", excerpt: metaDescription, category, cover_image_url: coverImageUrl, id: id }}
       ctaUrl={`https://www.app.content-lab.ie`}
     />
     <ImageLibraryPicker
