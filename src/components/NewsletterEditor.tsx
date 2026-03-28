@@ -86,7 +86,9 @@ export function NewsletterEditor({ open, onClose, article, brandName, brandLogoU
     if (article.id) {
       supabase.from("articles").select("newsletter_data").eq("id", article.id).maybeSingle().then(({ data }: any) => {
         if (data?.newsletter_data) {
-          setNewsletter(data.newsletter_data as NewsletterData);
+          const saved = data.newsletter_data as NewsletterData;
+          // Ensure cta_url is set — fallback to articleUrl if missing
+          setNewsletter({ ...saved, cta_url: saved.cta_url || articleUrl });
         } else {
           generate();
         }
@@ -201,24 +203,24 @@ ${s.bullets.map(b => `
 </td></tr>
 <tr><td style="height:24px;font-size:0;">&nbsp;</td></tr>
 <!-- CTA -->
-${cta ? `<tr><td style="padding:0 24px;text-align:center;">
+<tr><td style="padding:0 24px;text-align:center;">
 <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
 <tbody><tr><td style="background-color:#0c61e9;border-radius:100px;padding:14px 32px;">
-<a href="${cta}" target="_blank" style="color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;">${n.cta_text}</a>
+<a href="${cta || "#"}" target="_blank" style="color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;">${n.cta_text || "Read the full article"}</a>
 </td></tr></tbody></table>
 </td></tr>
-<tr><td style="height:24px;font-size:0;">&nbsp;</td></tr>` : ""}
+<tr><td style="height:24px;font-size:0;">&nbsp;</td></tr>
 <!-- CLOSING -->
 <tr><td style="padding:0 24px;color:#0f171f;font-size:16px;line-height:1.6;">${n.closing}</td></tr>
 <tr><td style="height:16px;font-size:0;">&nbsp;</td></tr>
 <tr><td style="padding:0 24px;color:#0f171f;font-size:16px;">– ${n.signoff}</td></tr>
 <tr><td style="height:32px;font-size:0;">&nbsp;</td></tr>
-<!-- FOOTER — {{{ unsubscribe_url }}} is auto-replaced by Resend -->
+<!-- FOOTER -->
 <tr><td style="background-color:#0f171f;padding:24px;">
 <table width="100%" cellpadding="0" cellspacing="0"><tbody><tr>
 <td style="color:#ffffff;font-size:13px;line-height:1.8;">
-<a href="{{{ unsubscribe_url }}}" style="color:#c2dcff;text-decoration:underline;">Unsubscribe</a> &nbsp;|&nbsp;
-<a href="{{{ unsubscribe_url }}}" style="color:#c2dcff;text-decoration:underline;">Privacy Notice</a><br>
+<a href="{{UNSUBSCRIBE_URL}}" style="color:#c2dcff;text-decoration:underline;">Unsubscribe</a> &nbsp;|&nbsp;
+<a href="https://www.skillstudio.ai/policies/privacy" style="color:#c2dcff;text-decoration:underline;">Privacy Notice</a><br>
 <span style="color:#888;">${footerText}</span>
 </td>
 </tr></tbody></table>
@@ -548,14 +550,12 @@ ${cta ? `<tr><td style="padding:0 24px;text-align:center;">
                     <p className="text-sm text-[#0f171f] leading-relaxed">{newsletter.what_this_means}</p>
                   </div>
                   {/* CTA */}
-                  {(newsletter.cta_url || ctaUrl) && (
-                    <div className="text-center mb-6">
-                      <a href={newsletter.cta_url || ctaUrl} className="inline-block bg-[#0c61e9] text-white font-bold px-8 py-3 rounded-full text-base no-underline">
-                        {newsletter.cta_text}
-                      </a>
-                      {newsletter.cta_url && <p className="text-xs text-muted-foreground mt-1">{newsletter.cta_url}</p>}
-                    </div>
-                  )}
+                  <div className="text-center mb-6">
+                    <a href={newsletter.cta_url || ctaUrl || "#"} className="inline-block bg-[#0c61e9] text-white font-bold px-8 py-3 rounded-full text-base no-underline">
+                      {newsletter.cta_text || "Read the full article"}
+                    </a>
+                    {newsletter.cta_url && <p className="text-xs text-muted-foreground mt-1">{newsletter.cta_url}</p>}
+                  </div>
                   {/* Closing */}
                   <p className="text-[#0f171f] leading-relaxed mb-2">{newsletter.closing}</p>
                   <p className="text-[#0f171f]">– {newsletter.signoff}</p>
