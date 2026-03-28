@@ -202,7 +202,11 @@ ${s.bullets.map(b => `
 <p style="margin:0;font-size:15px;color:#0f171f;line-height:1.6;">${n.what_this_means}</p>
 </td></tr>
 <tr><td style="height:24px;font-size:0;">&nbsp;</td></tr>
-<!-- CTA -->
+<!-- READ FULL ARTICLE LINK -->
+${articleUrl ? `<tr><td style="padding:0 24px 16px 24px;text-align:center;">
+<a href="${articleUrl}" target="_blank" style="color:#0c61e9;font-size:14px;font-weight:600;text-decoration:underline;">Read the full article →</a>
+</td></tr>` : ""}
+<!-- CTA BUTTON -->
 <tr><td style="padding:0 24px;text-align:center;">
 <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
 <tbody><tr><td style="background-color:#0c61e9;border-radius:100px;padding:14px 32px;">
@@ -445,24 +449,28 @@ ${s.bullets.map(b => `
 
               {/* CTA */}
               <div className="space-y-3 rounded-xl border border-border p-4">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Call to Action</h3>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Call to Action Button</h3>
+                <div className="bg-muted/40 rounded-lg px-3 py-2 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Auto-link:</span> "Read the full article →" is automatically added above the button, linking to <span className="font-mono">{articleUrl || "your article URL"}</span>
+                </div>
                 <div>
-                  <label className="text-xs font-medium mb-1 block">CTA Button Text</label>
+                  <label className="text-xs font-medium mb-1 block">Button Text</label>
                   <input
                     value={newsletter.cta_text}
                     onChange={e => setNewsletter({ ...newsletter, cta_text: e.target.value })}
+                    placeholder="e.g. Sign up today, Learn more, Start free trial"
                     className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium mb-1 block">CTA Button URL</label>
+                  <label className="text-xs font-medium mb-1 block">Button URL</label>
                   <input
                     value={newsletter.cta_url || ""}
                     onChange={e => setNewsletter({ ...newsletter, cta_url: e.target.value })}
                     placeholder="https://training.skillstudio.ai"
                     className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">This URL will be tracked for click analytics</p>
+                  <p className="text-xs text-muted-foreground mt-1">This URL is tracked for click analytics</p>
                 </div>
               </div>
 
@@ -549,7 +557,15 @@ ${s.bullets.map(b => `
                     <p className="text-xs font-bold text-[#4a53fa] uppercase tracking-wider mb-1">What This Means For You</p>
                     <p className="text-sm text-[#0f171f] leading-relaxed">{newsletter.what_this_means}</p>
                   </div>
-                  {/* CTA */}
+                  {/* Read full article link */}
+                  {articleUrl && (
+                    <div className="text-center mb-3">
+                      <a href={articleUrl} className="text-[#0c61e9] text-sm font-semibold underline">
+                        Read the full article →
+                      </a>
+                    </div>
+                  )}
+                  {/* CTA Button */}
                   <div className="text-center mb-6">
                     <a href={newsletter.cta_url || ctaUrl || "#"} className="inline-block bg-[#0c61e9] text-white font-bold px-8 py-3 rounded-full text-base no-underline">
                       {newsletter.cta_text || "Read the full article"}
