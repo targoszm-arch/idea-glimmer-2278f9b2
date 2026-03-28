@@ -10,7 +10,7 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
-import { Save, Sparkles, Loader2, ArrowLeft, Settings, ImagePlus, X, Upload, MessageSquare } from "lucide-react";
+import { Save, Sparkles, Loader2, ArrowLeft, Settings, ImagePlus, X, Upload, MessageSquare, ChevronDown, Send } from "lucide-react";
 import CategoryPicker from "@/components/CategoryPicker";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
@@ -25,6 +25,7 @@ import { toast } from "@/hooks/use-toast";
 import { MediaLibraryPicker } from "../components/MediaLibraryPicker";
 import { UnsplashPicker } from "../components/UnsplashPicker";
 import { CanvaDesignPicker } from "../components/CanvaDesignPicker";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const NewArticle = () => {
   const navigate = useNavigate();
@@ -49,6 +50,11 @@ const NewArticle = () => {
   const [showMediaLibrary, setShowMediaLibrary] = useState(false);
   const [showUnsplash, setShowUnsplash] = useState(false);
   const [showCanvaPicker, setShowCanvaPicker] = useState(false);
+  const [savedArticleId, setSavedArticleId] = useState<string | null>(null);
+  const [framerItemId, setFramerItemId] = useState<string | null>(null);
+  const [wpPermalink, setWpPermalink] = useState<string | null>(null);
+  const [isSyncingFramer, setIsSyncingFramer] = useState(false);
+  const [isSyncingWordPress, setIsSyncingWordPress] = useState(false);
   const { credits, loading: creditsLoading, hasEnough, deductLocally } = useCredits();
 
   const [aiSettings, setAiSettings] = useState<{
@@ -250,6 +256,44 @@ const NewArticle = () => {
     setIsUploadingImage(false);
   };
 
+  const handlePublishToFramer = async () => {
+    if (!savedArticleId) { toast({ title: "Save the article first", variant: "destructive" }); return; }
+    setIsSyncingFramer(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").substring(0, 64);
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/publish-to-framer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_ANON_KEY },
+        body: JSON.stringify({ article_id: savedArticleId, framer_item_id: framerItemId ?? null, slug }),
+      });
+      const data = await res.json();
+      if (data.framer_item_id) { setFramerItemId(data.framer_item_id); toast({ title: framerItemId ? "Updated in Framer ✓" : "Published to Framer ✓" }); }
+      else toast({ title: "Framer sync failed", description: data.error, variant: "destructive" });
+    } catch (e) { toast({ title: "Error", description: String(e), variant: "destructive" }); }
+    setIsSyncingFramer(false);
+  };
+
+  const handlePublishToWordPress = async () => {
+    if (!savedArticleId) { toast({ title: "Save the article first", variant: "destructive" }); return; }
+    setIsSyncingWordPress(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const endpoint = wpPermalink
+        ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wordpress-publish`
+        : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wordpress-publish`;
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_ANON_KEY },
+        body: JSON.stringify({ article_id: savedArticleId }),
+      });
+      const data = await res.json();
+      if (data.wp_permalink) { setWpPermalink(data.wp_permalink); toast({ title: wpPermalink ? "Updated in WordPress ✓" : "Published to WordPress ✓", description: data.wp_permalink }); }
+      else toast({ title: "WordPress publish failed", description: data.error, variant: "destructive" });
+    } catch (e) { toast({ title: "Error", description: String(e), variant: "destructive" }); }
+    setIsSyncingWordPress(false);
+  };
+
   const handleSave = async (status: "draft" | "published") => {
     if (!title.trim()) {
       toast({ title: "Title required", description: "Please add a title for your article.", variant: "destructive" });
@@ -308,15 +352,14 @@ const NewArticle = () => {
       }
 
       if (status === "published") {
-        toast({
-          title: "Article published!",
-          description: "Open your Framer plugin and click 'Sync' to push it to Framer CMS."
-        });
+        toast({ title: "Article published!", description: "Use 'Publish to' to push to Framer, WordPress and more." });
       } else {
         toast({ title: "Saved as draft!" });
       }
 
-      navigate(status === "published" ? `/article/${data.id}` : "/");
+      setSavedArticleId(data.id);
+      if ((data as any).framer_item_id) setFramerItemId((data as any).framer_item_id);
+      if ((data as any).wp_permalink) setWpPermalink((data as any).wp_permalink);
     } finally {
       setIsSaving(false);
     }
@@ -345,8 +388,32 @@ const NewArticle = () => {
                 disabled={isSaving}
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50">
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Publish
+                {savedArticleId ? "Save" : "Publish"}
               </button>
+              {savedArticleId && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      disabled={isSyncingFramer || isSyncingWordPress}
+                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
+                      {(isSyncingFramer || isSyncingWordPress) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      Publish to <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52">
+                    <DropdownMenuLabel className="text-xs text-muted-foreground">Publish to platform</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handlePublishToFramer} disabled={isSyncingFramer}>
+                      {isSyncingFramer ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                      {framerItemId ? "Update in Framer" : "Publish to Framer"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handlePublishToWordPress} disabled={isSyncingWordPress}>
+                      {isSyncingWordPress ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                      {wpPermalink ? "Update in WordPress" : "Publish to WordPress"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               <button
                 onClick={() => setShowAssistant(!showAssistant)}
                 className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
