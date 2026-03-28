@@ -10,7 +10,7 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
-import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X, Upload, ChevronDown, Send } from "lucide-react";
+import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X, Upload, ChevronDown, Send, Mail } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
@@ -25,6 +25,7 @@ import DOMPurify from "dompurify";
 import { MediaLibraryPicker } from "../components/MediaLibraryPicker";
 import { UnsplashPicker } from "../components/UnsplashPicker";
 import { CanvaDesignPicker } from "@/components/CanvaDesignPicker";
+import { NewsletterEditor } from "@/components/NewsletterEditor";
 import { ImageLibraryPicker } from "@/components/ImageLibraryPicker";
 
 
@@ -44,6 +45,7 @@ const EditArticle = () => {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showCanvaPicker, setShowCanvaPicker] = useState(false);
+  const [showNewsletter, setShowNewsletter] = useState(false);
   const [showImageLibrary, setShowImageLibrary] = useState(false);
   const [showMediaLibrary, setShowMediaLibrary] = useState(false);
   const [showUnsplash, setShowUnsplash] = useState(false);
@@ -662,6 +664,11 @@ const EditArticle = () => {
               <Sparkles className="h-4 w-4" /> AI Assistant
             </button>
             <button
+              onClick={() => setShowNewsletter(true)}
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary transition-colors">
+              <Mail className="h-4 w-4" /> Newsletter
+            </button>
+            <button
               onClick={handleDelete}
               className="flex items-center gap-2 text-sm text-destructive hover:text-destructive/80">
               
@@ -863,6 +870,12 @@ const EditArticle = () => {
       open={showCanvaPicker}
       onClose={() => setShowCanvaPicker(false)}
       onSelect={(url) => { setCoverImageUrl(url); setShowCanvaPicker(false); }}
+    />
+    <NewsletterEditor
+      open={showNewsletter}
+      onClose={() => setShowNewsletter(false)}
+      article={{ title, content: editor?.getHTML() || "", excerpt: generatedMetaDescription, category, cover_image_url: coverImageUrl }}
+      ctaUrl={`https://www.app.content-lab.ie`}
     />
     <ImageLibraryPicker
       open={showImageLibrary}
