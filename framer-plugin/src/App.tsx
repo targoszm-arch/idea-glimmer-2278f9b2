@@ -6,6 +6,8 @@ type Article = {
   id: string; title: string; slug: string; content: string
   excerpt: string; meta_description: string; category: string
   cover_image_url: string | null; created_at: string
+  reading_time_minutes: number | null; author_name: string | null
+  keywords: string | null; facts: string | null; references: string | null
 }
 
 import { PLUGIN_DATA_KEY } from "./constants"
@@ -22,18 +24,24 @@ const F = {
   image:       "Preview Image",
   readingTime: "Reading Time",
   author:      "Author",
+  keywords:    "Keywords",
+  facts:       "Facts",
+  references:  "References",
 } as const
 
 const FIELDS = [
-  { id: F.title,    name: "Title",            type: "string" as const },
-  { id: F.body,     name: "Body (Rich Text)",  type: "formattedText" as const },
-  { id: F.excerpt,  name: "Excerpt",          type: "string" as const },
-  { id: F.category, name: "Category",         type: "string" as const },
-  { id: F.metaDesc, name: "Meta Description", type: "string" as const },
-  { id: F.pubDate,  name: "Published Date",   type: "date" as const },
-  { id: F.image,       name: "Cover Image",      type: "image" as const },
-  { id: F.readingTime, name: "Reading Time (min)", type: "number" as const },
-  { id: F.author,      name: "Author",             type: "string" as const },
+  { id: F.title,       name: "Title",               type: "string" as const },
+  { id: F.body,        name: "Body (Rich Text)",     type: "formattedText" as const },
+  { id: F.excerpt,     name: "Excerpt",              type: "string" as const },
+  { id: F.category,    name: "Category",             type: "string" as const },
+  { id: F.metaDesc,    name: "Meta Description",     type: "string" as const },
+  { id: F.pubDate,     name: "Published Date",       type: "date" as const },
+  { id: F.image,       name: "Cover Image",          type: "image" as const },
+  { id: F.readingTime, name: "Reading Time (min)",   type: "number" as const },
+  { id: F.author,      name: "Author",               type: "string" as const },
+  { id: F.keywords,    name: "Keywords",             type: "string" as const },
+  { id: F.facts,       name: "References & Facts",   type: "formattedText" as const },
+  { id: F.references,  name: "References (URLs)",    type: "string" as const },
 ]
 
 export async function configureManagedCollection() {
@@ -105,6 +113,9 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
         : {}),
       [F.readingTime]: { type: "number" as const,        value: a.reading_time_minutes ?? 0 },
       [F.author]:      { type: "string" as const,        value: a.author_name ?? "" },
+      [F.keywords]:    { type: "string" as const,        value: a.keywords ?? "" },
+      [F.facts]:       { type: "formattedText" as const, value: a.facts ?? "" },
+      [F.references]:  { type: "string" as const,        value: a.references ?? "" },
     },
   }))
 
@@ -116,15 +127,18 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
 // ── App ───────────────────────────────────────────────────────────────────────
 
 const FIELD_DEFS = [
-  { key: "title",       label: "Title",              default: "Title" },
-  { key: "body",        label: "Body (Rich Text)",   default: "Content" },
-  { key: "excerpt",     label: "Excerpt",            default: "Excerpt" },
-  { key: "category",    label: "Category",           default: "Category" },
-  { key: "metaDesc",    label: "Meta Description",   default: "Meta Description" },
-  { key: "pubDate",     label: "Published Date",     default: "Publication Date" },
-  { key: "image",       label: "Cover Image",        default: "Preview Image" },
-  { key: "readingTime", label: "Reading Time (min)", default: "Reading Time" },
-  { key: "author",      label: "Author",             default: "Author" },
+  { key: "title",       label: "Title",                default: "Title" },
+  { key: "body",        label: "Body (Rich Text)",     default: "Content" },
+  { key: "excerpt",     label: "Excerpt",              default: "Excerpt" },
+  { key: "category",    label: "Category",             default: "Category" },
+  { key: "metaDesc",    label: "Meta Description",     default: "Meta Description" },
+  { key: "pubDate",     label: "Published Date",       default: "Publication Date" },
+  { key: "image",       label: "Cover Image",          default: "Preview Image" },
+  { key: "readingTime", label: "Reading Time (min)",   default: "Reading Time" },
+  { key: "author",      label: "Author",               default: "Author" },
+  { key: "keywords",    label: "Keywords",             default: "Keywords" },
+  { key: "facts",       label: "References & Facts",   default: "Facts" },
+  { key: "references",  label: "References (URLs)",    default: "References" },
 ] as const
 
 const STORAGE_KEY = "contentlab_field_mapping"
