@@ -66,8 +66,8 @@ export function NewsletterEditor({ open, onClose, article, brandName = "ContentL
       });
     });
 
-    // Try to load saved newsletter from DB first
-    if (article.id && !newsletter) {
+    // Try to load saved newsletter from DB first — always, on every open
+    if (article.id) {
       supabase.from("articles").select("newsletter_data").eq("id", article.id).maybeSingle().then(({ data }: any) => {
         if (data?.newsletter_data) {
           setNewsletter(data.newsletter_data as NewsletterData);
@@ -75,7 +75,8 @@ export function NewsletterEditor({ open, onClose, article, brandName = "ContentL
           generate();
         }
       });
-    } else if (!newsletter) {
+    } else {
+      // No article ID yet (new article not saved), generate fresh
       generate();
     }
   }, [open]);
@@ -232,7 +233,7 @@ ${cta ? `<tr><td style="padding:0 24px;text-align:center;">
 
   return (
     <>
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { setNewsletter(null); onClose(); } }}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0 sticky top-0 z-10 bg-background">
           <DialogTitle className="flex items-center gap-2">
