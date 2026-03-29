@@ -270,39 +270,52 @@ const NewArticle = () => {
 
   const handlePublishToFramer = async () => {
     if (!savedArticleId) { toast({ title: "Save the article first", variant: "destructive" }); return; }
+    // Save first to make sure latest content is in DB
+    await handleSave("published");
     setIsSyncingFramer(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo";
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").substring(0, 64);
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/publish-to-framer`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}`, apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo" },
-        body: JSON.stringify({ article_id: savedArticleId, framer_item_id: framerItemId ?? null, slug }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ article_id: savedArticleId, framer_item_id: framerItemId ?? null, slug, title }),
       });
       const data = await res.json();
-      if (data.framer_item_id) { setFramerItemId(data.framer_item_id); toast({ title: framerItemId ? "Updated in Framer ✓" : "Published to Framer ✓" }); }
-      else toast({ title: "Framer sync failed", description: data.error, variant: "destructive" });
-    } catch (e) { toast({ title: "Error", description: String(e), variant: "destructive" }); }
+      if (data.error === "plugin_managed") {
+        toast({ title: "Framer syncs via plugin", description: data.message });
+        setIsSyncingFramer(false);
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || "Framer sync failed");
+      if (data.framer_item_id) setFramerItemId(data.framer_item_id);
+      toast({ title: `Article ${data.action ?? "synced"} in Framer CMS!` });
+    } catch (e: any) {
+      toast({ title: "Framer sync failed", description: e.message, variant: "destructive" });
+    }
     setIsSyncingFramer(false);
   };
 
   const handlePublishToWordPress = async () => {
     if (!savedArticleId) { toast({ title: "Save the article first", variant: "destructive" }); return; }
+    await handleSave("published");
     setIsSyncingWordPress(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const endpoint = wpPermalink
-        ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wordpress-publish`
-        : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wordpress-publish`;
-      const res = await fetch(endpoint, {
+      const token = session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo";
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wordpress-publish`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}`, apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo" },
-        body: JSON.stringify({ article_id: savedArticleId }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "publish", article_id: savedArticleId }),
       });
       const data = await res.json();
-      if (data.wp_permalink) { setWpPermalink(data.wp_permalink); toast({ title: wpPermalink ? "Updated in WordPress ✓" : "Published to WordPress ✓", description: data.wp_permalink }); }
-      else toast({ title: "WordPress publish failed", description: data.error, variant: "destructive" });
-    } catch (e) { toast({ title: "Error", description: String(e), variant: "destructive" }); }
+      if (!res.ok) throw new Error(data.error || "WordPress publish failed");
+      setWpPermalink(data.wp_permalink);
+      toast({ title: "Published to WordPress! ✓", description: data.wp_permalink });
+    } catch (e: any) {
+      toast({ title: "WordPress publish failed", description: e.message, variant: "destructive" });
+    }
     setIsSyncingWordPress(false);
   };
 
