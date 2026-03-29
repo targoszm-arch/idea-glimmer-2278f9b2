@@ -42,6 +42,7 @@ export function NewsletterEditor({ open, onClose, article, brandName, brandLogoU
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"preview" | "edit" | "html">("preview");
   const [showScheduler, setShowScheduler] = useState(false);
+  const [articleSlug, setArticleSlug] = useState<string>(article.slug || "");
   const [brandSettings, setBrandSettings] = useState({
     fromName: brandName || "",
     fromEmail: "",
@@ -82,7 +83,12 @@ export function NewsletterEditor({ open, onClose, article, brandName, brandLogoU
       else if (logoUrl) setBrandSettings(prev => ({ ...prev, logoUrl }));
     });
 
-    // Try to load saved newsletter from DB first — always, on every open
+    // Load real slug from DB if we have an article id
+    if (article.id) {
+      supabase.from("articles").select("slug").eq("id", article.id).maybeSingle().then(({ data }: any) => {
+        if (data?.slug) setArticleSlug(data.slug);
+      });
+    }
     if (article.id) {
       supabase.from("articles").select("newsletter_data").eq("id", article.id).maybeSingle().then(({ data }: any) => {
         if (data?.newsletter_data) {
@@ -99,18 +105,15 @@ export function NewsletterEditor({ open, onClose, article, brandName, brandLogoU
     }
   }, [open]);
 
-  // Build article CTA URL using the website URL + slug pattern
-  // e.g. https://www.skillstudio.ai/latest-articles/{slug}
-  const articleUrl = (() => {
+  // Build article URL — recomputes when brandSettings loads or slug is fetched from DB
+  const articleUrl = React.useMemo(() => {
     const websiteBase = brandSettings.websiteUrl || ctaUrl || "";
     if (!websiteBase) return "";
-    // If we have a slug, append it under /latest-articles/ (Framer's default)
-    if (article.slug) {
-      const base = websiteBase.replace(/\/$/, "");
-      return `${base}/latest-articles/${article.slug}`;
-    }
-    return websiteBase;
-  })();
+    const base = websiteBase.replace(/\/$/, "");
+    const slug = articleSlug || article.slug || "";
+    if (slug) return `${base}/latest-articles/${slug}`;
+    return base;
+  }, [brandSettings.websiteUrl, articleSlug, article.slug, ctaUrl]);
 
   const generate = async () => {
     setLoading(true);
@@ -453,7 +456,11 @@ ${articleLink ? `<tr><td style="padding:0 24px 16px 24px;text-align:center;">
               <div className="space-y-3 rounded-xl border border-border p-4">
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Call to Action Button</h3>
                 <div className="bg-muted/40 rounded-lg px-3 py-2 text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">Auto-link:</span> "Read the full article →" text link appears above the button, linking to the article. Set your website URL in Newsletter Settings for the full slug URL.
+                  <span className="font-medium text-foreground">Auto-link:</span>{" "}
+                  {articleUrl
+                    ? <>"Read the full article →" links to <span className="font-mono text-primary">{articleUrl}</span></>
+                    : <span className="text-orange-500">⚠ Set your Website URL in <a href="/settings" className="underline">Newsletter Settings</a> to auto-generate the article link</span>
+                  }
                 </div>
                 <div>
                   <label className="text-xs font-medium mb-1 block">Button Text</label>
@@ -534,7 +541,7 @@ ${articleLink ? `<tr><td style="padding:0 24px 16px 24px;text-align:center;">
                   {/* Title */}
                   <h1 className="text-2xl font-bold text-[#0f171f] mb-4">{article.title}</h1>
                   {/* Greeting */}
-                  <p className="text-[#0f171f] mb-4">{newsletter.greeting}</p>
+                  <p className="text-[#0f171f] mb-4">{newsletter.greeting.replace(/\{\{first_name\}\}/gi, "First Name")}</p>
                   {/* Hook */}
                   <p className="text-[#0f171f] leading-relaxed mb-6">{newsletter.opening_hook}</p>
                   {/* Sections */}
