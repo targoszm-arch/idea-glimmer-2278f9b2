@@ -257,7 +257,7 @@ export default function CalendarPage() {
       setRunState(s => s ? { ...s, stage: "generating" } : s);
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/run-automations`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}`, apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo" },
         body: JSON.stringify({ automation_id: automationId, time: new Date().toISOString() }),
       });
       setRunState(s => s ? { ...s, stage: "saving" } : s);
@@ -296,13 +296,13 @@ export default function CalendarPage() {
           if (dest === "wordpress") {
             await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wordpress-publish`, {
               method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}`, apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo" },
               body: JSON.stringify({ action: "publish", article_id: previewArticle.id }),
             });
           } else if (dest === "framer") {
             await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/publish-to-framer`, {
               method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}`, apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo" },
               body: JSON.stringify({ article_id: previewArticle.id, title: previewArticle.title }),
             });
           }
