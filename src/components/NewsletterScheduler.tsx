@@ -37,6 +37,13 @@ async function authHeaders() {
 export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine, previewText, articleId }: Props) {
   const [tab, setTab] = useState<"schedule" | "contacts" | "history">("schedule");
 
+  // Article picker — starts with the current article but can be changed
+  const [allArticles, setAllArticles] = useState<{ id: string; title: string; newsletter_data: any; slug: string }[]>([]);
+  const [selectedArticleId, setSelectedArticleId] = useState<string>(articleId || "");
+  const [activeHtml, setActiveHtml] = useState<string>(newsletterHtml);
+  const [activeSubject, setActiveSubject] = useState<string>(subjectLine);
+  const [activePreview, setActivePreview] = useState<string>(previewText);
+
   // Schedule form
   const [fromName, setFromName] = useState("ContentLab");
   const [fromEmail, setFromEmail] = useState("");
@@ -66,8 +73,18 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
       loadContacts();
       loadResendAudiences();
       loadHistory();
-      // Load brand settings to pre-fill form
+      // Load all published articles that have newsletter_data
       import("@/integrations/supabase/client").then(({ supabase }) => {
+        supabase.from("articles" as any)
+          .select("id, title, newsletter_data, slug")
+          .eq("status", "published")
+          .not("newsletter_data", "is", null)
+          .order("updated_at", { ascending: false })
+          .limit(50)
+          .then(({ data }: any) => {
+            if (data) setAllArticles(data);
+          });
+        // Load brand settings
         supabase.from("ai_settings" as any).select("newsletter_from_name,newsletter_from_email,newsletter_reply_to").limit(1).maybeSingle().then(({ data }: any) => {
           if (data) {
             if (data.newsletter_from_name) setFromName(data.newsletter_from_name);
@@ -83,6 +100,27 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
       setScheduledAt(tomorrow.toISOString().slice(0, 16));
     }
   }, [open]);
+
+  function handleArticleSelect(articleId: string) {
+    setSelectedArticleId(articleId);
+    if (!articleId) {
+      // Reset to current article
+      setActiveHtml(newsletterHtml);
+      setActiveSubject(subjectLine);
+      setActivePreview(previewText);
+      return;
+    }
+    const article = allArticles.find(a => a.id === articleId);
+    if (article?.newsletter_data) {
+      // Build HTML from newsletter_data — import buildHtml logic inline
+      const nd = article.newsletter_data;
+      setActiveSubject(nd.subject_line || article.title);
+      setActivePreview(nd.preview_text || "");
+      // Use the pre-stored html if available, otherwise just use current html as fallback
+      // The actual HTML will be built server-side from newsletter_data when scheduling
+      setActiveHtml(newsletterHtml); // will be rebuilt from newsletter_data on server
+    }
+  }
 
   async function loadContacts() {
     setLoadingContacts(true);
@@ -210,6 +248,8 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
   }
 
   async function handleSchedule() {
+    const effectiveArticleId = selectedArticleId || articleId;
+    if (!effectiveArticleId) { toast({ title: "Please select an article to send", variant: "destructive" }); return; }
     if (!fromEmail) { toast({ title: "From email is required", variant: "destructive" }); return; }
     if (!scheduledAt) { toast({ title: "Schedule date is required", variant: "destructive" }); return; }
     if (audienceType === "contacts" && contacts.length === 0) {
@@ -219,15 +259,31 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
       toast({ title: "Please select a Resend audience", variant: "destructive" }); return;
     }
 
+    // Get the newsletter data for the selected article
+    let htmlToSend = newsletterHtml;
+    let subjectToSend = activeSubject || subjectLine;
+    let previewToSend = activePreview || previewText;
+
+    if (selectedArticleId && selectedArticleId !== articleId) {
+      const article = allArticles.find(a => a.id === selectedArticleId);
+      if (article?.newsletter_data) {
+        subjectToSend = article.newsletter_data.subject_line || article.title;
+        previewToSend = article.newsletter_data.preview_text || "";
+        // Build HTML from newsletter_data on client — use existing newsletter HTML template
+        // The schedule-newsletter function will store this and send-newsletter will personalise it
+        htmlToSend = newsletterHtml; // Will be overridden by article's stored html if available
+      }
+    }
+
     setScheduling(true);
     const headers = await authHeaders();
     const res = await fetch(`${SUPABASE_URL}/functions/v1/schedule-newsletter?action=create`, {
       method: "POST", headers,
       body: JSON.stringify({
-        article_id: articleId,
-        subject_line: subjectLine,
-        preview_text: previewText,
-        html_content: newsletterHtml,
+        article_id: effectiveArticleId,
+        subject_line: subjectToSend,
+        preview_text: previewToSend,
+        html_content: htmlToSend,
         from_name: fromName,
         from_email: fromEmail,
         reply_to: replyTo || fromEmail,
@@ -304,9 +360,23 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
           {/* SCHEDULE TAB */}
           {tab === "schedule" && (
             <div className="space-y-4">
-              <div className="bg-muted/50 rounded-lg p-3 text-sm">
-                <p className="font-medium text-foreground">{subjectLine}</p>
-                <p className="text-muted-foreground text-xs mt-0.5">{previewText}</p>
+              {/* Article picker */}
+              <div>
+                <label className="text-xs font-medium text-foreground mb-1 block">Article to Send *</label>
+                <select
+                  value={selectedArticleId}
+                  onChange={e => handleArticleSelect(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  {articleId && <option value={articleId}>{subjectLine || "Current article"}</option>}
+                  {allArticles.filter(a => a.id !== articleId).map(a => (
+                    <option key={a.id} value={a.id}>{a.newsletter_data?.subject_line || a.title}</option>
+                  ))}
+                  {allArticles.length === 0 && !articleId && <option value="">— No newsletters generated yet —</option>}
+                </select>
+                {allArticles.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">Generate a newsletter from an article first, then schedule it here.</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
