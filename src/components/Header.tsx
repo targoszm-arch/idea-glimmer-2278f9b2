@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  Menu, X, PenSquare, Lightbulb, Library, Settings, Share2,
+  Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Bookmark,
   LogOut, Coins, HelpCircle, ExternalLink, UserCircle,
   CalendarDays, ChevronDown, BarChart2, FileText, Video
 } from "lucide-react";
@@ -26,8 +26,9 @@ const NAV_GROUPS = [
   {
     label: "Publish",
     items: [
-      { label: "Post",     href: "/new",         icon: PenSquare,   desc: "Write a new article" },
-      { label: "Schedule", href: "/calendar",    icon: CalendarDays,desc: "Calendar & automations" },
+      { label: "Post",     href: "/new",           icon: PenSquare,   desc: "Write a new article" },
+      { label: "Schedule", href: "/calendar",      icon: CalendarDays,desc: "Calendar & automations" },
+      { label: "Social Library", href: "/social-library", icon: Bookmark, desc: "Saved social posts" },
     ],
   },
   {

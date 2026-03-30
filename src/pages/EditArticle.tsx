@@ -879,6 +879,7 @@ const EditArticle = () => {
               <ArticleSocialPanel
                 articleContent={editor?.getHTML() || ""}
                 articleTitle={title}
+                articleId={id}
                 onClose={() => setShowSocial(false)}
               />
             </motion.div>

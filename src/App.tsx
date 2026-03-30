@@ -15,6 +15,7 @@ import AISettings from "./pages/AISettings";
 import Settings from "./pages/Settings";
 import Article from "./pages/Article";
 import SocialMedia from "./pages/SocialMedia";
+import SocialLibrary from "./pages/SocialLibrary";
 import BrandAssets from "./pages/BrandAssets";
 import MediaLibrary from "./pages/MediaLibrary";
 import NotFound from "./pages/NotFound";
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/article/:id" element={<ProtectedRoute><Article /></ProtectedRoute>} />
             <Route path="/social" element={<ProtectedRoute><SocialMedia /></ProtectedRoute>} />
+            <Route path="/social-library" element={<ProtectedRoute><SocialLibrary /></ProtectedRoute>} />
             <Route path="/automations" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
             <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
             <Route path="/brand" element={<ProtectedRoute><MediaLibrary /></ProtectedRoute>} />

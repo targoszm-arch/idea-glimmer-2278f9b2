@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Linkedin, Twitter, Instagram, Copy, Check, Loader2, RefreshCw, X } from "lucide-react";
+import { Linkedin, Twitter, Instagram, Copy, Check, Loader2, RefreshCw, X, BookmarkPlus, Bookmark } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -9,40 +9,25 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 type Platform = "linkedin" | "twitter" | "instagram";
 
 const PLATFORMS: { id: Platform; label: string; icon: React.ReactNode; color: string; charLimit: number }[] = [
-  {
-    id: "linkedin",
-    label: "LinkedIn",
-    icon: <Linkedin className="h-4 w-4" />,
-    color: "text-[#0A66C2]",
-    charLimit: 1300,
-  },
-  {
-    id: "twitter",
-    label: "Twitter / X",
-    icon: <Twitter className="h-4 w-4" />,
-    color: "text-[#1DA1F2]",
-    charLimit: 280,
-  },
-  {
-    id: "instagram",
-    label: "Instagram",
-    icon: <Instagram className="h-4 w-4" />,
-    color: "text-[#E1306C]",
-    charLimit: 2200,
-  },
+  { id: "linkedin", label: "LinkedIn", icon: <Linkedin className="h-4 w-4" />, color: "text-[#0A66C2]", charLimit: 1300 },
+  { id: "twitter", label: "Twitter / X", icon: <Twitter className="h-4 w-4" />, color: "text-[#1DA1F2]", charLimit: 280 },
+  { id: "instagram", label: "Instagram", icon: <Instagram className="h-4 w-4" />, color: "text-[#E1306C]", charLimit: 2200 },
 ];
 
 interface Props {
   articleContent: string;
   articleTitle: string;
+  articleId?: string | null;
   onClose: () => void;
 }
 
-export function ArticleSocialPanel({ articleContent, articleTitle, onClose }: Props) {
+export function ArticleSocialPanel({ articleContent, articleTitle, articleId, onClose }: Props) {
   const [platform, setPlatform] = useState<Platform>("linkedin");
   const [generated, setGenerated] = useState<Record<Platform, string>>({ linkedin: "", twitter: "", instagram: "" });
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState<Record<Platform, boolean>>({ linkedin: false, twitter: false, instagram: false });
   const { toast } = useToast();
 
   const currentPost = generated[platform];
@@ -53,7 +38,6 @@ export function ArticleSocialPanel({ articleContent, articleTitle, onClose }: Pr
     setPlatform(p);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      // Strip HTML tags for plain text content
       const plainText = articleContent.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-social-post`, {
@@ -63,11 +47,7 @@ export function ArticleSocialPanel({ articleContent, articleTitle, onClose }: Pr
           Authorization: `Bearer ${session?.access_token}`,
           apikey: SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({
-          platform: p,
-          topic: articleTitle,
-          article_content: plainText,
-        }),
+        body: JSON.stringify({ platform: p, topic: articleTitle, article_content: plainText }),
       });
 
       if (!res.ok || !res.body) throw new Error("Generation failed");
@@ -95,10 +75,39 @@ export function ArticleSocialPanel({ articleContent, articleTitle, onClose }: Pr
           } catch {}
         }
       }
+      // Reset saved state when regenerated
+      setSaved(prev => ({ ...prev, [p]: false }));
     } catch (e: any) {
       toast({ title: "Generation failed", description: e.message, variant: "destructive" });
     }
     setGenerating(false);
+  }
+
+  async function saveToLibrary() {
+    if (!currentPost) return;
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+
+      const { error } = await supabase.from("social_posts" as any).insert({
+        user_id: user.id,
+        platform,
+        content: currentPost,
+        article_id: articleId || null,
+        article_title: articleTitle,
+        title: `${currentPlatform.label} — ${articleTitle.slice(0, 60)}`,
+        topic: articleTitle,
+        status: "draft",
+      });
+
+      if (error) throw error;
+      setSaved(prev => ({ ...prev, [platform]: true }));
+      toast({ title: "Saved to Social Library!", description: "Find it under Publish → Social Posts" });
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.message, variant: "destructive" });
+    }
+    setSaving(false);
   }
 
   async function copyToClipboard() {
@@ -130,14 +139,15 @@ export function ArticleSocialPanel({ articleContent, articleTitle, onClose }: Pr
               setPlatform(p.id);
               if (!generated[p.id]) generate(p.id);
             }}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
-              platform === p.id
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-colors relative ${
+              platform === p.id ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"
             }`}
           >
             {p.icon}
             <span className="hidden sm:inline">{p.label}</span>
+            {saved[p.id] && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border border-white" />
+            )}
           </button>
         ))}
       </div>
@@ -147,9 +157,7 @@ export function ArticleSocialPanel({ articleContent, articleTitle, onClose }: Pr
         {!currentPost && !generating ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
             <div className={`${currentPlatform.color}`}>{currentPlatform.icon}</div>
-            <p className="text-sm text-muted-foreground">
-              Generate a {currentPlatform.label} post from this article
-            </p>
+            <p className="text-sm text-muted-foreground">Generate a {currentPlatform.label} post from this article</p>
             <button
               onClick={() => generate(platform)}
               className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
@@ -166,7 +174,10 @@ export function ArticleSocialPanel({ articleContent, articleTitle, onClose }: Pr
           <div className="space-y-2">
             <textarea
               value={currentPost}
-              onChange={e => setGenerated(prev => ({ ...prev, [platform]: e.target.value }))}
+              onChange={e => {
+                setGenerated(prev => ({ ...prev, [platform]: e.target.value }));
+                setSaved(prev => ({ ...prev, [platform]: false }));
+              }}
               className="w-full text-sm text-foreground bg-background border border-border rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 leading-relaxed"
               rows={16}
             />
@@ -197,14 +208,27 @@ export function ArticleSocialPanel({ articleContent, articleTitle, onClose }: Pr
             Regenerate
           </button>
           <button
+            onClick={saveToLibrary}
+            disabled={saving || saved[platform]}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-colors disabled:opacity-50 ${
+              saved[platform]
+                ? "border-green-500/30 bg-green-50 text-green-700"
+                : "border-border hover:bg-muted text-muted-foreground"
+            }`}
+          >
+            {saved[platform] ? <Bookmark className="h-3.5 w-3.5" /> : saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BookmarkPlus className="h-3.5 w-3.5" />}
+            {saved[platform] ? "Saved" : "Save"}
+          </button>
+          <button
             onClick={copyToClipboard}
             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
           >
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            {copied ? "Copied!" : "Copy to Clipboard"}
+            {copied ? "Copied!" : "Copy"}
           </button>
         </div>
       )}
     </div>
   );
 }
+
