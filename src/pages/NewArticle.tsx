@@ -347,25 +347,45 @@ const NewArticle = () => {
       const faqMatch = content.match(/(<h2[^>]*>(?:[^<]*FAQ[^<]*)<\/h2>[\s\S]*)/i);
       const faq_html = faqMatch ? faqMatch[1] : "";
 
-      const { data, error } = await supabase
-        .from("articles")
-        .insert({
-          user_id: user.id,
-          title,
-          slug,
-          content,
-          excerpt,
-          meta_description: (generatedMetaDescription.trim() || excerpt).slice(0, 255),
-          category,
-          status,
-          cover_image_url: coverImageUrl,
-          author_name: authorName.trim(),
-          reading_time_minutes,
-          ...(articleMeta ? { article_meta: articleMeta } : {}),
-          faq_html
-        })
-        .select()
-        .single();
+      const payload = {
+        user_id: user.id,
+        title,
+        slug,
+        content,
+        excerpt,
+        meta_description: (generatedMetaDescription.trim() || excerpt).slice(0, 255),
+        category,
+        status,
+        cover_image_url: coverImageUrl,
+        author_name: authorName.trim(),
+        reading_time_minutes,
+        ...(articleMeta ? { article_meta: articleMeta } : {}),
+        faq_html
+      };
+
+      let data: any;
+      let error: any;
+
+      if (savedArticleId) {
+        // Already saved — update, don't insert
+        const result = await supabase
+          .from("articles")
+          .update(payload)
+          .eq("id", savedArticleId)
+          .select()
+          .single();
+        data = result.data;
+        error = result.error;
+      } else {
+        // First save — insert
+        const result = await supabase
+          .from("articles")
+          .insert(payload)
+          .select()
+          .single();
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) {
         if (error.code === "42501") {
