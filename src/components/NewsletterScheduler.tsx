@@ -52,6 +52,8 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
   const [audienceType, setAudienceType] = useState<"contacts" | "resend_list">("contacts");
   const [selectedResendAudience, setSelectedResendAudience] = useState("");
   const [scheduling, setScheduling] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState<{ id: string; scheduledAt: string } | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Contacts
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -305,11 +307,32 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
   }
 
   async function handleCancel(id: string) {
+    if (!confirm("Cancel this scheduled newsletter?")) return;
     const headers = await authHeaders();
     await fetch(`${SUPABASE_URL}/functions/v1/schedule-newsletter?action=cancel`, {
       method: "POST", headers, body: JSON.stringify({ id }),
     });
     loadHistory();
+    toast({ title: "Newsletter cancelled" });
+  }
+
+  async function handleSaveEdit() {
+    if (!editingSchedule) return;
+    setSavingEdit(true);
+    const headers = await authHeaders();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/schedule-newsletter?action=reschedule`, {
+      method: "POST", headers,
+      body: JSON.stringify({ id: editingSchedule.id, scheduled_at: new Date(editingSchedule.scheduledAt).toISOString() }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      toast({ title: "✓ Rescheduled!" });
+      setEditingSchedule(null);
+      loadHistory();
+    } else {
+      toast({ title: "Failed to reschedule", description: data.error, variant: "destructive" });
+    }
+    setSavingEdit(false);
   }
 
   async function handleSendNow(id: string) {
@@ -486,6 +509,63 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
                 {scheduling ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Calendar className="h-4 w-4 mr-2" />}
                 Schedule Newsletter
               </Button>
+
+              {/* Scheduled items list */}
+              {schedules.filter(s => s.status === "scheduled").length > 0 && (
+                <div className="mt-2">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Upcoming Scheduled Sends</h4>
+                  <div className="space-y-2">
+                    {schedules.filter(s => s.status === "scheduled").map(s => (
+                      <div key={s.id} className="rounded-lg border border-border bg-background p-3">
+                        {editingSchedule?.id === s.id ? (
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-foreground truncate">{s.subject_line}</p>
+                            <input
+                              type="datetime-local"
+                              value={editingSchedule.scheduledAt}
+                              onChange={e => setEditingSchedule({ ...editingSchedule, scheduledAt: e.target.value })}
+                              min={new Date().toISOString().slice(0, 16)}
+                              className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={handleSaveEdit} disabled={savingEdit} className="flex-1 h-7 text-xs">
+                                {savingEdit ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                                Save
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setEditingSchedule(null)} className="flex-1 h-7 text-xs">
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">{s.subject_line}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                📅 {new Date(s.scheduled_at).toLocaleString()} · {s.recipient_count} recipients
+                              </p>
+                            </div>
+                            <div className="flex gap-1 flex-shrink-0">
+                              <Button size="sm" variant="outline" className="text-xs h-7 px-2"
+                                onClick={() => setEditingSchedule({ id: s.id, scheduledAt: new Date(s.scheduled_at).toISOString().slice(0, 16) })}>
+                                Edit
+                              </Button>
+                              <Button size="sm" variant="outline" className="text-xs h-7 px-2"
+                                onClick={() => handleSendNow(s.id)}>
+                                <Send className="h-3 w-3 mr-1" /> Send Now
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-xs h-7 px-2 text-destructive"
+                                onClick={() => handleCancel(s.id)}>
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
