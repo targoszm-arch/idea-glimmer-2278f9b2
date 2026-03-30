@@ -316,6 +316,16 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
     toast({ title: "Newsletter cancelled" });
   }
 
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this entry from history?")) return;
+    const headers = await authHeaders();
+    await fetch(`${SUPABASE_URL}/functions/v1/schedule-newsletter?action=delete`, {
+      method: "POST", headers, body: JSON.stringify({ id }),
+    });
+    loadHistory();
+    toast({ title: "Deleted from history" });
+  }
+
   async function handleSaveEdit() {
     if (!editingSchedule) return;
     setSavingEdit(true);
@@ -641,16 +651,21 @@ export function NewsletterScheduler({ open, onClose, newsletterHtml, subjectLine
                       </p>
                       <p className="text-xs text-muted-foreground">From: {s.from_name} &lt;{s.from_email}&gt;</p>
                     </div>
-                    {s.status === "scheduled" && (
-                      <div className="flex gap-1 flex-shrink-0">
-                        <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => handleSendNow(s.id)}>
-                          <Send className="h-3 w-3 mr-1" /> Send Now
-                        </Button>
-                        <Button size="sm" variant="ghost" className="text-xs h-7 px-2 text-destructive" onClick={() => handleCancel(s.id)}>
-                          Cancel
-                        </Button>
-                      </div>
-                    )}
+                    <div className="flex gap-1 flex-shrink-0">
+                      {s.status === "scheduled" && (
+                        <>
+                          <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => handleSendNow(s.id)}>
+                            <Send className="h-3 w-3 mr-1" /> Send Now
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-xs h-7 px-2 text-destructive" onClick={() => handleCancel(s.id)}>
+                            Cancel
+                          </Button>
+                        </>
+                      )}
+                      <Button size="sm" variant="ghost" className="text-xs h-7 px-2 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(s.id)}>
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
