@@ -750,6 +750,14 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
       if (parts[4] !== "*") { setFrequency("weekly"); setDayOfWeek(parts[4]); }
       else if (parts[2] !== "*") { setFrequency("monthly"); setDayOfMonth(parts[2]); }
       else setFrequency("daily");
+      // Load automation type + newsletter fields
+      const aType = (a as any).automation_type || "article";
+      setAutomationType(aType);
+      if (aType === "newsletter") {
+        setNewsletterArticleId((a as any).newsletter_article_id || "");
+        setNewsletterAudienceType((a as any).newsletter_audience_type || "contacts");
+        setNewsletterResendAudienceId((a as any).newsletter_resend_audience_id || "");
+      }
       setMode(a.generate_mode);
       setFunnelStage(a.funnel_stage_filter || "all");
       setTone(a.tone || "");
