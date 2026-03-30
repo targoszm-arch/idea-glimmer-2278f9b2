@@ -10,7 +10,8 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
-import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X, Upload, ChevronDown, Send, Mail } from "lucide-react";
+import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X, Upload, ChevronDown, Send, Mail, Share2 } from "lucide-react";
+import { ArticleSocialPanel } from "@/components/ArticleSocialPanel";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
@@ -46,6 +47,7 @@ const EditArticle = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showCanvaPicker, setShowCanvaPicker] = useState(false);
   const [showNewsletter, setShowNewsletter] = useState(false);
+  const [showSocial, setShowSocial] = useState(false);
   const [showImageLibrary, setShowImageLibrary] = useState(false);
   const [showMediaLibrary, setShowMediaLibrary] = useState(false);
   const [showUnsplash, setShowUnsplash] = useState(false);
@@ -669,6 +671,11 @@ const EditArticle = () => {
               <Mail className="h-4 w-4" /> Newsletter
             </button>
             <button
+              onClick={() => setShowSocial(!showSocial)}
+              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${showSocial ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary"}`}>
+              <Share2 className="h-4 w-4" /> Social
+            </button>
+            <button
               onClick={handleDelete}
               className="flex items-center gap-2 text-sm text-destructive hover:text-destructive/80">
               
@@ -867,6 +874,15 @@ const EditArticle = () => {
             
             </motion.div>
           }
+          {showSocial && (
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="w-full lg:w-80 border border-border rounded-xl bg-background flex flex-col overflow-hidden" style={{ minHeight: "520px", maxHeight: "80vh" }}>
+              <ArticleSocialPanel
+                articleContent={editor?.getHTML() || ""}
+                articleTitle={title}
+                onClose={() => setShowSocial(false)}
+              />
+            </motion.div>
+          )}
         </div>
       </motion.div>
     </PageLayout>

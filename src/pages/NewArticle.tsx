@@ -10,7 +10,8 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
-import { Save, Sparkles, Loader2, ArrowLeft, Settings, ImagePlus, X, Upload, MessageSquare, ChevronDown, Send } from "lucide-react";
+import { Save, Sparkles, Loader2, ArrowLeft, Settings, ImagePlus, X, Upload, MessageSquare, ChevronDown, Send, Share2 } from "lucide-react";
+import { ArticleSocialPanel } from "@/components/ArticleSocialPanel";
 import CategoryPicker from "@/components/CategoryPicker";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
@@ -51,10 +52,13 @@ const NewArticle = () => {
   const [showUnsplash, setShowUnsplash] = useState(false);
   const [showCanvaPicker, setShowCanvaPicker] = useState(false);
   const [savedArticleId, setSavedArticleId] = useState<string | null>(null);
+  const [showSocial, setShowSocial] = useState(false);
   const [framerItemId, setFramerItemId] = useState<string | null>(null);
   const [wpPermalink, setWpPermalink] = useState<string | null>(null);
   const [isSyncingFramer, setIsSyncingFramer] = useState(false);
   const [isSyncingWordPress, setIsSyncingWordPress] = useState(false);
+  const [isSyncingMedium, setIsSyncingMedium] = useState(false);
+  const [mediumUrl, setMediumUrl] = useState<string | null>(null);
   const { credits, loading: creditsLoading, hasEnough, deductLocally } = useCredits();
 
   const [aiSettings, setAiSettings] = useState<{
@@ -324,6 +328,27 @@ const NewArticle = () => {
     setIsSyncingWordPress(false);
   };
 
+  const handlePublishToMedium = async (publishStatus: "draft" | "public" | "unlisted" = "draft") => {
+    if (!savedArticleId) { toast({ title: "Save the article first", variant: "destructive" }); return; }
+    await handleSave("published");
+    setIsSyncingMedium(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/publish-to-medium`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ article_id: savedArticleId, publish_status: publishStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Medium publish failed");
+      setMediumUrl(data.url);
+      toast({ title: publishStatus === "draft" ? "Saved to Medium as draft ✓" : "Published to Medium! ✓", description: data.url });
+    } catch (e: any) {
+      toast({ title: "Medium publish failed", description: e.message, variant: "destructive" });
+    }
+    setIsSyncingMedium(false);
+  };
+
   const handleSave = async (status: "draft" | "published") => {
     if (!title.trim()) {
       toast({ title: "Title required", description: "Please add a title for your article.", variant: "destructive" });
@@ -433,6 +458,14 @@ const NewArticle = () => {
                 <Save className="h-4 w-4" />
                 Save Draft
               </button>
+              {savedArticleId && (
+                <button
+                  onClick={() => setShowSocial(!showSocial)}
+                  className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${showSocial ? "bg-primary/10 text-primary border border-primary/30" : "border border-border bg-secondary text-foreground hover:bg-secondary/80"}`}>
+                  <Share2 className="h-4 w-4" />
+                  Social
+                </button>
+              )}
               <button
                 onClick={() => handleSave("published")}
                 disabled={isSaving}
@@ -460,6 +493,15 @@ const NewArticle = () => {
                     <DropdownMenuItem onClick={handlePublishToWordPress} disabled={isSyncingWordPress}>
                       {isSyncingWordPress ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                       {wpPermalink ? "Update in WordPress" : "Publish to WordPress"}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => handlePublishToMedium("draft")} disabled={isSyncingMedium}>
+                      {isSyncingMedium ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                      {mediumUrl ? "Update Medium Draft" : "Save to Medium (Draft)"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handlePublishToMedium("public")} disabled={isSyncingMedium}>
+                      {isSyncingMedium ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                      Publish to Medium (Public)
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
