@@ -165,6 +165,10 @@ const NewArticle = () => {
           .replace(/<p>\s*_?Disclaimer:.*?<\/p>/gis, "")
           .replace(/\[\d+\]/g, "")
           .replace(/<!--\s*ARTICLE_META_JSON:[\s\S]*?-->/gi, "")
+          // Remove inline descriptive links that break article flow
+          // These are <a> tags inside <p> text that aren't superscript numbers
+          // Pattern: <a href="...">Some descriptive text</a> where the text is NOT just [N]
+          .replace(/<a\s+href="[^"]*">(?!\[\d+\])([^<]{4,})<\/a>/g, "$1")
           // Strip code fences and stray "html" prefix that Perplexity sometimes adds
           .replace(/^[\s\n]*```[\s\S]*?\n(?=<)/i, "")   // strip ```...anything up to first < tag
           .replace(/^[\s\n]*```[^\n]*\n?/i, "")          // strip any remaining opening fence
