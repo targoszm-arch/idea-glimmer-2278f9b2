@@ -703,6 +703,7 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
   const [newsletterArticles, setNewsletterArticles] = useState<{ id: string; title: string; newsletter_data: any }[]>([]);
   const [newsletterAudienceType, setNewsletterAudienceType] = useState<"contacts" | "resend_list">("contacts");
   const [newsletterResendAudienceId, setNewsletterResendAudienceId] = useState<string>("");
+  const [newsletterSendDate, setNewsletterSendDate] = useState<string>("");  // one-time send date
   const [resendAudiences, setResendAudiences] = useState<{ id: string; name: string }[]>([]);
 
   // Load articles with newsletter data + resend audiences
@@ -779,31 +780,63 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
   const cron = buildCron(frequency, dayOfWeek, dayOfMonth, hour);
 
   async function save() {
+    // Newsletter = one-time scheduled send, NOT a recurring automation
+    if (automationType === "newsletter") {
+      if (!newsletterArticleId) { toast.error("Please select an article"); return; }
+      if (!newsletterSendDate) { toast.error("Please pick a send date"); return; }
+      if (newsletterAudienceType === "resend_list" && !newsletterResendAudienceId) { toast.error("Please select a Resend audience"); return; }
+      setSaving(true);
+      try {
+        // Get the article's newsletter_data and brand settings
+        const { data: article } = await supabase.from("articles" as any).select("id, title, slug, cover_image_url, newsletter_data").eq("id", newsletterArticleId).single();
+        const { data: settings } = await supabase.from("ai_settings" as any).select("*").limit(1).maybeSingle();
+        if (!article || !(article as any).newsletter_data) { toast.error("This article has no newsletter generated yet. Open it and generate a newsletter first."); setSaving(false); return; }
+        const nd = (article as any).newsletter_data;
+        const fromName = (settings as any)?.newsletter_from_name || "ContentLab";
+        const fromEmail = (settings as any)?.newsletter_from_email || "";
+        if (!fromEmail) { toast.error("No From Email set in Newsletter Settings (AI Settings)"); setSaving(false); return; }
+
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}`, apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo" };
+        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/schedule-newsletter?action=create`, {
+          method: "POST", headers,
+          body: JSON.stringify({
+            article_id: (article as any).id,
+            subject_line: nd.subject_line || (article as any).title,
+            preview_text: nd.preview_text || "",
+            html_content: nd.raw_html || "",  // will be rebuilt at send time from newsletter_data
+            from_name: fromName,
+            from_email: fromEmail,
+            reply_to: (settings as any)?.newsletter_reply_to || fromEmail,
+            audience_type: newsletterAudienceType,
+            resend_audience_id: newsletterAudienceType === "resend_list" ? newsletterResendAudienceId : null,
+            scheduled_at: new Date(newsletterSendDate).toISOString(),
+          }),
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "Failed to schedule");
+        toast.success(`Newsletter scheduled for ${new Date(newsletterSendDate).toLocaleString()}`);
+        onSaved();
+      } catch (e: any) { toast.error(e.message); }
+      setSaving(false);
+      return;
+    }
+
+    // Article automation — recurring
     if (!name.trim()) { toast.error("Please enter a name"); return; }
-    if (automationType === "newsletter" && !newsletterArticleId) { toast.error("Please select a newsletter article"); return; }
     setSaving(true);
     try {
       const payload: any = {
         name: name.trim(), cron_expression: cron, next_run_at: nextRunFromCron(cron),
-        automation_type: automationType,
-        ...(automationType === "newsletter" ? {
-          newsletter_article_id: newsletterArticleId,
-          newsletter_audience_type: newsletterAudienceType,
-          newsletter_resend_audience_id: newsletterAudienceType === "resend_list" ? newsletterResendAudienceId : null,
-          generate_mode: "custom_prompt",
-          article_length: "medium",
-          improve_seo: false,
-          publish_destinations: [],
-        } : {
-          generate_mode: mode, funnel_stage_filter: funnelStage, tone: tone || null,
-          article_length: articleLength, improve_seo: improveSeo,
-          custom_prompt: mode === "custom_prompt" ? customPrompt : null,
-          prompt_variables: mode === "custom_prompt" && topicList.trim()
-            ? { topic: topicList.split("\n").map(t => t.trim()).filter(Boolean) } : {},
-          publish_destinations: destinations.filter(d => d !== "library"),
-          notify_email: notifyEmail.trim() || null,
-          preview_before_publish: previewBeforePublish,
-        }),
+        automation_type: "article",
+        generate_mode: mode, funnel_stage_filter: funnelStage, tone: tone || null,
+        article_length: articleLength, improve_seo: improveSeo,
+        custom_prompt: mode === "custom_prompt" ? customPrompt : null,
+        prompt_variables: mode === "custom_prompt" && topicList.trim()
+          ? { topic: topicList.split("\n").map(t => t.trim()).filter(Boolean) } : {},
+        publish_destinations: destinations.filter(d => d !== "library"),
+        notify_email: notifyEmail.trim() || null,
+        preview_before_publish: previewBeforePublish,
         is_active: true,
       };
       if (editingId) {
@@ -820,7 +853,7 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
     setSaving(false);
   }
 
-  const steps = automationType === "newsletter" ? ["Trigger"] : ["Trigger", "Generate", "Publish"];
+  const steps = automationType === "newsletter" ? ["Schedule Newsletter"] : ["Trigger", "Generate", "Publish"];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -869,12 +902,18 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
                       className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white">
                       <option value="">— Select an article —</option>
                       {newsletterArticles.map(a => (
-                        <option key={a.id} value={a.id}>{a.title}</option>
+                        <option key={a.id} value={a.id}>{(a as any).newsletter_data?.subject_line || a.title}</option>
                       ))}
                     </select>
                     {newsletterArticles.length === 0 && (
                       <p className="text-xs text-muted-foreground mt-1">No articles with newsletters yet. Generate a newsletter from an article first.</p>
                     )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium block mb-1">Send Date & Time</label>
+                    <input type="datetime-local" value={newsletterSendDate} onChange={e => setNewsletterSendDate(e.target.value)}
+                      min={new Date().toISOString().slice(0, 16)}
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white" />
                   </div>
                   <div>
                     <label className="text-sm font-medium block mb-2">Audience</label>
@@ -898,9 +937,15 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
                       </select>
                     )}
                   </div>
+                  {newsletterArticleId && newsletterSendDate && (
+                    <p className="text-xs text-purple-700 bg-purple-100 rounded-lg px-3 py-2">
+                      Will send once on <strong>{new Date(newsletterSendDate).toLocaleString()}</strong>
+                    </p>
+                  )}
                 </div>
               )}
 
+              {automationType === "article" && (<>
               <div>
                 <label className="text-sm font-medium block mb-1">Automation Name</label>
                 <input value={name} onChange={e => setName(e.target.value)} className="w-full border border-border rounded-lg px-3 py-2 text-sm" />
@@ -947,6 +992,7 @@ function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
               <div className="bg-muted/50 rounded-lg px-4 py-2 text-sm text-muted-foreground">
                 Will run: <strong className="text-foreground">{cronToLabel(cron)}</strong>
               </div>
+              </>)}
             </>
           )}
 
