@@ -67,7 +67,7 @@ export default function NewsletterAnalytics() {
     const emailMap = new Map<string, ContactRow>();
 
     for (const e of events) {
-      if (!e.contact_email || e.contact_email === "{{email}}") continue;
+      if (!e.contact_email || e.contact_email.includes("{{") || e.contact_email.includes("}}")) continue;
       const row = emailMap.get(e.contact_email) || {
         email: e.contact_email,
         sent: false, opened: false, clicked: false, unsubscribed: false,
