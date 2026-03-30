@@ -136,8 +136,7 @@ const NewArticle = () => {
         }
         // Strip leading code fences / "html" prefix during streaming
         const live = accumulated
-          .replace(/^[\s\n]*```html[\s\n]*/i, "")
-          .replace(/^[\s\n]*```[\s\n]*/i, "")
+          .replace(/^[\s\n]*```[^\n]*\n?/i, "")
           .replace(/^[\s\n]*html[\s\n]+(?=<)/i, "");
         editor?.commands.setContent(live);
       },
@@ -165,9 +164,8 @@ const NewArticle = () => {
           .replace(/\[\d+\]/g, "")
           .replace(/<!--\s*ARTICLE_META_JSON:[\s\S]*?-->/gi, "")
           // Strip code fences and stray "html" prefix that Perplexity sometimes adds
-          .replace(/^[\s\n]*```html[\s\n]*/i, "")
-          .replace(/^[\s\n]*```[\s\n]*/i, "")
-          .replace(/[\s\n]*```[\s\n]*$/i, "")
+          .replace(/^[\s\n]*```[^\n]*\n?/i, "")   // strip ```anything at start (```html, ```Corporate..., etc.)
+          .replace(/[\s\n]*```[\s\n]*$/i, "")       // strip closing ``` at end
           .replace(/^[\s\n]*html[\s\n]+(?=<)/i, "")
           // Strip any leading <!DOCTYPE html> or <html><head>...</head><body> wrappers
           .replace(/^[\s\S]*?<body[^>]*>/i, "")
