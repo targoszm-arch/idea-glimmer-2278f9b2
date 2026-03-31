@@ -9,7 +9,120 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, XCircle, Loader2, ExternalLink } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ExternalLink, Linkedin } from "lucide-react";
+
+const SUPABASE_URL = "https://rnshobvpqegttrpaowxe.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo";
+
+function LinkedInConnect() {
+  const [connection, setConnection] = useState<{ name: string; picture_url: string; expires_at: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    load();
+    // Check for redirect back from OAuth
+    const params = new URLSearchParams(window.location.search);
+    const linkedinParam = params.get("linkedin");
+    if (linkedinParam === "connected") {
+      const name = params.get("name") || "LinkedIn";
+      toast({ title: `✓ LinkedIn connected as ${name}!` });
+      window.history.replaceState({}, "", window.location.pathname);
+      load();
+    } else if (linkedinParam === "error") {
+      toast({ title: "LinkedIn connection failed", description: params.get("reason") || "", variant: "destructive" });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  async function load() {
+    setLoading(true);
+    const { data } = await supabase.from("linkedin_connections" as any).select("name, picture_url, expires_at").maybeSingle();
+    setConnection((data as any) || null);
+    setLoading(false);
+  }
+
+  async function connect() {
+    setConnecting(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/linkedin-oauth-start`, {
+      headers: { Authorization: `Bearer ${session?.access_token}`, apikey: SUPABASE_ANON_KEY },
+    });
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+    else {
+      toast({ title: "Failed to start LinkedIn auth", variant: "destructive" });
+      setConnecting(false);
+    }
+  }
+
+  async function disconnect() {
+    if (!confirm("Disconnect LinkedIn?")) return;
+    setDisconnecting(true);
+    await supabase.from("linkedin_connections" as any).delete().eq("user_id", (await supabase.auth.getUser()).data.user?.id || "");
+    setConnection(null);
+    setDisconnecting(false);
+    toast({ title: "LinkedIn disconnected" });
+  }
+
+  const isExpired = connection?.expires_at && new Date(connection.expires_at) < new Date();
+
+  return (
+    <div className="mt-6">
+      <h2 className="text-base font-semibold mb-3 text-foreground">Social Publishing</h2>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg border border-border bg-[#0A66C2] flex items-center justify-center">
+                <Linkedin className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  LinkedIn
+                  {loading ? null : connection && !isExpired ? (
+                    <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs">
+                      <CheckCircle className="w-3 h-3 mr-1" /> Connected
+                    </Badge>
+                  ) : isExpired ? (
+                    <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50 text-xs">
+                      Token expired — reconnect
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground text-xs">
+                      <XCircle className="w-3 h-3 mr-1" /> Not connected
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription className="text-xs mt-0.5">
+                  {connection && !isExpired
+                    ? `Connected as ${connection.name}`
+                    : "Publish posts directly to your LinkedIn profile from the article editor"}
+                </CardDescription>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {connection && !isExpired ? (
+                <Button size="sm" variant="outline" onClick={disconnect} disabled={disconnecting}>
+                  {disconnecting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                  Disconnect
+                </Button>
+              ) : (
+                <Button size="sm" onClick={connect} disabled={connecting}
+                  className="bg-[#0A66C2] hover:bg-[#004182] text-white">
+                  {connecting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Linkedin className="h-3 w-3 mr-1" />}
+                  {isExpired ? "Reconnect" : "Connect LinkedIn"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+    </div>
+  );
+}
 
 type Platform = "framer" | "notion" | "shopify" | "intercom" | "google" | "wordpress" | "canva";
 
@@ -414,6 +527,9 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
             );
           })}
         </div>
+
+        {/* LinkedIn Section */}
+        <LinkedInConnect />
 
         <div className="mt-8 p-4 bg-muted/50 rounded-lg">
           <p className="text-xs text-muted-foreground">

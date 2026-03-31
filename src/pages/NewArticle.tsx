@@ -497,15 +497,6 @@ const NewArticle = () => {
                       {isSyncingWordPress ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                       {wpPermalink ? "Update in WordPress" : "Publish to WordPress"}
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => handlePublishToMedium("draft")} disabled={isSyncingMedium}>
-                      {isSyncingMedium ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                      {mediumUrl ? "Update Medium Draft" : "Save to Medium (Draft)"}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handlePublishToMedium("public")} disabled={isSyncingMedium}>
-                      {isSyncingMedium ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                      Publish to Medium (Public)
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
