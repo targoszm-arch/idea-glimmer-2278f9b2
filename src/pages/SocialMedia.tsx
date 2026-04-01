@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Linkedin, Youtube, Twitter, Instagram, Film, Loader2, Sparkles, Trash2, Copy, Check, ChevronDown, ChevronUp, Lightbulb, Video, Play, Images, Clapperboard } from "lucide-react";
+import { Linkedin, Youtube, Twitter, Instagram, Film, Loader2, Sparkles, Trash2, Copy, Check, ChevronDown, ChevronUp, Lightbulb, Video, Play, Images, Clapperboard, Eye, BookOpen } from "lucide-react";
+import { SocialPostPreviewModal } from "@/components/SocialPostPreviewModal";
+import { PLATFORM_META as SOCIAL_PLATFORM_META } from "@/components/SocialPostPreviewModal";
 import { motion, AnimatePresence } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -21,6 +23,8 @@ import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 import { CanvaDesignPicker } from "@/components/CanvaDesignPicker";
 import { ImageLibraryPicker } from "@/components/ImageLibraryPicker";
 import { MediaLibraryPicker } from "@/components/MediaLibraryPicker";
+import { SocialLibraryContent } from "@/pages/SocialLibrary";
+
 const platforms = [
   { key: "linkedin", label: "LinkedIn", icon: Linkedin },
   { key: "youtube", label: "YouTube", icon: Youtube },
@@ -71,6 +75,7 @@ const SocialMedia = () => {
   const [showImageLibraryForIdea, setShowImageLibraryForIdea] = useState<string | null>(null);
   const [showMediaLibraryForIdea, setShowMediaLibraryForIdea] = useState<string | null>(null);
   const [scheduleModal, setScheduleModal] = useState<{ ideaId: string; imageUrl: string } | null>(null);
+  const [previewModal, setPreviewModal] = useState<{ content: string; platform: string; mediaUrl?: string; mediaType?: "image"|"video"|"carousel"; topic?: string } | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
   const [streamingContent, setStreamingContent] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -908,6 +913,22 @@ const SocialMedia = () => {
                 {isExpanded ? "Hide" : hasVideo ? "View Video" : "View Post"}
               </Button>
             )}
+            {hasPost && post?.content && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPreviewModal({
+                  content: post.content,
+                  platform: idea.platform,
+                  mediaUrl: post.video_url || idea.canva_design_token || undefined,
+                  mediaType: post.video_url ? "video" : idea.canva_design_token ? "image" : undefined,
+                  topic: idea.topic,
+                })}
+                className="text-xs gap-1 text-primary hover:text-primary"
+              >
+                <Eye className="h-3 w-3" /> Preview & Post
+              </Button>
+            )}
             {hasVideo && post?.video_url && (
               <Button
                 variant="ghost"
@@ -1184,6 +1205,16 @@ const SocialMedia = () => {
           </div>
         </div>
       )}
+    <SocialPostPreviewModal
+      open={!!previewModal}
+      onClose={() => setPreviewModal(null)}
+      platform={(previewModal?.platform || "linkedin") as any}
+      content={previewModal?.content || ""}
+      mediaUrl={previewModal?.mediaUrl}
+      mediaType={previewModal?.mediaType}
+      topic={previewModal?.topic}
+      onSaved={() => setPreviewModal(null)}
+    />
     <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
     <TopUpModal open={showTopUp} onClose={() => setShowTopUp(false)} />
     <PageLayout>
@@ -1194,7 +1225,7 @@ const SocialMedia = () => {
           </p>
 
           <Tabs value={platform} onValueChange={(v) => setPlatform(v as Platform)}>
-            <TabsList className="grid w-full grid-cols-5 mb-6">
+            <TabsList className="grid w-full mb-6" style={{ gridTemplateColumns: `repeat(${platforms.length + 1}, 1fr)` }}>
               {platforms.map((p) => {
                 const Icon = p.icon;
                 return (
@@ -1204,7 +1235,15 @@ const SocialMedia = () => {
                   </TabsTrigger>
                 );
               })}
+              <TabsTrigger value="library" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <BookOpen className="h-4 w-4" />
+                <span className="hidden sm:inline">Library</span>
+              </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="library">
+              <SocialLibraryContent />
+            </TabsContent>
 
             {platforms.map((p) => (
               <TabsContent key={p.key} value={p.key}>

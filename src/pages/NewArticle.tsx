@@ -38,6 +38,7 @@ const NewArticle = () => {
   const [tone, setTone] = useState("informative");
   const [articleMeta, setArticleMeta] = useState<any>(null);
   const [category, setCategory] = useState("");
+  const [contentType, setContentType] = useState<"blog" | "user_guide" | "how_to">("blog");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showAssistant, setShowAssistant] = useState(false);
@@ -123,6 +124,7 @@ const NewArticle = () => {
         tone: tonePreset?.label || tone,
         tone_description: tonePreset?.description || "",
         category,
+        content_type: contentType,
         app_description: aiSettings?.app_description || "",
         app_audience: aiSettings?.app_audience || "",
         reference_urls: aiSettings?.reference_urls || []
@@ -517,6 +519,38 @@ const NewArticle = () => {
               <Sparkles className="h-5 w-5 text-primary" />
               AI Article Generator
             </h2>
+
+            {/* Content Type Selector */}
+            <div className="mb-4">
+              <label className="mb-2 block text-sm font-medium text-foreground">Content Type</label>
+              <div className="flex gap-2">
+                {([
+                  { key: "blog", label: "Blog Post", icon: "✍️", desc: "SEO article with headings, FAQs, sources" },
+                  { key: "user_guide", label: "User Guide", icon: "📋", desc: "Step-by-step numbered instructions with actions" },
+                  { key: "how_to", label: "How-To Guide", icon: "🛠️", desc: "Task-focused procedural guide with tips" },
+                ] as const).map(t => (
+                  <button
+                    key={t.key}
+                    onClick={() => setContentType(t.key)}
+                    title={t.desc}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      contentType === t.key
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    }`}
+                  >
+                    <span>{t.icon}</span>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {contentType === "blog" && "SEO-optimised article with TL;DR, table of contents, FAQs and sources."}
+                {contentType === "user_guide" && "Step-by-step numbered guide with clear actions — like a product walkthrough or knowledge base article."}
+                {contentType === "how_to" && "Task-focused guide with prerequisites, numbered steps, tips and troubleshooting."}
+              </p>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="sm:col-span-2">
                 <label className="mb-1.5 block text-sm font-medium text-foreground">Topic / Idea</label>

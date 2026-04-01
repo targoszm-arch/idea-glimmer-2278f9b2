@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Linkedin, Twitter, Instagram, Copy, Check, Loader2, RefreshCw, X, BookmarkPlus, Bookmark, Send } from "lucide-react";
+import { Linkedin, Twitter, Instagram, Copy, Check, Loader2, RefreshCw, X, BookmarkPlus, Bookmark, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { SocialPostPreviewModal } from "@/components/SocialPostPreviewModal";
 
 const SUPABASE_URL = "https://rnshobvpqegttrpaowxe.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo";
@@ -29,8 +30,7 @@ export function ArticleSocialPanel({ articleContent, articleTitle, articleId, on
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<Record<Platform, boolean>>({ linkedin: false, twitter: false, instagram: false });
   const [linkedinConnected, setLinkedinConnected] = useState(false);
-  const [posting, setPosting] = useState(false);
-  const [posted, setPosted] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -92,38 +92,6 @@ export function ArticleSocialPanel({ articleContent, articleTitle, articleId, on
     setGenerating(false);
   }
 
-  async function postToLinkedIn() {
-    if (!currentPost) return;
-    setPosting(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/linkedin-publish`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
-          apikey: SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ content: currentPost }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Post failed");
-      setPosted(true);
-      setTimeout(() => setPosted(false), 4000);
-      toast({
-        title: "✓ Posted to LinkedIn!",
-        description: data.post_url ? "View your post on LinkedIn" : undefined,
-      });
-    } catch (e: any) {
-      if (e.message?.includes("TOKEN_EXPIRED") || e.message?.includes("not connected")) {
-        toast({ title: "LinkedIn not connected", description: "Go to Integrations to connect your LinkedIn account", variant: "destructive" });
-      } else {
-        toast({ title: "Post failed", description: e.message, variant: "destructive" });
-      }
-    }
-    setPosting(false);
-  }
-
   async function saveToLibrary() {
     if (!currentPost) return;
     setSaving(true);
@@ -162,6 +130,7 @@ export function ArticleSocialPanel({ articleContent, articleTitle, articleId, on
   const isOverLimit = charCount > currentPlatform.charLimit;
 
   return (
+    <>
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
@@ -260,23 +229,13 @@ export function ArticleSocialPanel({ articleContent, articleTitle, articleId, on
             {saved[platform] ? <Bookmark className="h-3.5 w-3.5" /> : saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BookmarkPlus className="h-3.5 w-3.5" />}
             {saved[platform] ? "Saved" : "Save"}
           </button>
-          {platform === "linkedin" && (
-            <button
-              onClick={linkedinConnected ? postToLinkedIn : () => window.location.href = "/integrations"}
-              disabled={posting}
-              title={linkedinConnected ? "Post to LinkedIn" : "Connect LinkedIn in Integrations"}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
-                posted
-                  ? "bg-green-500 text-white"
-                  : linkedinConnected
-                  ? "bg-[#0A66C2] hover:bg-[#004182] text-white"
-                  : "bg-muted border border-border text-muted-foreground"
-              }`}
-            >
-              {posted ? <Check className="h-3.5 w-3.5" /> : posting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Linkedin className="h-3.5 w-3.5" />}
-              {posted ? "Posted!" : linkedinConnected ? "Post" : "Connect"}
-            </button>
-          )}
+          <button
+            onClick={() => setShowPreview(true)}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            Preview & Post
+          </button>
           <button
             onClick={copyToClipboard}
             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
@@ -287,6 +246,20 @@ export function ArticleSocialPanel({ articleContent, articleTitle, articleId, on
         </div>
       )}
     </div>
+    <SocialPostPreviewModal
+      open={showPreview}
+      onClose={() => setShowPreview(false)}
+      platform={platform}
+      content={currentPost}
+      articleId={articleId || undefined}
+      articleTitle={articleTitle}
+      topic={articleTitle}
+      onSaved={() => {
+        setShowPreview(false);
+        setSaved(prev => ({ ...prev, [platform]: true }));
+      }}
+    />
+  </>
   );
 }
 
