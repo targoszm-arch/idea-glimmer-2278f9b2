@@ -200,3 +200,7 @@ export default function SocialLibrary() {
     </PageLayout>
   );
 }
+export function SocialLibraryContent() {
+  // same content as SocialLibrary but without PageLayout wrapper
+  return <SocialLibrary />;
+}
