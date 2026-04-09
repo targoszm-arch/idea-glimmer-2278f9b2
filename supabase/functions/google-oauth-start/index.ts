@@ -17,7 +17,7 @@ serve(async (req) => {
     if (authError || !user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
 
     const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")!;
-    const REDIRECT_URI = "https://www.app.content-lab.ie/integrations/google/callback";
+    const REDIRECT_URI = `${Deno.env.get("SUPABASE_URL")}/functions/v1/google-oauth-callback`;
     const state = btoa(JSON.stringify({ user_id: user.id, ts: Date.now() }));
 
     const params = new URLSearchParams({
