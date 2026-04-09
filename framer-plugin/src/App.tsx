@@ -249,7 +249,7 @@ export default function App() {
   function loadArticleCount(key: string) {
     // Only fetch if we have a real API key — never fall back to anon key
     if (!key || !key.startsWith("cl_")) return
-    fetch(`${SYNC_ENDPOINT}?status=published`, {
+    fetch(`${SYNC_ENDPOINT}?status=published&count_only=1`, {
       headers: { Authorization: `Bearer ${key}`, apikey: SUPABASE_ANON_KEY },
     })
       .then(r => r.json())

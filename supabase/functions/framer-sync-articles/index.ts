@@ -56,11 +56,16 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const categoryFilter = url.searchParams.get("category");
+    const countOnly = url.searchParams.get("count_only") === "1";
 
-    // Include article_meta so keywords, facts, references can be extracted
+    // For count/category checks, skip heavy content fields
+    const selectFields = countOnly
+      ? "id, category"
+      : "id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, updated_at, reading_time_minutes, author_name, article_meta";
+
     let query = adminSupabase
       .from("articles")
-      .select("id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, updated_at, reading_time_minutes, author_name, article_meta")
+      .select(selectFields)
       .eq("status", "published")
       .eq("user_id", userId)
       .order("updated_at", { ascending: false })
@@ -72,6 +77,18 @@ serve(async (req) => {
 
     const { data, error } = await query;
     if (error) throw error;
+
+    // Extract categories from the same query — no second DB round trip
+    const categories = [...new Set(
+      (data ?? []).map((r: any) => r.category).filter(Boolean)
+    )].sort();
+
+    if (countOnly) {
+      return new Response(
+        JSON.stringify({ ok: true, count: (data ?? []).length, categories }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Flatten article_meta fields into top-level for Framer
     const articles = (data ?? []).map((a: any) => {
@@ -99,17 +116,6 @@ serve(async (req) => {
         references,
       };
     });
-
-    const catResult = await adminSupabase
-      .from("articles")
-      .select("category")
-      .eq("status", "published")
-      .eq("user_id", userId)
-      .not("category", "is", null);
-
-    const categories = [...new Set(
-      (catResult.data ?? []).map((r: any) => r.category).filter(Boolean)
-    )].sort();
 
     return new Response(
       JSON.stringify({ ok: true, count: articles.length, articles, categories }),
