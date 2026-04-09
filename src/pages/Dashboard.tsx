@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { PenSquare, Filter, Loader2, RefreshCw, Search, X, ChevronDown, Check } from "lucide-react";
+import { PenSquare, Filter, Loader2, RefreshCw, Search, X, ChevronDown, Check, CheckSquare, Square, Tag } from "lucide-react";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import ArticleCard from "@/components/ArticleCard";
@@ -18,6 +18,13 @@ const Dashboard = () => {
   const categoryRef = useRef<HTMLDivElement>(null);
   const [syncing, setSyncing] = useState(false);
   const location = useLocation();
+
+  // Bulk selection
+  const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
+  const [bulkCategoryOpen, setBulkCategoryOpen] = useState(false);
+  const [bulkCategoryValue, setBulkCategoryValue] = useState("");
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+  const bulkCatRef = useRef<HTMLDivElement>(null);
 
   const handleSyncFramer = async () => {
     setSyncing(true);
@@ -124,6 +131,64 @@ const Dashboard = () => {
       else next.add(cat);
       return next;
     });
+  };
+
+  // Bulk selection helpers
+  const toggleArticleSelection = (id: string) => {
+    setSelectedArticles((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllFiltered = () => {
+    if (selectedArticles.size === filtered.length) {
+      setSelectedArticles(new Set());
+    } else {
+      setSelectedArticles(new Set(filtered.map((a) => a.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedArticles(new Set());
+    setBulkCategoryOpen(false);
+    setBulkCategoryValue("");
+  };
+
+  // Close bulk category dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (bulkCatRef.current && !bulkCatRef.current.contains(e.target as Node)) {
+        setBulkCategoryOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleBulkCategoryChange = async (newCategory: string) => {
+    if (!newCategory.trim() || selectedArticles.size === 0) return;
+    setBulkUpdating(true);
+    try {
+      const ids = Array.from(selectedArticles);
+      const { error } = await supabase
+        .from("articles")
+        .update({ category: newCategory.trim() })
+        .in("id", ids);
+      if (error) throw error;
+      // Update local state
+      setArticles((prev) =>
+        prev.map((a) => (ids.includes(a.id) ? { ...a, category: newCategory.trim() } : a))
+      );
+      toast({ title: `Updated ${ids.length} article${ids.length !== 1 ? "s" : ""}`, description: `Category set to "${newCategory.trim()}"` });
+      clearSelection();
+    } catch (err: any) {
+      toast({ title: "Bulk update failed", description: err.message, variant: "destructive" });
+    } finally {
+      setBulkUpdating(false);
+    }
   };
 
   const filtered = useMemo(() => {
@@ -285,6 +350,30 @@ const Dashboard = () => {
           )}
         </div>
 
+        {/* Select all toggle (visible when there are articles) */}
+        {!loading && filtered.length > 0 && (
+          <div className="mb-4 flex items-center gap-2">
+            <button
+              onClick={selectAllFiltered}
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {selectedArticles.size > 0 && selectedArticles.size === filtered.length ? (
+                <CheckSquare className="h-4 w-4 text-primary" />
+              ) : (
+                <Square className="h-4 w-4" />
+              )}
+              {selectedArticles.size > 0
+                ? `${selectedArticles.size} selected`
+                : "Select articles"}
+            </button>
+            {selectedArticles.size > 0 && (
+              <button onClick={clearSelection} className="text-xs text-muted-foreground hover:text-foreground">
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+
         {loading ?
         <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -332,11 +421,84 @@ const Dashboard = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}>
             
-                <ArticleCard article={article} />
+                <ArticleCard
+                  article={article}
+                  selectable
+                  selected={selectedArticles.has(article.id)}
+                  onToggleSelect={() => toggleArticleSelection(article.id)}
+                />
               </motion.div>
           )}
           </motion.div>
         }
+        {/* Bulk action bar */}
+        {selectedArticles.size > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.08)]">
+            <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
+              <span className="text-sm font-medium text-foreground">
+                {selectedArticles.size} article{selectedArticles.size !== 1 ? "s" : ""} selected
+              </span>
+              <div className="flex items-center gap-3">
+                {/* Change category */}
+                <div className="relative" ref={bulkCatRef}>
+                  <button
+                    onClick={() => setBulkCategoryOpen((v) => !v)}
+                    disabled={bulkUpdating}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {bulkUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Tag className="h-4 w-4" />}
+                    Change Category
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${bulkCategoryOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {bulkCategoryOpen && (
+                    <div className="absolute bottom-full right-0 mb-2 w-64 rounded-lg border border-border bg-background shadow-lg">
+                      {/* Custom category input */}
+                      <div className="p-2 border-b border-border">
+                        <form onSubmit={(e) => { e.preventDefault(); handleBulkCategoryChange(bulkCategoryValue); }} className="flex gap-1.5">
+                          <input
+                            type="text"
+                            placeholder="New category name…"
+                            value={bulkCategoryValue}
+                            onChange={(e) => setBulkCategoryValue(e.target.value)}
+                            className="flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                            autoFocus
+                          />
+                          <button
+                            type="submit"
+                            disabled={!bulkCategoryValue.trim()}
+                            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                          >
+                            Apply
+                          </button>
+                        </form>
+                      </div>
+                      {/* Existing categories */}
+                      <div className="max-h-48 overflow-y-auto p-1.5">
+                        {categories.map((cat) => (
+                          <button
+                            key={cat}
+                            onClick={() => handleBulkCategoryChange(cat)}
+                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={clearSelection}
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </PageLayout>
   );
 };

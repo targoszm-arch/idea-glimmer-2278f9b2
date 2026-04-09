@@ -1,13 +1,16 @@
 import { Link } from "react-router-dom";
-import { Calendar, Edit3, ExternalLink, Zap } from "lucide-react";
+import { Calendar, Edit3, ExternalLink, Zap, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Article } from "@/lib/supabase";
 
 interface ArticleCardProps {
   article: Article;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }
 
-const ArticleCard = ({ article }: ArticleCardProps) => {
+const ArticleCard = ({ article, selectable, selected, onToggleSelect }: ArticleCardProps) => {
   const date = new Date(article.created_at).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -15,7 +18,20 @@ const ArticleCard = ({ article }: ArticleCardProps) => {
   });
 
   return (
-    <div className="group relative flex flex-col rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/30 hover:shadow-md">
+    <div className={`group relative flex flex-col rounded-xl border bg-card p-5 transition-all hover:border-primary/30 hover:shadow-md ${selected ? "border-primary ring-1 ring-primary" : "border-border"}`}>
+      {/* Selection checkbox */}
+      {selectable && (
+        <button
+          onClick={(e) => { e.preventDefault(); onToggleSelect?.(); }}
+          className={`absolute top-3 right-3 z-10 flex h-5 w-5 items-center justify-center rounded border transition-colors ${
+            selected
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-background text-transparent hover:border-muted-foreground group-hover:text-muted-foreground"
+          }`}
+        >
+          <Check className="h-3 w-3" />
+        </button>
+      )}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Badge
