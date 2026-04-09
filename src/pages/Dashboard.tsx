@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { PenSquare, Filter, Loader2, RefreshCw, Search, X } from "lucide-react";
+import { PenSquare, Filter, Loader2, RefreshCw, Search, X, ChevronDown, Check } from "lucide-react";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import ArticleCard from "@/components/ArticleCard";
@@ -12,8 +12,10 @@ const Dashboard = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "published" | "automation">("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [categoryOpen, setCategoryOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const categoryRef = useRef<HTMLDivElement>(null);
   const [syncing, setSyncing] = useState(false);
   const location = useLocation();
 
@@ -104,6 +106,26 @@ const Dashboard = () => {
     return [...new Set(cats)].sort();
   }, [articles]);
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
+        setCategoryOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const toggleCategory = (cat: string) => {
+    setSelectedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
+
   const filtered = useMemo(() => {
     let result = articles;
 
@@ -114,9 +136,9 @@ const Dashboard = () => {
       result = result.filter((a) => a.status === statusFilter);
     }
 
-    // Category filter
-    if (categoryFilter !== "all") {
-      result = result.filter((a) => a.category === categoryFilter);
+    // Category filter (multi-select)
+    if (selectedCategories.size > 0) {
+      result = result.filter((a) => selectedCategories.has(a.category));
     }
 
     // Search filter
@@ -131,7 +153,7 @@ const Dashboard = () => {
     }
 
     return result;
-  }, [articles, statusFilter, categoryFilter, searchQuery]);
+  }, [articles, statusFilter, selectedCategories, searchQuery]);
 
   return (
     <PageLayout>
@@ -177,51 +199,89 @@ const Dashboard = () => {
         </div>
 
         {/* Filters */}
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            {(["all", "published", "draft", "automation"] as const).map((s) =>
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              statusFilter === s ?
-              "bg-primary text-primary-foreground" :
-              "bg-secondary text-muted-foreground hover:text-foreground"}`
-              }>
+        <div className="mb-6 flex items-center gap-3 flex-wrap">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          {(["all", "published", "draft", "automation"] as const).map((s) =>
+          <button
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+            statusFilter === s ?
+            "bg-primary text-primary-foreground" :
+            "bg-secondary text-muted-foreground hover:text-foreground"}`
+            }>
+              {s === "automation" ? "⚡ Auto" : s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+          )}
 
-                {s === "automation" ? "⚡ Auto" : s.charAt(0).toUpperCase() + s.slice(1)}
-              </button>
-            )}
-          </div>
-
+          {/* Category multi-select dropdown */}
           {categories.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto">
-              <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">Category:</span>
+            <div className="relative" ref={categoryRef}>
               <button
-                onClick={() => setCategoryFilter("all")}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
-                  categoryFilter === "all"
+                onClick={() => setCategoryOpen((v) => !v)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                  selectedCategories.size > 0
                     ? "bg-primary text-primary-foreground"
                     : "bg-secondary text-muted-foreground hover:text-foreground"
                 }`}
               >
-                All
+                Category
+                {selectedCategories.size > 0 && (
+                  <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary-foreground/20 px-1.5 text-xs font-semibold">
+                    {selectedCategories.size}
+                  </span>
+                )}
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${categoryOpen ? "rotate-180" : ""}`} />
               </button>
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setCategoryFilter(cat)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
-                    categoryFilter === cat
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+
+              {categoryOpen && (
+                <div className="absolute left-0 top-full z-50 mt-1.5 w-64 rounded-lg border border-border bg-background shadow-lg">
+                  <div className="max-h-64 overflow-y-auto p-1.5">
+                    {categories.map((cat) => {
+                      const selected = selectedCategories.has(cat);
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => toggleCategory(cat)}
+                          className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
+                            selected ? "bg-primary/10 text-primary" : "text-foreground hover:bg-secondary"
+                          }`}
+                        >
+                          <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                            selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                          }`}>
+                            {selected && <Check className="h-3 w-3" />}
+                          </span>
+                          <span className="truncate">{cat}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedCategories.size > 0 && (
+                    <div className="border-t border-border p-1.5">
+                      <button
+                        onClick={() => { setSelectedCategories(new Set()); setCategoryOpen(false); }}
+                        className="w-full rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      >
+                        Clear categories
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+          )}
+
+          {/* Active category tags */}
+          {selectedCategories.size > 0 && (
+            Array.from(selectedCategories).map((cat) => (
+              <span key={cat} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                {cat}
+                <button onClick={() => toggleCategory(cat)} className="hover:text-primary/70">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))
           )}
         </div>
 
@@ -253,7 +313,7 @@ const Dashboard = () => {
               </Link>
             ) : (
               <button
-                onClick={() => { setSearchQuery(""); setStatusFilter("all"); setCategoryFilter("all"); }}
+                onClick={() => { setSearchQuery(""); setStatusFilter("all"); setSelectedCategories(new Set()); }}
                 className="inline-flex items-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary/80">
                 Clear Filters
               </button>
