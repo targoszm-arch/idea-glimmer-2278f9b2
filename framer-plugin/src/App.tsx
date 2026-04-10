@@ -13,6 +13,8 @@ type Article = {
 import { PLUGIN_DATA_KEY } from "./constants"
 
 const SIGNUP_URL = "https://www.app.content-lab.ie/signup"
+const LOGIN_URL = "https://www.app.content-lab.ie/login"
+const MARKETING_URL = "https://www.content-lab.ie/"
 
 const F = {
   title:       "Title",
@@ -347,8 +349,8 @@ export default function App() {
       </div>
 
       <button
-        onClick={() => framer.openExternalURL(SIGNUP_URL)}
-        style={s.visitLink}
+        onClick={() => framer.openExternalURL(MARKETING_URL)}
+        style={{ ...s.visitLink, background: "none", border: "none", padding: 0, cursor: "pointer" }}
       >
         Visit ContentLab Website →
       </button>
@@ -390,14 +392,18 @@ export default function App() {
   // ── Sync screen ──────────────────────────────────────────────────────────
   return (
     <main style={s.root}>
-      <div style={s.header}>
+      <button
+        onClick={() => framer.openExternalURL(MARKETING_URL)}
+        style={{ ...s.header, background: "none", border: "none", padding: 0, cursor: "pointer", width: "100%", textAlign: "left" }}
+        title="Visit content-lab.ie"
+      >
         <img src="/icon.png" width={24} height={24} style={{ borderRadius: 6, flexShrink: 0 }} alt="" />
         <div style={{ flex: 1 }}>
           <div style={s.title}>ContentLab</div>
           <div style={s.sub}>ContentLab → Framer CMS</div>
         </div>
         {totalCount !== null && <div style={s.badge}>{totalCount} articles</div>}
-      </div>
+      </button>
 
       <div style={s.divider}/>
 
@@ -430,10 +436,10 @@ export default function App() {
       <FieldMappingEditor />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button
-          onClick={() => framer.openExternalURL(SIGNUP_URL)}
-          style={{ ...s.visitLink, fontSize: 11 }}
+          onClick={() => framer.openExternalURL(LOGIN_URL)}
+          style={{ ...s.visitLink, fontSize: 11, background: "none", border: "none", padding: 0, cursor: "pointer" }}
         >
-          Visit ContentLab →
+          Open ContentLab →
         </button>
         <button onClick={handleDisconnect} style={s.disconnectBtn}>Disconnect</button>
       </div>
