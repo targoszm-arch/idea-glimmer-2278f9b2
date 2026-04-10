@@ -190,8 +190,19 @@ const NewArticle = () => {
           .replace(/^<html[^>]*>[\s\S]*?<\/head>/i, "")
           // Strip markdown bold (**text**) that AI sometimes outputs instead of <strong>
           .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-          // Remove standalone bare numbers as paragraphs (e.g. <p>1</p>, <p>2</p>)
+          // Remove standalone bare numbers in any wrapper tag or as text nodes
           .replace(/<p>\s*\d{1,2}\s*<\/p>/g, "")
+          .replace(/<div>\s*\d{1,2}\s*<\/div>/g, "")
+          .replace(/<span>\s*\d{1,2}\s*<\/span>/g, "")
+          // Remove "Step X of N" standalone lines (redundant when headings contain step info)
+          .replace(/<p>\s*Step\s+\d+\s+of\s+\d+\s*<\/p>/gi, "")
+          .replace(/<div>\s*Step\s+\d+\s+of\s+\d+\s*<\/div>/gi, "")
+          // Remove bare numbers that appear as text between tags (e.g. </p>\n2\n<p>)
+          .replace(/>(\s*)\d{1,2}(\s*)</g, (match, before, after) => {
+            // Only strip if it's truly a standalone number (surrounded by whitespace/newlines)
+            if (/^\s*$/.test(before) && /^\s*$/.test(after)) return `>${before}${after}<`;
+            return match;
+          })
           .trim();
 
         if (cleanContent) {

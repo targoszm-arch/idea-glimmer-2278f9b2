@@ -198,10 +198,10 @@ IGNORE the blog article structure above. Instead, generate a USER GUIDE with thi
    <h2>Step X of N — [Action title]</h2>
    <p>[Detailed explanation of this step, 2-4 sentences]</p>
 
-CRITICAL: Do NOT output standalone numbers before or outside the headings. The step number must ONLY appear inside the <h2> tag as "Step X of N".
+CRITICAL: Do NOT output standalone numbers before or outside the headings. The step number must ONLY appear inside the <h2> tag as "Step X of N". NEVER output a bare number like "1", "2", "3" as its own paragraph, line, or text node.
+CRITICAL: Do NOT output "Step X of N" as a separate line or paragraph — it must ONLY be part of the <h2> heading tag.
 CRITICAL: Do NOT use markdown bold (**text**). Use <strong>text</strong> for emphasis.
-CRITICAL: Do NOT output bare numbers like "1", "2" as separate paragraphs or lines.
-CRITICAL: Output pure HTML. Every paragraph in <p> tags. No markdown at all.
+CRITICAL: Output pure HTML. Every paragraph in <p> tags. No markdown at all. No bare text outside of HTML tags.
 ` : ""}${content_type === "how_to" ? `
 --------------------
 HOW-TO GUIDE FORMAT OVERRIDE
@@ -215,10 +215,10 @@ IGNORE the blog article structure above. Instead, generate a HOW-TO GUIDE with t
    - A <strong>Action title</strong> — followed by a clear explanation (1-3 sentences).
 5. An optional "Tips" or "Troubleshooting" section.
 
-CRITICAL: Steps must be inside a single <ol><li>...</li></ol> structure. Do NOT use standalone numbers outside list items.
+CRITICAL: Steps must be inside a single <ol><li>...</li></ol> structure. Do NOT use standalone numbers outside list items. NEVER output a bare number like "1", "2", "3" as its own paragraph, line, or text node.
+CRITICAL: Do NOT output "Step X of N" as a separate line — only inside headings if used.
 CRITICAL: Do NOT use markdown bold (**text**). Use <strong>text</strong> for HTML bold.
-CRITICAL: Do NOT output bare numbers like "1", "2" as separate paragraphs or text nodes.
-CRITICAL: Output pure HTML. No markdown syntax anywhere.
+CRITICAL: Output pure HTML. No markdown syntax anywhere. No bare text outside of HTML tags.
 ` : ""}
 Tone: ${tone}. ${tone_description ? `Tone details: ${tone_description}` : ""}
 ${category ? `Category focus: ${category}` : ""}
