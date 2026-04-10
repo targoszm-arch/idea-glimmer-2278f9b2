@@ -97,6 +97,7 @@ export type Database = {
           meta_description: string
           notion_page_id: string | null
           reading_time_minutes: number
+          related_article_ids: string[] | null
           shopify_article_id: string | null
           slug: string
           source: string | null
@@ -123,6 +124,7 @@ export type Database = {
           meta_description?: string
           notion_page_id?: string | null
           reading_time_minutes?: number
+          related_article_ids?: string[] | null
           shopify_article_id?: string | null
           slug: string
           source?: string | null
@@ -149,6 +151,7 @@ export type Database = {
           meta_description?: string
           notion_page_id?: string | null
           reading_time_minutes?: number
+          related_article_ids?: string[] | null
           shopify_article_id?: string | null
           slug?: string
           source?: string | null

@@ -61,7 +61,7 @@ serve(async (req) => {
     // For count/category checks, skip heavy content fields
     const selectFields = countOnly
       ? "id, category"
-      : "id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, updated_at, reading_time_minutes, author_name, article_meta";
+      : "id, title, slug, content, excerpt, meta_description, category, cover_image_url, created_at, updated_at, reading_time_minutes, author_name, article_meta, related_article_ids";
 
     let query = adminSupabase
       .from("articles")

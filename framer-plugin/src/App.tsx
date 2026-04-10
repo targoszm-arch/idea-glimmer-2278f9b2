@@ -8,6 +8,7 @@ type Article = {
   cover_image_url: string | null; created_at: string
   reading_time_minutes: number | null; author_name: string | null
   keywords: string | null; facts: string | null; references: string | null
+  related_article_ids: string[] | null
 }
 
 import { PLUGIN_DATA_KEY } from "./constants"
@@ -29,22 +30,28 @@ const F = {
   keywords:    "Keywords",
   facts:       "Facts",
   references:  "References",
+  related:     "Related Articles",
 } as const
 
-const FIELDS = [
-  { id: F.title,       name: "Title",               type: "string" as const },
-  { id: F.body,        name: "Body (Rich Text)",     type: "formattedText" as const },
-  { id: F.excerpt,     name: "Excerpt",              type: "string" as const },
-  { id: F.category,    name: "Category",             type: "string" as const },
-  { id: F.metaDesc,    name: "Meta Description",     type: "string" as const },
-  { id: F.pubDate,     name: "Published Date",       type: "date" as const },
-  { id: F.image,       name: "Cover Image",          type: "image" as const },
-  { id: F.readingTime, name: "Reading Time (min)",   type: "number" as const },
-  { id: F.author,      name: "Author",               type: "string" as const },
-  { id: F.keywords,    name: "Keywords",             type: "string" as const },
-  { id: F.facts,       name: "References & Facts",   type: "formattedText" as const },
-  { id: F.references,  name: "References (URLs)",    type: "string" as const },
-]
+// Builds the full field list. Related Articles is a self-referencing
+// multiCollectionReference field, so it needs the current collection's id.
+function buildFields(collectionId: string) {
+  return [
+    { id: F.title,       name: "Title",               type: "string" as const },
+    { id: F.body,        name: "Body (Rich Text)",     type: "formattedText" as const },
+    { id: F.excerpt,     name: "Excerpt",              type: "string" as const },
+    { id: F.category,    name: "Category",             type: "string" as const },
+    { id: F.metaDesc,    name: "Meta Description",     type: "string" as const },
+    { id: F.pubDate,     name: "Published Date",       type: "date" as const },
+    { id: F.image,       name: "Cover Image",          type: "image" as const },
+    { id: F.readingTime, name: "Reading Time (min)",   type: "number" as const },
+    { id: F.author,      name: "Author",               type: "string" as const },
+    { id: F.keywords,    name: "Keywords",             type: "string" as const },
+    { id: F.facts,       name: "References & Facts",   type: "formattedText" as const },
+    { id: F.references,  name: "References (URLs)",    type: "string" as const },
+    { id: F.related,     name: "Related Articles",     type: "multiCollectionReference" as const, collectionId },
+  ]
+}
 
 export async function configureManagedCollection() {
   const collection = await framer.getManagedCollection()
@@ -53,7 +60,7 @@ export async function configureManagedCollection() {
     framer.notify("Permission denied — please re-open the plugin")
     return
   }
-  await collection.setFields(FIELDS)
+  await collection.setFields(buildFields(collection.id))
   framer.notify("ContentLab: Collection configured ✓")
 }
 
@@ -61,7 +68,7 @@ export async function syncManagedCollection() {
   const collection = await framer.getManagedCollection()
   if (!collection) return
   if (framer.isAllowedTo("ManagedCollection.setFields")) {
-    await collection.setFields(FIELDS)
+    await collection.setFields(buildFields(collection.id))
   }
   try {
     const count = await syncArticles(collection, "all")
@@ -100,26 +107,32 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
 
   if (!articles?.length) return 0
 
-  const items = articles.map((a) => ({
-    id: a.id,
-    slug: toSlug(a.slug || a.title || a.id),
-    fieldData: {
-      [F.title]:       { type: "string" as const,        value: a.title ?? "" },
-      [F.body]:        { type: "formattedText" as const, value: a.content ?? "" },
-      [F.excerpt]:     { type: "string" as const,        value: a.excerpt ?? "" },
-      [F.category]:    { type: "string" as const,        value: a.category ?? "" },
-      [F.metaDesc]:    { type: "string" as const,        value: a.meta_description ?? "" },
-      [F.pubDate]:     { type: "date" as const,          value: a.created_at ?? "" },
-      ...(a.cover_image_url
-        ? { [F.image]: { type: "image" as const, value: a.cover_image_url } }
-        : {}),
-      [F.readingTime]: { type: "number" as const,        value: a.reading_time_minutes ?? 0 },
-      [F.author]:      { type: "string" as const,        value: a.author_name ?? "" },
-      [F.keywords]:    { type: "string" as const,        value: a.keywords ?? "" },
-      [F.facts]:       { type: "formattedText" as const, value: a.facts ?? "" },
-      [F.references]:  { type: "string" as const,        value: a.references ?? "" },
-    },
-  }))
+  // Keep only related IDs that actually exist in the current article set —
+  // Framer rejects multiCollectionReference values that point to missing items.
+  const items = articles.map((a) => {
+    const validRelated = (a.related_article_ids ?? []).filter((rid) => contentLabIds.has(rid))
+    return {
+      id: a.id,
+      slug: toSlug(a.slug || a.title || a.id),
+      fieldData: {
+        [F.title]:       { type: "string" as const,        value: a.title ?? "" },
+        [F.body]:        { type: "formattedText" as const, value: a.content ?? "" },
+        [F.excerpt]:     { type: "string" as const,        value: a.excerpt ?? "" },
+        [F.category]:    { type: "string" as const,        value: a.category ?? "" },
+        [F.metaDesc]:    { type: "string" as const,        value: a.meta_description ?? "" },
+        [F.pubDate]:     { type: "date" as const,          value: a.created_at ?? "" },
+        ...(a.cover_image_url
+          ? { [F.image]: { type: "image" as const, value: a.cover_image_url } }
+          : {}),
+        [F.readingTime]: { type: "number" as const,        value: a.reading_time_minutes ?? 0 },
+        [F.author]:      { type: "string" as const,        value: a.author_name ?? "" },
+        [F.keywords]:    { type: "string" as const,        value: a.keywords ?? "" },
+        [F.facts]:       { type: "formattedText" as const, value: a.facts ?? "" },
+        [F.references]:  { type: "string" as const,        value: a.references ?? "" },
+        [F.related]:     { type: "multiCollectionReference" as const, value: validRelated },
+      },
+    }
+  })
 
   framer.isAllowedTo("ManagedCollection.addItems")
   await collection.addItems(items)
@@ -309,7 +322,7 @@ export default function App() {
       const collection = await framer.getManagedCollection()
       if (!collection) throw new Error("No collection — add plugin via CMS → Add Plugin first.")
       if (framer.isAllowedTo("ManagedCollection.setFields")) {
-        await collection.setFields(FIELDS)
+        await collection.setFields(buildFields(collection.id))
       }
       const count = await syncArticles(collection, selectedCategory, savedKey)
       setLastSync(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))

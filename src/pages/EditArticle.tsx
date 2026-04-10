@@ -22,6 +22,7 @@ import { toast } from "@/hooks/use-toast";
 import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
 import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 import PlatformLogo from "@/components/PlatformLogo";
+import RelatedArticlesPicker from "@/components/RelatedArticlesPicker";
 import DOMPurify from "dompurify";
 import { MediaLibraryPicker } from "../components/MediaLibraryPicker";
 import { UnsplashPicker } from "../components/UnsplashPicker";
@@ -69,6 +70,7 @@ const EditArticle = () => {
   const [selectedShopifyBlog, setSelectedShopifyBlog] = useState("");
   const [showPlatformPicker, setShowPlatformPicker] = useState<"notion" | "shopify" | "intercom" | null>(null);
   const [authorName, setAuthorName] = useState("");
+  const [relatedArticleIds, setRelatedArticleIds] = useState<string[]>([]);
   const [metaDescription, setMetaDescription] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCreditsDialog, setShowCreditsDialog] = useState(false);
@@ -113,6 +115,7 @@ const EditArticle = () => {
       setNotionPageId((data as any).notion_page_id || null);
       setShopifyArticleId((data as any).shopify_article_id || null);
       setAuthorName((data as any).author_name || "");
+      setRelatedArticleIds((data as any).related_article_ids || []);
       setMetaDescription(data.meta_description || "");
       // Strip any markdown fences or preamble before first HTML tag
       let articleContent = data.content || "";
@@ -159,10 +162,11 @@ const EditArticle = () => {
         status: finalStatus,
         cover_image_url: coverImageUrl,
         author_name: authorName.trim(),
+        related_article_ids: relatedArticleIds,
         reading_time_minutes,
         faq_html,
         updated_at: new Date().toISOString()
-      }).
+      } as any).
       eq("id", id);
 
       if (error) {
@@ -817,10 +821,16 @@ const EditArticle = () => {
                 onChange={(e) => setAuthorName(e.target.value)}
                 placeholder="Author Name"
                 className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
-              
+
             </div>
 
-            <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <RelatedArticlesPicker
+              currentArticleId={id ?? null}
+              selectedIds={relatedArticleIds}
+              onChange={setRelatedArticleIds}
+            />
+
+            <div className="mt-4 rounded-xl border border-border bg-card overflow-hidden">
               {/* Edit / Preview toggle */}
               <div className="flex items-center border-b border-border">
                 <button
