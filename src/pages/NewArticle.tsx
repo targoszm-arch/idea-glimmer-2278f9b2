@@ -272,6 +272,11 @@ const NewArticle = () => {
           .replace(/<p>\s*\d{1,2}\s*<\/p>/g, "")
           .replace(/<div>\s*\d{1,2}\s*<\/div>/g, "")
           .replace(/<span>\s*\d{1,2}\s*<\/span>/g, "")
+          // Fix troubleshooting: convert plain-text problem titles after <h2>Troubleshooting</h2> into <h3>
+          .replace(
+            /(<h2[^>]*>Troubleshooting<\/h2>[\s\S]*?)(?:<p>)([^<]{5,80})(<\/p>\s*<p>(?:<strong>)?(?:Cause|Fix|Verify|Check))/gi,
+            (_, before, title, after) => `${before}<h3>${title.trim()}</h3>\n<p>${after.replace(/^<\/p>\s*<p>/, "")}`
+          )
           // Remove "Step X of N" standalone lines (redundant when headings contain step info)
           .replace(/<p>\s*Step\s+\d+\s+of\s+\d+\s*<\/p>/gi, "")
           .replace(/<div>\s*Step\s+\d+\s+of\s+\d+\s*<\/div>/gi, "")

@@ -241,15 +241,20 @@ IGNORE the blog article structure above. Instead, generate a HOW-TO GUIDE with t
 
 <h2>Troubleshooting</h2>
 <p>Common issues and how to resolve them:</p>
-<h3>[Problem description as a question or statement]</h3>
-<p><strong>Cause:</strong> [Why this happens]</p>
-<p><strong>Fix:</strong> [Step-by-step resolution, 2-3 sentences with specific actions]</p>
 
-<h3>[Another problem]</h3>
-<p><strong>Cause:</strong> [explanation]</p>
-<p><strong>Fix:</strong> [resolution]</p>
+<h3>[Problem description — phrased as what the user observes]</h3>
+<p><strong>Cause:</strong> [1-2 sentences explaining why this happens technically]</p>
+<p><strong>Fix:</strong> [3-4 sentences with specific step-by-step actions: what to click, what to check, what setting to change, and how to verify the fix worked]</p>
 
-Include 3-5 troubleshooting items. Each MUST have a proper <h3> heading, a Cause, and a detailed Fix with concrete actions.
+<h3>[Another problem the user might encounter]</h3>
+<p><strong>Cause:</strong> [technical explanation]</p>
+<p><strong>Fix:</strong> [detailed step-by-step resolution]</p>
+
+MANDATORY: Include 3-5 troubleshooting items. Each item MUST have:
+- A <h3> tag for the problem title (NEVER plain text)
+- A <p><strong>Cause:</strong> ...</p> paragraph
+- A <p><strong>Fix:</strong> ...</p> paragraph with ACTIONABLE steps (not vague one-liners)
+NEVER output troubleshooting problems as plain text paragraphs without <h3> tags.
 
 CRITICAL: Steps must be inside a single <ol><li>...</li></ol> structure. Do NOT use standalone numbers outside list items. NEVER output a bare number like "1", "2", "3" as its own paragraph, line, or text node.
 CRITICAL: Do NOT output "Step X of N" as a separate line — only inside headings if used.
@@ -271,7 +276,11 @@ ${category ? `Category focus: ${category}` : ""}
         model: "sonar-pro",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Write an article about: ${topic}\n\nREMINDER: Output ONLY valid HTML. Start immediately with <h1>. No markdown, no plain text, no code fences. Every paragraph must be wrapped in <p> tags.` },
+          { role: "user", content: content_type === "how_to"
+            ? `Write a how-to guide about: ${topic}\n\nREMINDER: Output ONLY valid HTML. Start immediately with <h1>. No markdown, no plain text, no code fences. Every paragraph must be wrapped in <p> tags. ALL section titles must be <h2>. The Troubleshooting section is CRITICAL — each problem MUST use <h3> for the problem title, then <p><strong>Cause:</strong> ...</p> and <p><strong>Fix:</strong> ...</p> with detailed, actionable multi-sentence fixes. Do NOT output plain text without tags.`
+            : content_type === "user_guide"
+            ? `Write a user guide about: ${topic}\n\nREMINDER: Output ONLY valid HTML. Start immediately with <h1>. No markdown, no plain text, no code fences. Every paragraph must be wrapped in <p> tags. ALL section titles must be <h2>. Step numbers must ONLY appear inside <h2> tags. Do NOT output bare numbers as standalone text.`
+            : `Write an article about: ${topic}\n\nREMINDER: Output ONLY valid HTML. Start immediately with <h1>. No markdown, no plain text, no code fences. Every paragraph must be wrapped in <p> tags.` },
         ],
         stream: true,
       }),
