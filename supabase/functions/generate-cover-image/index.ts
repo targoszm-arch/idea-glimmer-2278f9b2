@@ -48,17 +48,53 @@ serve(async (req) => {
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
-    // Initialize Supabase client for storage upload
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Build a richer prompt using article context when available
-    const subjectLine = context
-      ? `${prompt}. Article context: ${context.substring(0, 300)}`
+    // Step 1: Use GPT to convert the abstract topic into a concrete, text-free visual scene.
+    // This prevents DALL-E from seeing words like "SEO", "analytics", "sharing" and
+    // rendering them as garbled text labels in the image.
+    const topicInput = context
+      ? `${prompt}. Context: ${context.substring(0, 300)}`
       : prompt;
 
-    // Generate the image with DALL-E
+    const sceneRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You convert article topics into short DALL-E image prompts (max 40 words).
+
+Rules:
+- Describe ONLY physical objects, environments, lighting, and camera angles.
+- NEVER include abstract concepts, software terms, brand names, UI elements, screens, dashboards, charts, graphs, or icons.
+- NEVER mention any text, words, letters, labels, signs, or typography.
+- Think: "What real-world photograph would a magazine use as a cover for this article?"
+- Focus on people, workspaces, nature, objects, or architectural scenes.
+- Output ONLY the scene description, nothing else.`
+          },
+          { role: "user", content: topicInput }
+        ],
+        max_tokens: 80,
+        temperature: 0.7,
+      }),
+    });
+
+    let scenePrompt = prompt; // fallback
+    if (sceneRes.ok) {
+      const sceneData = await sceneRes.json();
+      const generated = sceneData.choices?.[0]?.message?.content?.trim();
+      if (generated) scenePrompt = generated;
+    }
+
+    // Step 2: Generate image with DALL-E using the sanitized scene prompt
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
@@ -67,10 +103,11 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "dall-e-3",
-        prompt: `A photorealistic, editorial-quality photograph suitable as a blog cover image. Shot with a DSLR camera, natural lighting, shallow depth of field, realistic textures and colors. The image should look like a genuine stock photo taken by a professional photographer — NOT AI-generated, NOT illustrated, NOT cartoonish, NOT 3D rendered. ABSOLUTELY NO TEXT of any kind — no letters, no words, no numbers, no labels, no captions, no titles, no watermarks, no logos, no signs with writing, no overlaid typography. The image must be purely visual with zero readable characters anywhere. Subject: ${subjectLine}`,
+        prompt: `Professional editorial photograph. ${scenePrompt}. Shot on DSLR, natural lighting, shallow depth of field. Photorealistic, not illustrated. Contains absolutely no text, letters, words, numbers, labels, watermarks, or any written characters.`,
         n: 1,
-        size: "1024x1024",
+        size: "1792x1024",
         quality: "standard",
+        style: "natural",
         response_format: "b64_json",
       }),
     });
