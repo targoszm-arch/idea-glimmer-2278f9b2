@@ -105,7 +105,7 @@ Rules:
         model: "dall-e-3",
         prompt: `Professional editorial photograph. ${scenePrompt}. Shot on DSLR, natural lighting, shallow depth of field. Photorealistic, not illustrated. Contains absolutely no text, letters, words, numbers, labels, watermarks, or any written characters.`,
         n: 1,
-        size: "1792x1024",
+        size: "1024x1024",
         quality: "standard",
         style: "natural",
         response_format: "b64_json",
