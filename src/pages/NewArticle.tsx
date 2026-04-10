@@ -13,6 +13,7 @@ import TableHeader from "@tiptap/extension-table-header";
 import { Save, Sparkles, Loader2, ArrowLeft, Settings, ImagePlus, X, Upload, MessageSquare, ChevronDown, Send, Share2 } from "lucide-react";
 import { ArticleSocialPanel } from "@/components/ArticleSocialPanel";
 import CategoryPicker from "@/components/CategoryPicker";
+import PlatformLogo from "@/components/PlatformLogo";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
@@ -58,8 +59,15 @@ const NewArticle = () => {
   const [wpPermalink, setWpPermalink] = useState<string | null>(null);
   const [isSyncingFramer, setIsSyncingFramer] = useState(false);
   const [isSyncingWordPress, setIsSyncingWordPress] = useState(false);
+  const [isSyncingIntercom, setIsSyncingIntercom] = useState(false);
+  const [isSyncingNotion, setIsSyncingNotion] = useState(false);
+  const [isSyncingShopify, setIsSyncingShopify] = useState(false);
   const [isSyncingMedium, setIsSyncingMedium] = useState(false);
   const [mediumUrl, setMediumUrl] = useState<string | null>(null);
+  const [intercomArticleId, setIntercomArticleId] = useState<string | null>(null);
+  const [notionPageId, setNotionPageId] = useState<string | null>(null);
+  const [shopifyArticleId, setShopifyArticleId] = useState<string | null>(null);
+  const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
   const { credits, loading: creditsLoading, hasEnough, deductLocally } = useCredits();
 
   const [aiSettings, setAiSettings] = useState<{
@@ -79,6 +87,76 @@ const NewArticle = () => {
       }
     })();
   }, []);
+
+  // Load connected platforms
+  useEffect(() => {
+    supabase.from("user_integrations" as any).select("platform").then(({ data }) => {
+      setConnectedPlatforms((data || []).map((d: any) => d.platform));
+    });
+  }, []);
+
+  const handleSyncToIntercom = async () => {
+    if (!savedArticleId) return;
+    setIsSyncingIntercom(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-intercom`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ article_id: savedArticleId }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Intercom sync failed");
+      setIntercomArticleId(String(data.intercom_article_id));
+      toast({ title: `Article ${data.action} in Intercom!` });
+    } catch (e: any) {
+      toast({ title: "Intercom sync failed", description: e.message, variant: "destructive" });
+    }
+    setIsSyncingIntercom(false);
+  };
+
+  const handleSyncToNotion = async () => {
+    if (!savedArticleId) return;
+    setIsSyncingNotion(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-notion`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ article_id: savedArticleId }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Notion sync failed");
+      setNotionPageId(data.notion_page_id);
+      toast({ title: `Article ${data.action} in Notion!` });
+    } catch (e: any) {
+      toast({ title: "Notion sync failed", description: e.message, variant: "destructive" });
+    }
+    setIsSyncingNotion(false);
+  };
+
+  const handleSyncToShopify = async () => {
+    if (!savedArticleId) return;
+    setIsSyncingShopify(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-shopify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ article_id: savedArticleId }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Shopify sync failed");
+      setShopifyArticleId(String(data.shopify_article_id));
+      toast({ title: `Article ${data.action} in Shopify!` });
+    } catch (e: any) {
+      toast({ title: "Shopify sync failed", description: e.message, variant: "destructive" });
+    }
+    setIsSyncingShopify(false);
+  };
 
   const editor = useEditor({
     extensions: [
@@ -500,22 +578,64 @@ const NewArticle = () => {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
-                      disabled={isSyncingFramer || isSyncingWordPress}
+                      disabled={isSyncingFramer || isSyncingWordPress || isSyncingIntercom || isSyncingNotion || isSyncingShopify}
                       className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
-                      {(isSyncingFramer || isSyncingWordPress) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      {(isSyncingFramer || isSyncingWordPress || isSyncingIntercom || isSyncingNotion || isSyncingShopify) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       Publish to <ChevronDown className="h-3 w-3" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-52">
-                    <DropdownMenuLabel className="text-xs text-muted-foreground">Publish to platform</DropdownMenuLabel>
+                    <DropdownMenuLabel className="text-xs text-muted-foreground">Distribute article</DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handlePublishToFramer} disabled={isSyncingFramer}>
-                      {isSyncingFramer ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                      {framerItemId ? "Update in Framer" : "Publish to Framer"}
+                    <DropdownMenuItem onClick={handlePublishToFramer} disabled={isSyncingFramer} className="gap-2 cursor-pointer">
+                      <PlatformLogo platform="framer" />
+                      {isSyncingFramer ? "Syncing…" : framerItemId ? "Update in Framer" : "Publish to Framer"}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handlePublishToWordPress} disabled={isSyncingWordPress}>
-                      {isSyncingWordPress ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                      {wpPermalink ? "Update in WordPress" : "Publish to WordPress"}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-xs text-muted-foreground">Other platforms</DropdownMenuLabel>
+                    {connectedPlatforms.includes("notion") ? (
+                      <DropdownMenuItem onClick={handleSyncToNotion} disabled={isSyncingNotion} className="gap-2 cursor-pointer">
+                        <PlatformLogo platform="notion" />
+                        {isSyncingNotion ? "Syncing…" : notionPageId ? "Update in Notion" : "Sync to Notion"}
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem disabled className="gap-2 opacity-40">
+                        <PlatformLogo platform="notion" /> Notion <span className="ml-auto text-xs">Not connected</span>
+                      </DropdownMenuItem>
+                    )}
+                    {connectedPlatforms.includes("shopify") ? (
+                      <DropdownMenuItem onClick={handleSyncToShopify} disabled={isSyncingShopify} className="gap-2 cursor-pointer">
+                        <PlatformLogo platform="shopify" />
+                        {isSyncingShopify ? "Syncing…" : shopifyArticleId ? "Update in Shopify" : "Sync to Shopify"}
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem disabled className="gap-2 opacity-40">
+                        <PlatformLogo platform="shopify" /> Shopify <span className="ml-auto text-xs">Not connected</span>
+                      </DropdownMenuItem>
+                    )}
+                    {connectedPlatforms.includes("intercom") ? (
+                      <DropdownMenuItem onClick={handleSyncToIntercom} disabled={isSyncingIntercom} className="gap-2 cursor-pointer">
+                        <PlatformLogo platform="intercom" />
+                        {isSyncingIntercom ? "Syncing…" : intercomArticleId ? "Update in Intercom" : "Sync to Intercom"}
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem disabled className="gap-2 opacity-40">
+                        <PlatformLogo platform="intercom" /> Intercom <span className="ml-auto text-xs">Not connected</span>
+                      </DropdownMenuItem>
+                    )}
+                    {connectedPlatforms.includes("wordpress") ? (
+                      <DropdownMenuItem onClick={handlePublishToWordPress} disabled={isSyncingWordPress} className="gap-2 cursor-pointer">
+                        <PlatformLogo platform="wordpress" />
+                        {isSyncingWordPress ? "Publishing…" : wpPermalink ? "Update in WordPress" : "Publish to WordPress"}
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem disabled className="gap-2 opacity-40">
+                        <PlatformLogo platform="wordpress" /> WordPress <span className="ml-auto text-xs">Not connected</span>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => window.open("/settings/integrations", "_blank")} className="gap-2 cursor-pointer text-xs text-muted-foreground">
+                      Manage integrations →
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
