@@ -51,6 +51,7 @@ serve(async (req) => {
       tone = "Informative",
       tone_description = "",
       category = "",
+      content_type = "blog",
       app_description = "",
       app_audience = "",
       reference_urls = [],
@@ -185,7 +186,40 @@ CRITICAL: After COVER_IMAGE_PROMPT, add this metadata block (fill in all fields 
 }
 -->
 CRITICAL: Write as a confident subject matter expert for this product/brand.
+${content_type === "user_guide" ? `
+--------------------
+USER GUIDE FORMAT OVERRIDE
+--------------------
+IGNORE the blog article structure above. Instead, generate a USER GUIDE with this format:
 
+1. Start with <h1> title (under 60 characters).
+2. A "What You'll Accomplish" section: 2–3 sentences summarising what the reader will learn.
+3. Then a series of step sections. Each step MUST use this HTML structure:
+   <h2>Step X of N — [Action title]</h2>
+   <p>[Detailed explanation of this step, 2-4 sentences]</p>
+
+CRITICAL: Do NOT output standalone numbers before or outside the headings. The step number must ONLY appear inside the <h2> tag as "Step X of N".
+CRITICAL: Do NOT use markdown bold (**text**). Use <strong>text</strong> for emphasis.
+CRITICAL: Do NOT output bare numbers like "1", "2" as separate paragraphs or lines.
+CRITICAL: Output pure HTML. Every paragraph in <p> tags. No markdown at all.
+` : ""}${content_type === "how_to" ? `
+--------------------
+HOW-TO GUIDE FORMAT OVERRIDE
+--------------------
+IGNORE the blog article structure above. Instead, generate a HOW-TO GUIDE with this format:
+
+1. Start with <h1> title (under 60 characters).
+2. A brief intro (2-3 sentences) explaining what this guide covers.
+3. An optional "Prerequisites" section if applicable.
+4. A "Steps" section with an <ol> ordered list. Each step is a <li> containing:
+   - A <strong>Action title</strong> — followed by a clear explanation (1-3 sentences).
+5. An optional "Tips" or "Troubleshooting" section.
+
+CRITICAL: Steps must be inside a single <ol><li>...</li></ol> structure. Do NOT use standalone numbers outside list items.
+CRITICAL: Do NOT use markdown bold (**text**). Use <strong>text</strong> for HTML bold.
+CRITICAL: Do NOT output bare numbers like "1", "2" as separate paragraphs or text nodes.
+CRITICAL: Output pure HTML. No markdown syntax anywhere.
+` : ""}
 Tone: ${tone}. ${tone_description ? `Tone details: ${tone_description}` : ""}
 ${category ? `Category focus: ${category}` : ""}
 `;

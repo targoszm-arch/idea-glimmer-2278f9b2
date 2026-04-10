@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Bookmark,
   LogOut, Coins, HelpCircle, ExternalLink, UserCircle,
@@ -115,9 +115,20 @@ const Header = () => {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showTopUp, setShowTopUp] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { signOut } = useAuth();
   const { credits, loading: creditsLoading, isPaidPlan } = useCredits();
   const isSettingsActive = location.pathname.startsWith("/settings") || location.pathname === "/brand";
+
+  const handleCompose = () => {
+    if (location.pathname === "/new") {
+      // Force reload to get a clean slate when already on /new
+      navigate("/new", { replace: true });
+      window.location.reload();
+    } else {
+      navigate("/new");
+    }
+  };
 
   return (
     <>
@@ -133,11 +144,11 @@ const Header = () => {
           </Link>
 
           {/* Compose button */}
-          <Link to="/new"
+          <button onClick={handleCompose}
             className="hidden md:inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors shrink-0">
             <PenSquare className="h-3.5 w-3.5" />
             Compose
-          </Link>
+          </button>
 
           {/* Dropdown groups */}
           <nav className="hidden md:flex items-center gap-0.5 flex-1 min-w-0">
@@ -244,10 +255,10 @@ const Header = () => {
               className="overflow-hidden border-t border-border md:hidden w-full bg-background"
             >
               <nav className="w-full px-4 py-3 flex flex-col gap-0.5">
-                <Link to="/new" onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold bg-primary text-white mb-2">
+                <button onClick={() => { setMobileOpen(false); handleCompose(); }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold bg-primary text-white mb-2 w-full">
                   <PenSquare className="h-4 w-4" /> Compose
-                </Link>
+                </button>
                 {NAV_GROUPS.map(group => (
                   <div key={group.label}>
                     <button

@@ -44,7 +44,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Insufficient credits', code: 'NO_CREDITS' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { prompt } = bodyJson;
+    const { prompt, context } = bodyJson;
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
@@ -52,6 +52,11 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Build a richer prompt using article context when available
+    const subjectLine = context
+      ? `${prompt}. Article context: ${context.substring(0, 300)}`
+      : prompt;
 
     // Generate the image with DALL-E
     const response = await fetch("https://api.openai.com/v1/images/generations", {
@@ -62,7 +67,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "dall-e-3",
-        prompt: `A photorealistic, editorial-quality photograph suitable as a blog cover image. Shot with a DSLR camera, natural lighting, shallow depth of field, realistic textures and colors. The image should look like a genuine stock photo taken by a professional photographer — NOT AI-generated, NOT illustrated, NOT cartoonish, NOT 3D rendered. No text, no watermarks, no logos. Subject: ${prompt}`,
+        prompt: `A photorealistic, editorial-quality photograph suitable as a blog cover image. Shot with a DSLR camera, natural lighting, shallow depth of field, realistic textures and colors. The image should look like a genuine stock photo taken by a professional photographer — NOT AI-generated, NOT illustrated, NOT cartoonish, NOT 3D rendered. ABSOLUTELY NO TEXT of any kind — no letters, no words, no numbers, no labels, no captions, no titles, no watermarks, no logos, no signs with writing, no overlaid typography. The image must be purely visual with zero readable characters anywhere. Subject: ${subjectLine}`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

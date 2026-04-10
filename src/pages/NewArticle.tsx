@@ -188,6 +188,10 @@ const NewArticle = () => {
           .replace(/<\/body>[\s\S]*$/i, "")
           .replace(/^<!DOCTYPE[^>]*>/i, "")
           .replace(/^<html[^>]*>[\s\S]*?<\/head>/i, "")
+          // Strip markdown bold (**text**) that AI sometimes outputs instead of <strong>
+          .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+          // Remove standalone bare numbers as paragraphs (e.g. <p>1</p>, <p>2</p>)
+          .replace(/<p>\s*\d{1,2}\s*<\/p>/g, "")
           .trim();
 
         if (cleanContent) {
@@ -228,7 +232,10 @@ const NewArticle = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`
           },
-          body: JSON.stringify({ prompt: imagePrompt })
+          body: JSON.stringify({
+            prompt: imagePrompt,
+            context: editor?.getText()?.substring(0, 500) || ""
+          })
         }
       );
       const data = await resp.json();
