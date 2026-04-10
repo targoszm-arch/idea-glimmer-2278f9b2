@@ -332,6 +332,14 @@ export default function App() {
 
   const syncing = status === "syncing"
 
+  // Open external URL — Framer plugin API has no openURL method,
+  // so we use window.open which opens in a new browser tab
+  const openExternal = (url: string) => (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    window.open(url, "_blank", "noopener,noreferrer")
+  }
+
   // ── Loading ──────────────────────────────────────────────────────────────
   if (screen === "loading") return <main style={s.root}><div style={s.loading}>Loading…</div></main>
 
@@ -348,12 +356,15 @@ export default function App() {
         Connect your ContentLab collection set to sync articles to Framer.
       </div>
 
-      <button
-        onClick={() => framer.openExternalURL(MARKETING_URL)}
-        style={{ ...s.visitLink, background: "none", border: "none", padding: 0, cursor: "pointer" }}
+      <a
+        href={MARKETING_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={openExternal(MARKETING_URL)}
+        style={{ ...s.visitLink, display: "block", textDecoration: "none" }}
       >
         Visit ContentLab Website →
-      </button>
+      </a>
 
       <div style={s.divider}/>
 
@@ -379,12 +390,15 @@ export default function App() {
 
       <p style={s.hint}>
         Don't have an account?{" "}
-        <button
-          onClick={() => framer.openExternalURL(SIGNUP_URL)}
-          style={{ color: "#2563EB", background: "none", border: "none", cursor: "pointer", padding: 0, font: "inherit" }}
+        <a
+          href={SIGNUP_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={openExternal(SIGNUP_URL)}
+          style={{ color: "#2563EB", textDecoration: "none" }}
         >
           Sign up free →
-        </button>
+        </a>
       </p>
     </main>
   )
@@ -392,9 +406,12 @@ export default function App() {
   // ── Sync screen ──────────────────────────────────────────────────────────
   return (
     <main style={s.root}>
-      <button
-        onClick={() => framer.openExternalURL(MARKETING_URL)}
-        style={{ ...s.header, background: "none", border: "none", padding: 0, cursor: "pointer", width: "100%", textAlign: "left" }}
+      <a
+        href={MARKETING_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={openExternal(MARKETING_URL)}
+        style={{ ...s.header, textDecoration: "none", color: "inherit", cursor: "pointer" }}
         title="Visit content-lab.ie"
       >
         <img src="/icon.png" width={24} height={24} style={{ borderRadius: 6, flexShrink: 0 }} alt="" />
@@ -403,7 +420,7 @@ export default function App() {
           <div style={s.sub}>ContentLab → Framer CMS</div>
         </div>
         {totalCount !== null && <div style={s.badge}>{totalCount} articles</div>}
-      </button>
+      </a>
 
       <div style={s.divider}/>
 
@@ -435,12 +452,15 @@ export default function App() {
 
       <FieldMappingEditor />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button
-          onClick={() => framer.openExternalURL(LOGIN_URL)}
-          style={{ ...s.visitLink, fontSize: 11, background: "none", border: "none", padding: 0, cursor: "pointer" }}
+        <a
+          href={LOGIN_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={openExternal(LOGIN_URL)}
+          style={{ ...s.visitLink, fontSize: 11, textDecoration: "none" }}
         >
           Open ContentLab →
-        </button>
+        </a>
         <button onClick={handleDisconnect} style={s.disconnectBtn}>Disconnect</button>
       </div>
     </main>
