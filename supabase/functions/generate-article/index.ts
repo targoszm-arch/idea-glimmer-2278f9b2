@@ -190,34 +190,71 @@ ${content_type === "user_guide" ? `
 --------------------
 USER GUIDE FORMAT OVERRIDE
 --------------------
-IGNORE the blog article structure above. Instead, generate a USER GUIDE with this format:
+IGNORE the blog article structure above. Instead, generate a USER GUIDE with this exact HTML structure:
 
-1. Start with <h1> title (under 60 characters).
-2. A "What You'll Accomplish" section: 2–3 sentences summarising what the reader will learn.
-3. Then a series of step sections. Each step MUST use this HTML structure:
-   <h2>Step X of N — [Action title]</h2>
-   <p>[Detailed explanation of this step, 2-4 sentences]</p>
+<h1>[Title under 60 characters]</h1>
+
+<h2>What You'll Accomplish</h2>
+<p>[2-3 sentences summarising what the reader will learn and the end result]</p>
+
+<h2>Step 1 of N — [Action title]</h2>
+<p>[Detailed explanation of this step, 2-4 sentences. Be specific about what to click, where to navigate, and what the user should see.]</p>
+
+<h2>Step 2 of N — [Action title]</h2>
+<p>[Detailed explanation]</p>
+
+[Continue for all steps...]
+
+<h2>Summary</h2>
+<p>[Brief recap of what was accomplished across all steps]</p>
 
 CRITICAL: Do NOT output standalone numbers before or outside the headings. The step number must ONLY appear inside the <h2> tag as "Step X of N". NEVER output a bare number like "1", "2", "3" as its own paragraph, line, or text node.
 CRITICAL: Do NOT output "Step X of N" as a separate line or paragraph — it must ONLY be part of the <h2> heading tag.
 CRITICAL: Do NOT use markdown bold (**text**). Use <strong>text</strong> for emphasis.
+CRITICAL: ALL headings must use proper <h2> tags. No plain text headings.
 CRITICAL: Output pure HTML. Every paragraph in <p> tags. No markdown at all. No bare text outside of HTML tags.
 ` : ""}${content_type === "how_to" ? `
 --------------------
 HOW-TO GUIDE FORMAT OVERRIDE
 --------------------
-IGNORE the blog article structure above. Instead, generate a HOW-TO GUIDE with this format:
+IGNORE the blog article structure above. Instead, generate a HOW-TO GUIDE with this exact HTML structure:
 
-1. Start with <h1> title (under 60 characters).
-2. A brief intro (2-3 sentences) explaining what this guide covers.
-3. An optional "Prerequisites" section if applicable.
-4. A "Steps" section with an <ol> ordered list. Each step is a <li> containing:
-   - A <strong>Action title</strong> — followed by a clear explanation (1-3 sentences).
-5. An optional "Tips" or "Troubleshooting" section.
+<h1>[Title under 60 characters]</h1>
+<p>[2-3 sentence intro explaining what this guide helps the reader accomplish and why it matters]</p>
+
+<h2>Prerequisites</h2>
+<ul>
+  <li>[Prerequisite 1 — what the reader needs before starting]</li>
+  <li>[Prerequisite 2]</li>
+</ul>
+
+<h2>Steps</h2>
+<ol>
+  <li><strong>[Action verb + task]</strong> — [2-3 sentence detailed explanation of how to do this step, what to look for, and what the result should be]</li>
+  <li><strong>[Action verb + task]</strong> — [explanation]</li>
+</ol>
+
+<h2>Tips &amp; Best Practices</h2>
+<ul>
+  <li><strong>[Tip title]</strong> — [Practical advice, 1-2 sentences]</li>
+</ul>
+
+<h2>Troubleshooting</h2>
+<p>Common issues and how to resolve them:</p>
+<h3>[Problem description as a question or statement]</h3>
+<p><strong>Cause:</strong> [Why this happens]</p>
+<p><strong>Fix:</strong> [Step-by-step resolution, 2-3 sentences with specific actions]</p>
+
+<h3>[Another problem]</h3>
+<p><strong>Cause:</strong> [explanation]</p>
+<p><strong>Fix:</strong> [resolution]</p>
+
+Include 3-5 troubleshooting items. Each MUST have a proper <h3> heading, a Cause, and a detailed Fix with concrete actions.
 
 CRITICAL: Steps must be inside a single <ol><li>...</li></ol> structure. Do NOT use standalone numbers outside list items. NEVER output a bare number like "1", "2", "3" as its own paragraph, line, or text node.
 CRITICAL: Do NOT output "Step X of N" as a separate line — only inside headings if used.
 CRITICAL: Do NOT use markdown bold (**text**). Use <strong>text</strong> for HTML bold.
+CRITICAL: ALL section titles must use <h2> tags. ALL troubleshooting problem titles must use <h3> tags. No plain text headings.
 CRITICAL: Output pure HTML. No markdown syntax anywhere. No bare text outside of HTML tags.
 ` : ""}
 Tone: ${tone}. ${tone_description ? `Tone details: ${tone_description}` : ""}
