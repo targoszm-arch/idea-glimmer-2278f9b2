@@ -150,9 +150,7 @@ const EditArticle = () => {
       const faqMatch = content.match(/(<h2[^>]*>(?:[^<]*FAQ[^<]*)<\/h2>[\s\S]*)/i);
       const faq_html = faqMatch ? faqMatch[1] : "";
 
-      const { error } = await supabase.
-      from("articles").
-      update({
+      const baseUpdate = {
         title,
         slug,
         content,
@@ -162,12 +160,26 @@ const EditArticle = () => {
         status: finalStatus,
         cover_image_url: coverImageUrl,
         author_name: authorName.trim(),
-        related_article_ids: relatedArticleIds,
         reading_time_minutes,
         faq_html,
         updated_at: new Date().toISOString()
-      } as any).
-      eq("id", id);
+      };
+
+      // Try to save with related_article_ids. If the column doesn't exist yet
+      // (migration not applied), fall back to saving without it so the user
+      // can still edit articles.
+      let { error } = await supabase
+        .from("articles")
+        .update({ ...baseUpdate, related_article_ids: relatedArticleIds } as any)
+        .eq("id", id);
+
+      if (error && /related_article_ids/i.test(error.message || "")) {
+        console.warn("related_article_ids column missing — run migration 20260410000000_add_related_articles.sql. Falling back.");
+        ({ error } = await supabase
+          .from("articles")
+          .update(baseUpdate)
+          .eq("id", id));
+      }
 
       if (error) {
         toast({ title: "Save failed", description: error.message, variant: "destructive" });
