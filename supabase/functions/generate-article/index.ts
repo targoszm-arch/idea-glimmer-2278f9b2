@@ -78,7 +78,7 @@ You MUST:
 - Write with nuance: acknowledge competitor strengths honestly while clearly positioning the user's product.
 - Vary sentence structure.
 - Use natural, keyword-rich subheadings.
-- Include a \`<!-- META_TITLE: ... -->\` and \`<!-- META_DESCRIPTION: ... -->\` comment at the end.
+- Include a \`<!-- META_TITLE: ... -->\` and \`<!-- META_DESCRIPTION: ... -->\` comment at the end. META_DESCRIPTION MUST be 150 characters or fewer (aim for 140-150 for SEO).
 - End with an FAQ section of 5–10 questions and answers unless explicitly disabled.
 
 Word count guideline: aim for 1,500–2,000 words when the topic allows. Shorter is acceptable only if the topic is genuinely narrow.
@@ -160,7 +160,7 @@ Output order:
 6. Main body sections with id attributes on all H2s
 7. FAQ section with 5–10 Q&A pairs
 8. TWO JSON-LD blocks: FAQPage, BlogPosting
-9. At the very end: \`<!-- META_TITLE: ... -->\` and \`<!-- META_DESCRIPTION: ... -->\`
+9. At the very end: \`<!-- META_TITLE: ... -->\` and \`<!-- META_DESCRIPTION: ... -->\` (META_DESCRIPTION must be ≤150 characters)
 
 CRITICAL: Output ONLY valid HTML. No Markdown. Every paragraph in <p> tags.
 CRITICAL: Your VERY FIRST character must be "<". Do NOT write "html", "```html", "```", or any other text before the opening tag.

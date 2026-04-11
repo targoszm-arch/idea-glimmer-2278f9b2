@@ -157,7 +157,7 @@ const EditArticle = () => {
         slug,
         content,
         excerpt,
-        meta_description: excerpt.slice(0, 255),
+        meta_description: metaDescription.trim().slice(0, 150),
         category,
         status: finalStatus,
         cover_image_url: coverImageUrl,
@@ -822,6 +822,30 @@ const EditArticle = () => {
                 placeholder="Author Name"
                 className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
 
+            </div>
+
+            <div className="mt-4">
+              <div className="flex items-baseline justify-between">
+                <label className="text-sm font-medium text-foreground">Meta Description</label>
+                <span className={`text-xs ${metaDescription.length > 150 ? "text-destructive" : "text-muted-foreground"}`}>
+                  {metaDescription.length} / 150
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Shown in search results and social shares. Keep it under 150 characters.
+              </p>
+              <textarea
+                value={metaDescription}
+                onChange={(e) => setMetaDescription(e.target.value.slice(0, 150))}
+                placeholder="A short, compelling description of this article…"
+                rows={2}
+                maxLength={150}
+                className={`mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 ${
+                  metaDescription.length > 150
+                    ? "border-destructive focus:border-destructive focus:ring-destructive"
+                    : "border-border focus:border-primary focus:ring-primary"
+                }`}
+              />
             </div>
 
             <RelatedArticlesPicker
