@@ -85,6 +85,12 @@ async function authenticate(req: Request): Promise<AuthContext | Response> {
 // We use the service role key + user_id_override (the path generate-article
 // already supports for automation runners), since `cl_` keys aren't valid
 // Bearer tokens for that function.
+//
+// generate-article takes 60–120s (Perplexity research + LLM writing), which
+// exceeds the MCP request timeout and most MCP client timeouts. So we fire
+// the call in the background via EdgeRuntime.waitUntil and return immediately
+// with a hint to poll list_articles. The article appears in the user's
+// library when generation finishes (or never, if it fails — see logs).
 async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknown> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -95,28 +101,39 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
 
   const body = { ...args, user_id_override: ctx.userId };
 
-  const res = await fetch(`${supabaseUrl}/functions/v1/generate-article`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${serviceKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-
-  const text = await res.text();
-  let parsed: any = text;
-  try { parsed = JSON.parse(text); } catch { /* not JSON */ }
-
-  if (!res.ok) {
-    if (parsed?.code === "NO_CREDITS") {
-      throw new Error("Insufficient credits — purchase more in Settings → Billing");
+  const generation = (async () => {
+    try {
+      const res = await fetch(`${supabaseUrl}/functions/v1/generate-article`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        console.error(`[create_article] generate-article failed for user ${ctx.userId}: ${res.status} ${text}`);
+      } else {
+        console.log(`[create_article] generation finished for user ${ctx.userId}`);
+      }
+    } catch (e) {
+      console.error(`[create_article] background fetch threw for user ${ctx.userId}:`, e);
     }
-    const msg = parsed?.error ?? `generate-article returned ${res.status}`;
-    throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
-  }
+  })();
 
-  return parsed;
+  // Detach so the response can return immediately. Available on Supabase
+  // edge runtime; falls back to a no-op if EdgeRuntime is unavailable.
+  // deno-lint-ignore no-explicit-any
+  const er = (globalThis as any).EdgeRuntime;
+  if (er?.waitUntil) er.waitUntil(generation);
+
+  return {
+    status: "started",
+    topic: args.topic,
+    message:
+      "Article generation started. Typical runtime is 60–120 seconds. Call `list_articles` in about a minute to see your new article. 5 credits will be deducted only if generation succeeds.",
+  };
 }
 
 async function listArticlesHandler(args: any, ctx: AuthContext): Promise<unknown> {
@@ -206,7 +223,7 @@ const TOOLS: ToolDef[] = [
   {
     name: "create_article",
     description:
-      "Generate a new SEO-ready article (1,500–2,000 words) from a topic, grounded in current web data via Perplexity. Costs 5 Content Lab credits. Returns the saved article with id, title, slug, and content.",
+      "Start generating a new SEO-ready article (1,500–2,000 words) from a topic, grounded in current web data via Perplexity. Costs 5 Content Lab credits. Returns IMMEDIATELY with status: started — generation runs in the background and typically completes in 60–120 seconds. Call `list_articles` after ~60s to see the finished article in the user's library.",
     inputSchema: {
       type: "object",
       required: ["topic"],
