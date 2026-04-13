@@ -33,17 +33,23 @@ endpoint, JSON-RPC 2.0 framing).
 
 ### Claude Desktop
 
+Requires Node.js (https://nodejs.org). `npx` downloads `mcp-remote`
+automatically on first run.
+
 Add to `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "contentlab": {
-      "transport": "http",
-      "url": "https://rnshobvpqegttrpaowxe.supabase.co/functions/v1/contentlab-mcp",
-      "headers": {
-        "Authorization": "Bearer cl_your_key_here"
-      }
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://rnshobvpqegttrpaowxe.supabase.co/functions/v1/contentlab-mcp",
+        "--header",
+        "Authorization: Bearer cl_your_key_here"
+      ]
     }
   }
 }
