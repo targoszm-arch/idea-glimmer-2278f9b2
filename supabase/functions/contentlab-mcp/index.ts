@@ -221,8 +221,50 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
       const { data, error } = await admin.from("articles").insert(payload).select().single();
       if (error) {
         console.error(`[create_article] DB insert failed for user ${ctx.userId}: ${error.message}`);
-      } else {
-        console.log(`[create_article] saved article ${data.id} (${title}) for user ${ctx.userId}`);
+        return;
+      }
+      console.log(`[create_article] saved article ${data.id} (${title}) for user ${ctx.userId}`);
+
+      // Generate a cover image the same way the browser UI does (DALL-E 3 via
+      // the generate-cover-image edge function). The UI treats this as a
+      // separate step a user clicks, but for MCP-driven article creation we
+      // do it automatically — Claude has no other affordance to request one.
+      // Costs 5 additional credits. If it fails, we still keep the article.
+      try {
+        const coverPrompt = metaDescription.trim() || title;
+        const contextSnippet = plainText.slice(0, 500);
+        const coverRes = await fetch(`${supabaseUrl}/functions/v1/generate-cover-image`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${serviceKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: coverPrompt,
+            context: contextSnippet,
+            user_id_override: ctx.userId,
+          }),
+        });
+        if (!coverRes.ok) {
+          const errText = await coverRes.text();
+          console.warn(`[create_article] cover image skipped for article ${data.id}: ${coverRes.status} ${errText}`);
+        } else {
+          const coverJson = await coverRes.json();
+          const imageUrl: string | undefined = coverJson?.image_url;
+          if (imageUrl) {
+            const { error: updateErr } = await admin
+              .from("articles")
+              .update({ cover_image_url: imageUrl })
+              .eq("id", data.id);
+            if (updateErr) {
+              console.warn(`[create_article] cover image URL update failed for article ${data.id}: ${updateErr.message}`);
+            } else {
+              console.log(`[create_article] cover image attached to article ${data.id}`);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`[create_article] cover image generation threw for article ${data.id}:`, e);
       }
     } catch (e) {
       console.error(`[create_article] background generation threw for user ${ctx.userId}:`, e);
@@ -238,7 +280,7 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
     status: "started",
     topic: args.topic,
     message:
-      "Article generation started. Typical runtime is 60–120 seconds. Call `list_articles` in about a minute to see your new article (it will appear with status='draft'). 5 credits are deducted up front regardless of success; the article row is only created on success.",
+      "Article generation started. A DALL-E 3 cover image is generated automatically after the article finishes. Typical total runtime is 90–150 seconds. Call `list_articles` in about 2 minutes to see your new article with its cover image (status='draft'). Costs 5 credits for the article + 5 credits for the cover image = 10 credits. The article is saved even if cover-image generation fails; you can regenerate the cover from the article editor.",
   };
 }
 
@@ -329,7 +371,7 @@ const TOOLS: ToolDef[] = [
   {
     name: "create_article",
     description:
-      "Start generating a new SEO-ready article (1,500–2,000 words) from a topic, grounded in current web data via Perplexity. Costs 5 Content Lab credits. Returns IMMEDIATELY with status: started — generation runs in the background and typically completes in 60–120 seconds. Call `list_articles` after ~60s to see the finished article in the user's library.",
+      "Start generating a new SEO-ready article (1,500–2,000 words) from a topic, grounded in current web data via Perplexity. A photorealistic cover image is generated automatically via DALL-E 3 once the article is saved. Costs 10 Content Lab credits total (5 for the article + 5 for the cover image). Returns IMMEDIATELY with status: started — generation runs in the background and typically completes in 90–150 seconds end-to-end. Call `list_articles` after ~2 minutes to see the finished article (with its cover_image_url populated) in the user's library.",
     inputSchema: {
       type: "object",
       required: ["topic"],
