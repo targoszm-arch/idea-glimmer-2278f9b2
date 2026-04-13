@@ -32,6 +32,17 @@ const RPC_INTERNAL_ERROR = -32603;
 const DEFAULT_PROTOCOL_VERSION = "2024-11-05";
 const SERVER_INFO = { name: "contentlab-mcp", version: "0.1.0" };
 
+// Public app URL used for deep-links surfaced back to MCP clients.
+const APP_URL = "https://www.app.content-lab.ie";
+const CALENDAR_URL = `${APP_URL}/calendar`;
+
+// Safety cap — how many future `status='scheduled'` rows a single user may
+// accumulate before `schedule_social_post` starts refusing new ones. A
+// runaway agent (like the one that scheduled 20 LinkedIn posts unprompted)
+// should hit this, back off, and ask the user before continuing. Users can
+// override by passing `force: true` in the tool arguments.
+const MCP_SCHEDULE_CAP = 5;
+
 type AuthContext = { userId: string; admin: SupabaseClient; token: string };
 
 // ---------------------------------------------------------------------------
@@ -316,7 +327,11 @@ async function listSocialPostsHandler(args: any, ctx: AuthContext): Promise<unkn
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return { count: data?.length ?? 0, posts: data ?? [] };
+  return {
+    count: data?.length ?? 0,
+    posts: data ?? [],
+    review_url: CALENDAR_URL,
+  };
 }
 
 async function scheduleSocialPostHandler(args: any, ctx: AuthContext): Promise<unknown> {
@@ -324,6 +339,7 @@ async function scheduleSocialPostHandler(args: any, ctx: AuthContext): Promise<u
   const content = args?.content;
   const scheduledAt = args?.scheduled_at;
   const articleId = args?.article_id ?? null;
+  const force = args?.force === true;
 
   if (platform !== "linkedin") throw new Error("Only `platform: linkedin` is supported in v1");
   if (typeof content !== "string" || content.trim().length === 0) throw new Error("`content` is required");
@@ -332,6 +348,27 @@ async function scheduleSocialPostHandler(args: any, ctx: AuthContext): Promise<u
   const when = new Date(scheduledAt);
   if (isNaN(when.getTime())) throw new Error("`scheduled_at` is not a valid ISO 8601 datetime");
   if (when.getTime() <= Date.now()) throw new Error("`scheduled_at` must be in the future");
+
+  // Safety cap: count existing future-scheduled posts for this user and
+  // refuse to add more once the cap is hit, unless the caller passes
+  // `force: true`. This stops an agent from silently queuing up 20 posts.
+  if (!force) {
+    const { count: pendingCount, error: countError } = await ctx.admin
+      .from("social_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", ctx.userId)
+      .eq("status", "scheduled")
+      .gt("scheduled_at", new Date().toISOString());
+
+    if (countError) throw new Error(`Failed to check schedule cap: ${countError.message}`);
+    if ((pendingCount ?? 0) >= MCP_SCHEDULE_CAP) {
+      throw new Error(
+        `Schedule cap reached: you already have ${pendingCount} scheduled posts (cap is ${MCP_SCHEDULE_CAP}). ` +
+          `Ask the user to review/cancel pending posts at ${CALENDAR_URL} before scheduling more. ` +
+          `If the user explicitly wants to exceed the cap, call this tool again with \`force: true\`.`,
+      );
+    }
+  }
 
   // `topic` is NOT NULL on the table; derive a short label from content.
   const topic = content.slice(0, 100);
@@ -351,7 +388,7 @@ async function scheduleSocialPostHandler(args: any, ctx: AuthContext): Promise<u
     .single();
 
   if (error) throw new Error(error.message);
-  return data;
+  return { ...data, review_url: CALENDAR_URL };
 }
 
 // ---------------------------------------------------------------------------
@@ -414,7 +451,8 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: "list_social_posts",
-    description: "List the authenticated user's social posts (drafted, scheduled, posted, or failed), newest first.",
+    description:
+      "List the authenticated user's social posts (drafted, scheduled, posted, or failed), newest first. The response includes a `review_url` pointing at the user's Content Lab calendar (https://www.app.content-lab.ie/calendar) — surface this URL so the user can review, edit, or cancel scheduled posts.",
     inputSchema: {
       type: "object",
       properties: {
@@ -428,7 +466,7 @@ const TOOLS: ToolDef[] = [
   {
     name: "schedule_social_post",
     description:
-      "Schedule a LinkedIn post for future auto-publishing. The Content Lab cron worker (process-scheduled-posts) picks up due rows every minute and posts via the LinkedIn UGC API. Requires the user to have connected LinkedIn in Settings → Integrations.",
+      "Schedule a LinkedIn post for future auto-publishing. The Content Lab cron worker (process-scheduled-posts) picks up due rows every minute and posts via the LinkedIn UGC API. Requires the user to have connected LinkedIn in Settings → Integrations. A safety cap limits each user to 5 future-scheduled posts at a time; if exceeded, the tool errors unless `force: true` is passed. Always tell the user they can review or cancel scheduled posts at https://www.app.content-lab.ie/calendar.",
     inputSchema: {
       type: "object",
       required: ["platform", "content", "scheduled_at"],
@@ -444,6 +482,12 @@ const TOOLS: ToolDef[] = [
           type: "string",
           format: "uuid",
           description: "Optional source article whose URL is attached as a link preview.",
+        },
+        force: {
+          type: "boolean",
+          default: false,
+          description:
+            "Set to true to bypass the 5-post schedule cap. Only pass this when the user has explicitly asked to schedule more than 5 posts in one go.",
         },
       },
     },
