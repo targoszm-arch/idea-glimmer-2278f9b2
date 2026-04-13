@@ -81,16 +81,24 @@ async function authenticate(req: Request): Promise<AuthContext | Response> {
 // ---------------------------------------------------------------------------
 
 // create_article — re-invoke the existing generate-article edge function so
-// credit deduction, Perplexity wiring, and DB insert all stay in one place.
+// credit deduction, Perplexity wiring, and the prompt stay in one place.
 // We use the service role key + user_id_override (the path generate-article
-// already supports for automation runners), since `cl_` keys aren't valid
-// Bearer tokens for that function.
+// already supports for automation runners).
 //
-// generate-article takes 60–120s (Perplexity research + LLM writing), which
-// exceeds the MCP request timeout and most MCP client timeouts. So we fire
-// the call in the background via EdgeRuntime.waitUntil and return immediately
-// with a hint to poll list_articles. The article appears in the user's
-// library when generation finishes (or never, if it fails — see logs).
+// IMPORTANT: generate-article is a streaming endpoint — it pipes the
+// Perplexity response body straight through and does NOT write to the
+// articles table. The browser UI consumes the stream, assembles the HTML,
+// and then calls a direct `articles.insert()`. So for MCP we have to do the
+// same thing server-side:
+//   1. Fire the fetch in the background (EdgeRuntime.waitUntil)
+//   2. Read the SSE stream, accumulate the generated HTML
+//   3. Parse title + meta JSON out of the content
+//   4. Insert the article row ourselves
+// Otherwise credits get deducted but nothing is ever saved.
+//
+// Because the Perplexity generation takes 60–120s we can't await this in
+// the HTTP request — we return `status: started` immediately and the user
+// polls list_articles.
 async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknown> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -111,19 +119,117 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
         },
         body: JSON.stringify(body),
       });
-      const text = await res.text();
+
       if (!res.ok) {
-        console.error(`[create_article] generate-article failed for user ${ctx.userId}: ${res.status} ${text}`);
+        const errText = await res.text();
+        console.error(`[create_article] generate-article returned ${res.status} for user ${ctx.userId}: ${errText}`);
+        return;
+      }
+      if (!res.body) {
+        console.error(`[create_article] no response body from generate-article for user ${ctx.userId}`);
+        return;
+      }
+
+      // Consume the SSE stream from Perplexity (via generate-article).
+      // Each line looks like: `data: {"choices":[{"delta":{"content":"..."}}]}`
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let html = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) continue;
+          const payload = trimmed.slice(5).trim();
+          if (payload === "[DONE]" || payload === "") continue;
+          try {
+            const json = JSON.parse(payload);
+            const delta = json?.choices?.[0]?.delta?.content;
+            if (typeof delta === "string") html += delta;
+          } catch { /* skip malformed chunks */ }
+        }
+      }
+
+      if (html.trim().length === 0) {
+        console.error(`[create_article] empty generation for user ${ctx.userId}`);
+        return;
+      }
+
+      // Parse title from first <h1>
+      const titleMatch = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+      const title = titleMatch
+        ? titleMatch[1].replace(/<[^>]+>/g, "").trim().slice(0, 200)
+        : args.topic.slice(0, 80);
+
+      // Parse meta JSON block and strip it from content
+      let articleMeta: Record<string, unknown> | null = null;
+      let metaDescription = "";
+      const metaMatch = html.match(/<!--\s*META_JSON_START([\s\S]*?)META_JSON_END\s*-->/);
+      if (metaMatch) {
+        try {
+          articleMeta = JSON.parse(metaMatch[1].trim());
+          const md = articleMeta?.meta_description;
+          if (typeof md === "string") metaDescription = md;
+        } catch (e) {
+          console.warn(`[create_article] meta JSON parse failed for user ${ctx.userId}:`, e);
+        }
+      }
+
+      // Clean: strip meta block, strip any leftover code fences, strip inline styles.
+      const cleanContent = html
+        .replace(/<!--\s*META_JSON_START[\s\S]*?META_JSON_END\s*-->/g, "")
+        .replace(/^```html\s*|\s*```\s*$/g, "")
+        .replace(/\s*style="[^"]*"/gi, "")
+        .trim();
+
+      const plainText = cleanContent.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      const excerpt = plainText.slice(0, 200);
+      const wordCount = plainText.split(/\s+/).filter(Boolean).length;
+      const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+
+      const slug = title
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 64) || `article-${Date.now()}`;
+
+      const payload: Record<string, unknown> = {
+        user_id: ctx.userId,
+        title,
+        slug,
+        content: cleanContent,
+        excerpt,
+        meta_description: metaDescription.slice(0, 150),
+        category: args.category ?? "",
+        content_type: args.content_type ?? "blog",
+        status: "draft",
+        reading_time_minutes: readingTime,
+      };
+      if (articleMeta) payload.article_meta = articleMeta;
+
+      const admin = createClient(supabaseUrl, serviceKey);
+      const { data, error } = await admin.from("articles").insert(payload).select().single();
+      if (error) {
+        console.error(`[create_article] DB insert failed for user ${ctx.userId}: ${error.message}`);
       } else {
-        console.log(`[create_article] generation finished for user ${ctx.userId}`);
+        console.log(`[create_article] saved article ${data.id} (${title}) for user ${ctx.userId}`);
       }
     } catch (e) {
-      console.error(`[create_article] background fetch threw for user ${ctx.userId}:`, e);
+      console.error(`[create_article] background generation threw for user ${ctx.userId}:`, e);
     }
   })();
 
-  // Detach so the response can return immediately. Available on Supabase
-  // edge runtime; falls back to a no-op if EdgeRuntime is unavailable.
+  // Detach so the HTTP response returns immediately.
   // deno-lint-ignore no-explicit-any
   const er = (globalThis as any).EdgeRuntime;
   if (er?.waitUntil) er.waitUntil(generation);
@@ -132,7 +238,7 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
     status: "started",
     topic: args.topic,
     message:
-      "Article generation started. Typical runtime is 60–120 seconds. Call `list_articles` in about a minute to see your new article. 5 credits will be deducted only if generation succeeds.",
+      "Article generation started. Typical runtime is 60–120 seconds. Call `list_articles` in about a minute to see your new article (it will appear with status='draft'). 5 credits are deducted up front regardless of success; the article row is only created on success.",
   };
 }
 
