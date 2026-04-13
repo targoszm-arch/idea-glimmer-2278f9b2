@@ -91,18 +91,21 @@ export function SocialPostPreviewModal({
     setScheduling(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from("social_posts" as any).insert({
-        user_id: user?.id, platform, content: editedContent,
+      if (!user) throw new Error("Not signed in");
+      const { error } = await supabase.from("social_posts" as any).insert({
+        user_id: user.id, platform, content: editedContent,
         topic: topic || articleTitle, title: articleTitle || topic,
         article_id: articleId || null, article_title: articleTitle || null,
         scheduled_at: new Date(scheduleDate).toISOString(), status: "scheduled",
         media_url: mediaUrl || null, media_type: mediaType || null,
       });
+      if (error) throw error;
       setScheduled(true);
       toast({ title: "✓ Post scheduled!", description: `Will be sent ${new Date(scheduleDate).toLocaleString()}` });
       onSaved?.();
     } catch (e: any) {
-      toast({ title: "Schedule failed", description: e.message, variant: "destructive" });
+      console.error("Schedule post failed:", e);
+      toast({ title: "Schedule failed", description: e.message || "Unknown error — check console", variant: "destructive" });
     }
     setScheduling(false);
   }
