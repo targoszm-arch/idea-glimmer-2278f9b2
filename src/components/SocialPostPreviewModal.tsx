@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Linkedin, Twitter, Instagram, Send, Calendar, Loader2, Check, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +44,20 @@ export function SocialPostPreviewModal({
   const [posted, setPosted] = useState(false);
   const [scheduled, setScheduled] = useState(false);
   const { toast } = useToast();
+
+  // The parent keeps a single instance of this modal mounted and toggles
+  // `open` + swaps `content`. Because `useState(content)` only reads the
+  // initial value on mount, the textarea would stay stuck on whatever content
+  // was in place the first time the modal rendered (usually "" — the idle
+  // state). Re-sync editedContent and reset transient flags every time the
+  // modal opens or receives new content.
+  useEffect(() => {
+    if (!open) return;
+    setEditedContent(content);
+    setTab("preview");
+    setPosted(false);
+    setScheduled(false);
+  }, [open, content]);
 
   if (!open) return null;
 

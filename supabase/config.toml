@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.generate-api-key]
 verify_jwt = false
+
+[functions.contentlab-mcp]
+verify_jwt = false
