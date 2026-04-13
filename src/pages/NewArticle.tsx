@@ -23,6 +23,7 @@ import AIAssistantPanel from "@/components/AIAssistantPanel";
 import { supabase } from "@/lib/supabase";
 import { TONE_PRESETS } from "@/lib/tones";
 import { streamAI } from "@/lib/ai-stream";
+import { toSlug, buildUrlPath } from "@/lib/slug";
 import { toast } from "@/hooks/use-toast";
 import { MediaLibraryPicker } from "../components/MediaLibraryPicker";
 import { UnsplashPicker } from "../components/UnsplashPicker";
@@ -391,7 +392,7 @@ const NewArticle = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo";
-      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").substring(0, 64);
+      const slug = buildUrlPath({ title, contentType, category });
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/publish-to-framer`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -474,7 +475,8 @@ const NewArticle = () => {
       const content = (editor?.getHTML() || "").replace(/\s*style="[^"]*"/gi, "");
       const plainText = editor?.getText() || "";
       const excerpt = plainText.slice(0, 200);
-      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").substring(0, 64).replace(/-+$/, "");
+      const slug = toSlug(title, 64);
+      const url_path = buildUrlPath({ title, contentType, category, existingSlug: slug });
 
       const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
       const reading_time_minutes = Math.max(1, Math.ceil(wordCount / 200));
@@ -490,13 +492,15 @@ const NewArticle = () => {
         excerpt,
         meta_description: generatedMetaDescription.trim().slice(0, 150),
         category,
+        content_type: contentType,
+        url_path,
         status,
         cover_image_url: coverImageUrl,
         author_name: authorName.trim(),
         reading_time_minutes,
         ...(articleMeta ? { article_meta: articleMeta } : {}),
         faq_html
-      };
+      } as any;
 
       let data: any;
       let error: any;

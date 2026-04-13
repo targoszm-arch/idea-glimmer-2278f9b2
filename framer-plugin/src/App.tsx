@@ -9,6 +9,8 @@ type Article = {
   reading_time_minutes: number | null; author_name: string | null
   keywords: string | null; facts: string | null; references: string | null
   related_article_ids: string[] | null
+  content_type: string | null
+  url_path: string | null
 }
 
 import { PLUGIN_DATA_KEY } from "./constants"
@@ -82,10 +84,11 @@ function toSlug(str: string): string {
   return str
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/[^a-z0-9\s\-\/]/g, "") // preserve "/" so url_path values survive
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "") || "article"
+    .replace(/\/+/g, "/")
+    .replace(/^[-\/]|[-\/]$/g, "") || "article"
 }
 
 export async function syncArticles(collection: any, category: string, apiKey?: string): Promise<number> {
@@ -113,7 +116,9 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
     const validRelated = (a.related_article_ids ?? []).filter((rid) => contentLabIds.has(rid))
     return {
       id: a.id,
-      slug: toSlug(a.slug || a.title || a.id),
+      // Prefer url_path (e.g. "instructional-design/3-ways-to-elevate-online-courses")
+      // so Framer routes land on the correct URL structure.
+      slug: toSlug(a.url_path || a.slug || a.title || a.id),
       fieldData: {
         [F.title]:       { type: "string" as const,        value: a.title ?? "" },
         [F.body]:        { type: "formattedText" as const, value: a.content ?? "" },

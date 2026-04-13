@@ -23,6 +23,7 @@ import { useCredits, CREDIT_COSTS } from "@/hooks/use-credits";
 import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 import PlatformLogo from "@/components/PlatformLogo";
 import RelatedArticlesPicker from "@/components/RelatedArticlesPicker";
+import { toSlug, buildUrlPath } from "@/lib/slug";
 import DOMPurify from "dompurify";
 import { MediaLibraryPicker } from "../components/MediaLibraryPicker";
 import { UnsplashPicker } from "../components/UnsplashPicker";
@@ -71,6 +72,7 @@ const EditArticle = () => {
   const [showPlatformPicker, setShowPlatformPicker] = useState<"notion" | "shopify" | "intercom" | null>(null);
   const [authorName, setAuthorName] = useState("");
   const [relatedArticleIds, setRelatedArticleIds] = useState<string[]>([]);
+  const [contentType, setContentType] = useState<"blog" | "user_guide" | "how_to">("blog");
   const [metaDescription, setMetaDescription] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCreditsDialog, setShowCreditsDialog] = useState(false);
@@ -116,6 +118,7 @@ const EditArticle = () => {
       setShopifyArticleId((data as any).shopify_article_id || null);
       setAuthorName((data as any).author_name || "");
       setRelatedArticleIds((data as any).related_article_ids || []);
+      setContentType(((data as any).content_type as any) || "blog");
       setMetaDescription(data.meta_description || "");
       // Strip any markdown fences or preamble before first HTML tag
       let articleContent = data.content || "";
@@ -138,10 +141,8 @@ const EditArticle = () => {
       const content = (editor?.getHTML() || "").replace(/\s*style="[^"]*"/gi, "");
       const plainText = editor?.getText() || "";
       const excerpt = plainText.slice(0, 200);
-      const slug = title.
-      toLowerCase().
-      replace(/[^a-z0-9]+/g, "-").
-      replace(/(^-|-$)/g, "");
+      const slug = toSlug(title, 80);
+      const url_path = buildUrlPath({ title, contentType, category, existingSlug: slug });
       const finalStatus = newStatus || status;
 
       const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
@@ -153,6 +154,8 @@ const EditArticle = () => {
       const baseUpdate = {
         title,
         slug,
+        url_path,
+        content_type: contentType,
         content,
         excerpt,
         meta_description: metaDescription.trim().slice(0, 150),
@@ -163,22 +166,22 @@ const EditArticle = () => {
         reading_time_minutes,
         faq_html,
         updated_at: new Date().toISOString()
-      };
+      } as any;
 
       // Try to save with related_article_ids. If the column doesn't exist yet
-      // (migration not applied), fall back to saving without it so the user
-      // can still edit articles.
-      let { error } = await supabase
-        .from("articles")
-        .update({ ...baseUpdate, related_article_ids: relatedArticleIds } as any)
-        .eq("id", id);
+      // (migrations not applied), fall back to saving without the new fields
+      // so the user can still edit articles.
+      let attempt = { ...baseUpdate, related_article_ids: relatedArticleIds } as any;
+      let { error } = await supabase.from("articles").update(attempt).eq("id", id);
 
-      if (error && /related_article_ids/i.test(error.message || "")) {
-        console.warn("related_article_ids column missing — run migration 20260410000000_add_related_articles.sql. Falling back.");
-        ({ error } = await supabase
-          .from("articles")
-          .update(baseUpdate)
-          .eq("id", id));
+      // Retry removing columns that don't exist yet, one at a time.
+      const missingColumns = ["url_path", "content_type", "related_article_ids"];
+      for (const col of missingColumns) {
+        if (error && new RegExp(col, "i").test(error.message || "")) {
+          console.warn(`${col} column missing — run its migration. Falling back.`);
+          delete attempt[col];
+          ({ error } = await supabase.from("articles").update(attempt).eq("id", id));
+        }
       }
 
       if (error) {
