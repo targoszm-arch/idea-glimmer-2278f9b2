@@ -119,7 +119,13 @@ serve(async (req) => {
         continue;
       }
 
-      // Optionally fetch the article URL so the post includes a link preview
+      // Optionally fetch the article URL so the post includes a link preview.
+      // IMPORTANT: this URL is what LinkedIn scrapes for the og:* metadata and
+      // what readers actually click. It MUST be the public-facing marketing
+      // site (skillstudio.ai) — not the internal Content Lab app. Previously
+      // this pointed at `app.content-lab.ie/article/<slug>`, which is an
+      // authenticated app URL; every shared LinkedIn post linked to a login
+      // screen.
       let articleUrl: string | null = null;
       if (post.article_id) {
         const { data: article } = await supabase
@@ -128,7 +134,7 @@ serve(async (req) => {
           .eq("id", post.article_id)
           .maybeSingle();
         if (article?.slug) {
-          articleUrl = `https://www.app.content-lab.ie/article/${article.slug}`;
+          articleUrl = `https://www.skillstudio.ai/latest-articles/${article.slug}`;
         }
       }
 
