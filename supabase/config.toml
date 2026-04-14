@@ -65,3 +65,11 @@ verify_jwt = false
 
 [functions.contentlab-mcp]
 verify_jwt = false
+
+# Cron workers — callable by pg_cron without a JWT. Mirrors
+# process-newsletter-queue which ships the same way.
+[functions.process-scheduled-posts]
+verify_jwt = false
+
+[functions.process-newsletter-queue]
+verify_jwt = false
