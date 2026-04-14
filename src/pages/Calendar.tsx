@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Plus, Play, Pause, Trash2, Edit, Clock, Zap, Check, Loader2, FileText, ArrowRight, CalendarDays } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -152,6 +152,26 @@ export default function CalendarPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Pre-set the form's automation type when opened. Lets the page render
+  // two distinct entry points ("New Automation" vs "Schedule Newsletter")
+  // and lets the /automations page deep-link to the newsletter flow via
+  // /calendar?newsletter=1 — newsletters are one-time sends, not recurring,
+  // and previously the only way to discover that was to open the modal
+  // and click a hidden toggle.
+  const [formInitialType, setFormInitialType] = useState<"article" | "newsletter">("article");
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("newsletter") === "1") {
+      setEditingId(null);
+      setFormInitialType("newsletter");
+      setShowForm(true);
+      // Strip the param so a refresh doesn't re-open the modal.
+      const next = new URLSearchParams(searchParams);
+      next.delete("newsletter");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const [runState, setRunState] = useState<{
     automationId: string;
@@ -214,6 +234,26 @@ export default function CalendarPage() {
     return map;
   }, [runs, calYear, calMonth]);
 
+  // Scheduled social posts (LinkedIn etc.) indexed by day of this month.
+  // These are inserted into `social_posts` with status='scheduled' — either
+  // from the post preview modal or via the MCP `schedule_social_post` tool.
+  // Until this was added, posts scheduled via MCP never surfaced in the UI
+  // even though the cron worker happily auto-published them.
+  const socialPostsByDay = useMemo(() => {
+    const map = new Map<number, any[]>();
+    for (const p of scheduledPosts) {
+      if (!p.scheduled_at) continue;
+      const d = new Date(p.scheduled_at);
+      if (d.getFullYear() === calYear && d.getMonth() === calMonth) {
+        const day = d.getDate();
+        const arr = map.get(day) || [];
+        arr.push(p);
+        map.set(day, arr);
+      }
+    }
+    return map;
+  }, [scheduledPosts, calYear, calMonth]);
+
   const firstDayOfMonth = new Date(calYear, calMonth, 1).getDay();
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
   const today = new Date();
@@ -236,6 +276,26 @@ export default function CalendarPage() {
     const d = new Date(n.scheduled_at);
     return d.getFullYear() === calYear && d.getMonth() === calMonth && d.getDate() === selectedDay;
   }) : [];
+  const selectedDaySocialPosts = selectedDay ? (socialPostsByDay.get(selectedDay) || []) : [];
+
+  async function deleteSocialPost(id: string) {
+    if (!confirm("Cancel this scheduled post? It will not be published.")) return;
+    const { error } = await supabase.from("social_posts" as any).delete().eq("id", id);
+    if (error) { toast.error(`Couldn't cancel: ${error.message}`); return; }
+    setScheduledPosts(prev => prev.filter((p: any) => p.id !== id));
+    toast.success("Scheduled post cancelled");
+  }
+
+  async function cancelAllScheduledPosts() {
+    const pending = scheduledPosts.filter((p: any) => p.status === "scheduled");
+    if (pending.length === 0) return;
+    if (!confirm(`Cancel ALL ${pending.length} scheduled posts? This cannot be undone.`)) return;
+    const ids = pending.map((p: any) => p.id);
+    const { error } = await supabase.from("social_posts" as any).delete().in("id", ids);
+    if (error) { toast.error(`Bulk cancel failed: ${error.message}`); return; }
+    setScheduledPosts(prev => prev.filter((p: any) => p.status !== "scheduled"));
+    toast.success(`Cancelled ${pending.length} scheduled posts`);
+  }
 
   async function toggleActive(id: string, current: boolean) {
     await supabase.from("automations" as any).update({ is_active: !current }).eq("id", id);
@@ -325,12 +385,21 @@ export default function CalendarPage() {
             <h1 className="text-2xl font-bold">Content Calendar</h1>
             <p className="text-muted-foreground text-sm mt-1">Schedule and manage your automated content publishing</p>
           </div>
-          <button
-            onClick={() => { setEditingId(null); setShowForm(true); }}
-            className="flex items-center gap-2 bg-primary text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="w-4 h-4" /> New Automation
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setEditingId(null); setFormInitialType("article"); setShowForm(true); }}
+              className="flex items-center gap-2 bg-primary text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Schedule Article Automation
+            </button>
+            <button
+              onClick={() => { setEditingId(null); setFormInitialType("newsletter"); setShowForm(true); }}
+              className="flex items-center gap-2 border border-primary text-primary rounded-lg px-4 py-2 text-sm font-semibold hover:bg-primary/5 transition-colors"
+              title="Schedule a one-time newsletter send"
+            >
+              <Plus className="w-4 h-4" /> Schedule Newsletter
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -373,6 +442,7 @@ export default function CalendarPage() {
                   const d = new Date(n.scheduled_at);
                   return d.getFullYear() === calYear && d.getMonth() === calMonth && d.getDate() === day;
                 });
+                const daySocialPosts = socialPostsByDay.get(day) || [];
 
                 return (
                   <button
@@ -407,6 +477,19 @@ export default function CalendarPage() {
                       {dayNewsletters.length > 1 && (
                         <div className="text-[10px] text-muted-foreground">+{dayNewsletters.length - 1} newsletter</div>
                       )}
+                      {/* Social post dots (LinkedIn etc.) */}
+                      {daySocialPosts.slice(0, 2).map((p: any) => (
+                        <div key={p.id} className={`text-[10px] leading-tight rounded px-1 truncate flex items-center gap-0.5 ${
+                          p.status === "posted" ? "bg-green-100 text-green-700" :
+                          p.status === "failed" ? "bg-red-100 text-red-700" :
+                          "bg-sky-100 text-sky-700"
+                        }`}>
+                          in {p.topic || "LinkedIn post"}
+                        </div>
+                      ))}
+                      {daySocialPosts.length > 2 && (
+                        <div className="text-[10px] text-muted-foreground">+{daySocialPosts.length - 2} social</div>
+                      )}
                     </div>
 
                     {/* Past run indicators */}
@@ -423,9 +506,10 @@ export default function CalendarPage() {
             </div>
 
             {/* Legend */}
-            <div className="px-6 py-3 border-t border-border flex items-center gap-4 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-100" /> Scheduled</span>
+            <div className="px-6 py-3 border-t border-border flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-100" /> Automation</span>
               <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-purple-100" /> Newsletter</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-sky-100" /> Social post</span>
               <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500" /> Ran successfully</span>
               <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-400" /> Failed</span>
             </div>
@@ -442,8 +526,8 @@ export default function CalendarPage() {
                   {MONTH_NAMES[calMonth]} {selectedDay}
                 </h3>
 
-                {selectedDayAutomations.length === 0 && selectedDayRuns.length === 0 && selectedDayNewsletters.length === 0 && (
-                  <p className="text-xs text-muted-foreground">No automations scheduled for this day.</p>
+                {selectedDayAutomations.length === 0 && selectedDayRuns.length === 0 && selectedDayNewsletters.length === 0 && selectedDaySocialPosts.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Nothing scheduled for this day.</p>
                 )}
 
                 {selectedDayAutomations.length > 0 && (
@@ -486,8 +570,56 @@ export default function CalendarPage() {
                   </div>
                 )}
 
+                {selectedDaySocialPosts.length > 0 && (
+                  <div className={selectedDayAutomations.length > 0 ? "mt-3" : ""}>
+                    <p className="text-xs font-medium text-muted-foreground uppercase mb-2">in Social Posts</p>
+                    <div className="space-y-1.5">
+                      {selectedDaySocialPosts.map((p: any) => (
+                        <div key={p.id} className={`rounded-lg px-3 py-2 ${
+                          p.status === "posted" ? "bg-green-50" :
+                          p.status === "failed" ? "bg-red-50" :
+                          "bg-sky-50"
+                        }`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-xs font-medium truncate ${
+                                p.status === "posted" ? "text-green-800" :
+                                p.status === "failed" ? "text-red-800" :
+                                "text-sky-800"
+                              }`}>{p.topic || (p.platform || "linkedin") + " post"}</p>
+                              <p className={`text-[10px] ${
+                                p.status === "posted" ? "text-green-600" :
+                                p.status === "failed" ? "text-red-600" :
+                                "text-sky-600"
+                              }`}>
+                                {new Date(p.scheduled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                {" · "}{p.platform || "linkedin"}
+                                {" · "}{p.status}
+                              </p>
+                              {p.error_message && (
+                                <p className="text-[10px] text-red-600 mt-0.5 truncate" title={p.error_message}>
+                                  {p.error_message}
+                                </p>
+                              )}
+                            </div>
+                            {p.status === "scheduled" && (
+                              <button
+                                onClick={() => deleteSocialPost(p.id)}
+                                className="shrink-0 p-1 rounded hover:bg-white text-red-500"
+                                title="Cancel this scheduled post"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {selectedDayNewsletters.length > 0 && (
-                  <div className={selectedDayRuns.length > 0 || selectedDayAutomations.length > 0 ? "mt-3" : ""}>
+                  <div className={selectedDayRuns.length > 0 || selectedDayAutomations.length > 0 || selectedDaySocialPosts.length > 0 ? "mt-3" : ""}>
                     <p className="text-xs font-medium text-muted-foreground uppercase mb-2">📧 Newsletters</p>
                     <div className="space-y-1.5">
                       {selectedDayNewsletters.map(n => (
@@ -511,6 +643,53 @@ export default function CalendarPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Scheduled social posts — surfaced so posts scheduled via the
+                MCP tool or the preview modal are visible and cancellable
+                before the cron worker publishes them. */}
+            {scheduledPosts.filter((p: any) => p.status === "scheduled").length > 0 && (
+              <div className="bg-white border border-border rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                  <h3 className="font-semibold text-sm">Scheduled social posts</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {scheduledPosts.filter((p: any) => p.status === "scheduled").length} upcoming
+                    </span>
+                    <button
+                      onClick={cancelAllScheduledPosts}
+                      className="text-[10px] font-semibold text-red-600 hover:text-red-700 hover:underline"
+                      title="Cancel every upcoming scheduled social post"
+                    >
+                      Cancel all
+                    </button>
+                  </div>
+                </div>
+                <div className="divide-y divide-border/50 max-h-80 overflow-y-auto">
+                  {scheduledPosts
+                    .filter((p: any) => p.status === "scheduled")
+                    .sort((a: any, b: any) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+                    .map((p: any) => (
+                      <div key={p.id} className="px-4 py-2.5 flex items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-foreground truncate">{p.topic || (p.platform || "linkedin") + " post"}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {new Date(p.scheduled_at).toLocaleDateString()} at {new Date(p.scheduled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            {" · "}{p.platform || "linkedin"}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => deleteSocialPost(p.id)}
+                          className="shrink-0 p-1 rounded hover:bg-red-50 text-red-500"
+                          title="Cancel this scheduled post"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))
+                  }
+                </div>
               </div>
             )}
 
@@ -678,6 +857,7 @@ export default function CalendarPage() {
           {showForm && (
             <AutomationForm
               editingId={editingId}
+              initialType={formInitialType}
               connectedPlatforms={connectedPlatforms}
               onClose={() => { setShowForm(false); setEditingId(null); }}
               onSaved={() => { setShowForm(false); setEditingId(null); loadAll(); }}
@@ -692,13 +872,14 @@ export default function CalendarPage() {
 
 // ─── Automation Form (unchanged from original) ────────────────────────────────
 
-function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
+function AutomationForm({ editingId, initialType, connectedPlatforms, onClose, onSaved }: {
   editingId: string | null;
+  initialType?: "article" | "newsletter";
   connectedPlatforms: string[];
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [automationType, setAutomationType] = useState<"article" | "newsletter">("article");
+  const [automationType, setAutomationType] = useState<"article" | "newsletter">(initialType ?? "article");
   const [newsletterArticleId, setNewsletterArticleId] = useState<string>("");
   const [newsletterArticles, setNewsletterArticles] = useState<{ id: string; title: string; newsletter_data: any }[]>([]);
   const [newsletterAudienceType, setNewsletterAudienceType] = useState<"contacts" | "resend_list">("contacts");

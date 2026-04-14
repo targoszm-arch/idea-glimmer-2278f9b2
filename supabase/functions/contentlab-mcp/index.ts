@@ -32,6 +32,17 @@ const RPC_INTERNAL_ERROR = -32603;
 const DEFAULT_PROTOCOL_VERSION = "2024-11-05";
 const SERVER_INFO = { name: "contentlab-mcp", version: "0.1.0" };
 
+// Public app URL used for deep-links surfaced back to MCP clients.
+const APP_URL = "https://www.app.content-lab.ie";
+const CALENDAR_URL = `${APP_URL}/calendar`;
+
+// Safety cap — how many future `status='scheduled'` rows a single user may
+// accumulate before `schedule_social_post` starts refusing new ones. A
+// runaway agent (like the one that scheduled 20 LinkedIn posts unprompted)
+// should hit this, back off, and ask the user before continuing. Users can
+// override by passing `force: true` in the tool arguments.
+const MCP_SCHEDULE_CAP = 5;
+
 type AuthContext = { userId: string; admin: SupabaseClient; token: string };
 
 // ---------------------------------------------------------------------------
@@ -221,8 +232,50 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
       const { data, error } = await admin.from("articles").insert(payload).select().single();
       if (error) {
         console.error(`[create_article] DB insert failed for user ${ctx.userId}: ${error.message}`);
-      } else {
-        console.log(`[create_article] saved article ${data.id} (${title}) for user ${ctx.userId}`);
+        return;
+      }
+      console.log(`[create_article] saved article ${data.id} (${title}) for user ${ctx.userId}`);
+
+      // Generate a cover image the same way the browser UI does (DALL-E 3 via
+      // the generate-cover-image edge function). The UI treats this as a
+      // separate step a user clicks, but for MCP-driven article creation we
+      // do it automatically — Claude has no other affordance to request one.
+      // Costs 5 additional credits. If it fails, we still keep the article.
+      try {
+        const coverPrompt = metaDescription.trim() || title;
+        const contextSnippet = plainText.slice(0, 500);
+        const coverRes = await fetch(`${supabaseUrl}/functions/v1/generate-cover-image`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${serviceKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: coverPrompt,
+            context: contextSnippet,
+            user_id_override: ctx.userId,
+          }),
+        });
+        if (!coverRes.ok) {
+          const errText = await coverRes.text();
+          console.warn(`[create_article] cover image skipped for article ${data.id}: ${coverRes.status} ${errText}`);
+        } else {
+          const coverJson = await coverRes.json();
+          const imageUrl: string | undefined = coverJson?.image_url;
+          if (imageUrl) {
+            const { error: updateErr } = await admin
+              .from("articles")
+              .update({ cover_image_url: imageUrl })
+              .eq("id", data.id);
+            if (updateErr) {
+              console.warn(`[create_article] cover image URL update failed for article ${data.id}: ${updateErr.message}`);
+            } else {
+              console.log(`[create_article] cover image attached to article ${data.id}`);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`[create_article] cover image generation threw for article ${data.id}:`, e);
       }
     } catch (e) {
       console.error(`[create_article] background generation threw for user ${ctx.userId}:`, e);
@@ -238,7 +291,7 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
     status: "started",
     topic: args.topic,
     message:
-      "Article generation started. Typical runtime is 60–120 seconds. Call `list_articles` in about a minute to see your new article (it will appear with status='draft'). 5 credits are deducted up front regardless of success; the article row is only created on success.",
+      "Article generation started. A DALL-E 3 cover image is generated automatically after the article finishes. Typical total runtime is 90–150 seconds. Call `list_articles` in about 2 minutes to see your new article with its cover image (status='draft'). Costs 5 credits for the article + 5 credits for the cover image = 10 credits. The article is saved even if cover-image generation fails; you can regenerate the cover from the article editor.",
   };
 }
 
@@ -259,6 +312,89 @@ async function listArticlesHandler(args: any, ctx: AuthContext): Promise<unknown
   return { count: data?.length ?? 0, articles: data ?? [] };
 }
 
+// get_article — returns full body including `content` so Claude can read
+// what was actually generated before writing social copy or refining it.
+// The list_* tools deliberately omit content to keep token use reasonable;
+// callers should list first, then get by id.
+async function getArticleHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const id = args?.id;
+  if (typeof id !== "string" || id.length === 0) throw new Error("`id` is required");
+
+  const { data, error } = await ctx.admin
+    .from("articles")
+    .select(
+      "id, title, slug, content, excerpt, meta_description, category, content_type, status, cover_image_url, reading_time_minutes, article_meta, url_path, created_at, updated_at",
+    )
+    .eq("user_id", ctx.userId)
+    .eq("id", id)
+    .single();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Article not found");
+  return data;
+}
+
+// update_article — partial update of the user's own article. Only
+// whitelisted fields are accepted; id/slug/user_id/sync metadata stay
+// server-controlled. The row's `user_id` filter ensures one user can't
+// mutate another user's article even with a valid key.
+async function updateArticleHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const id = args?.id;
+  if (typeof id !== "string" || id.length === 0) throw new Error("`id` is required");
+
+  const allowed = [
+    "title",
+    "content",
+    "excerpt",
+    "meta_description",
+    "category",
+    "content_type",
+    "status",
+    "cover_image_url",
+  ] as const;
+
+  const update: Record<string, unknown> = {};
+  for (const key of allowed) {
+    if (args[key] !== undefined) update[key] = args[key];
+  }
+
+  if (Object.keys(update).length === 0) {
+    throw new Error(`No updatable fields provided. Allowed: ${allowed.join(", ")}`);
+  }
+
+  if (typeof update.status === "string" && !["draft", "published", "scheduled", "archived"].includes(update.status as string)) {
+    throw new Error("`status` must be one of: draft, published, scheduled, archived");
+  }
+
+  // Recompute reading time whenever content changes so the library's
+  // estimated-read badge stays in sync with the edit.
+  if (typeof update.content === "string") {
+    const plainText = (update.content as string).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const wordCount = plainText.split(/\s+/).filter(Boolean).length;
+    (update as Record<string, unknown>).reading_time_minutes = Math.max(1, Math.ceil(wordCount / 200));
+    // Keep excerpt roughly consistent if caller didn't pass one.
+    if (typeof update.excerpt !== "string") {
+      (update as Record<string, unknown>).excerpt = plainText.slice(0, 200);
+    }
+  }
+
+  update.updated_at = new Date().toISOString();
+
+  const { data, error } = await ctx.admin
+    .from("articles")
+    .update(update)
+    .eq("user_id", ctx.userId)
+    .eq("id", id)
+    .select(
+      "id, title, slug, status, content_type, category, cover_image_url, updated_at",
+    )
+    .single();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Article not found or you don't have access");
+  return data;
+}
+
 async function listSocialPostsHandler(args: any, ctx: AuthContext): Promise<unknown> {
   const limit = clampInt(args?.limit, 1, 200, 50);
 
@@ -274,7 +410,11 @@ async function listSocialPostsHandler(args: any, ctx: AuthContext): Promise<unkn
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return { count: data?.length ?? 0, posts: data ?? [] };
+  return {
+    count: data?.length ?? 0,
+    posts: data ?? [],
+    review_url: CALENDAR_URL,
+  };
 }
 
 async function scheduleSocialPostHandler(args: any, ctx: AuthContext): Promise<unknown> {
@@ -282,6 +422,7 @@ async function scheduleSocialPostHandler(args: any, ctx: AuthContext): Promise<u
   const content = args?.content;
   const scheduledAt = args?.scheduled_at;
   const articleId = args?.article_id ?? null;
+  const force = args?.force === true;
 
   if (platform !== "linkedin") throw new Error("Only `platform: linkedin` is supported in v1");
   if (typeof content !== "string" || content.trim().length === 0) throw new Error("`content` is required");
@@ -290,6 +431,27 @@ async function scheduleSocialPostHandler(args: any, ctx: AuthContext): Promise<u
   const when = new Date(scheduledAt);
   if (isNaN(when.getTime())) throw new Error("`scheduled_at` is not a valid ISO 8601 datetime");
   if (when.getTime() <= Date.now()) throw new Error("`scheduled_at` must be in the future");
+
+  // Safety cap: count existing future-scheduled posts for this user and
+  // refuse to add more once the cap is hit, unless the caller passes
+  // `force: true`. This stops an agent from silently queuing up 20 posts.
+  if (!force) {
+    const { count: pendingCount, error: countError } = await ctx.admin
+      .from("social_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", ctx.userId)
+      .eq("status", "scheduled")
+      .gt("scheduled_at", new Date().toISOString());
+
+    if (countError) throw new Error(`Failed to check schedule cap: ${countError.message}`);
+    if ((pendingCount ?? 0) >= MCP_SCHEDULE_CAP) {
+      throw new Error(
+        `Schedule cap reached: you already have ${pendingCount} scheduled posts (cap is ${MCP_SCHEDULE_CAP}). ` +
+          `Ask the user to review/cancel pending posts at ${CALENDAR_URL} before scheduling more. ` +
+          `If the user explicitly wants to exceed the cap, call this tool again with \`force: true\`.`,
+      );
+    }
+  }
 
   // `topic` is NOT NULL on the table; derive a short label from content.
   const topic = content.slice(0, 100);
@@ -309,7 +471,199 @@ async function scheduleSocialPostHandler(args: any, ctx: AuthContext): Promise<u
     .single();
 
   if (error) throw new Error(error.message);
-  return data;
+  return { ...data, review_url: CALENDAR_URL };
+}
+
+// ---------------------------------------------------------------------------
+// Newsletter tools
+//
+// Newsletters are ONE-TIME scheduled sends. There is no recurrence. The
+// schedule-newsletter edge function inserts a single row with
+// status='scheduled' and a single `scheduled_at` timestamp; the cron
+// worker (process-newsletter-queue) picks up due rows every 5 minutes
+// and sends them via Resend exactly once.
+//
+// Tool descriptions intentionally repeat "one-time" so an agent doesn't
+// later assume there's a frequency knob and tell the user otherwise.
+// ---------------------------------------------------------------------------
+
+async function listNewsletterSchedulesHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const limit = clampInt(args?.limit, 1, 200, 50);
+
+  let query = ctx.admin
+    .from("newsletter_schedules")
+    .select(
+      "id, article_id, subject_line, preview_text, audience_type, resend_audience_id, scheduled_at, status, recipient_count, sent_at, error_message, created_at, updated_at",
+    )
+    .eq("user_id", ctx.userId)
+    .order("scheduled_at", { ascending: false })
+    .limit(limit);
+
+  if (args?.status) query = query.eq("status", args.status);
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return {
+    count: data?.length ?? 0,
+    schedules: data ?? [],
+    review_url: CALENDAR_URL,
+  };
+}
+
+// Build the newsletter HTML the same way Calendar.tsx does when a user
+// schedules from the UI: take the article's saved `newsletter_data.html`
+// and wrap it with Resend-friendly defaults (preview text, unsubscribe
+// link, open pixel placeholder for send-newsletter to inject). If the
+// article has no newsletter_data we error rather than guessing — Claude
+// should generate newsletter_data first via the newsletter editor.
+function buildNewsletterHtml(opts: {
+  bodyHtml: string;
+  previewText: string;
+  fromName: string;
+}): string {
+  const safePreview = opts.previewText.replace(/[<>]/g, "");
+  return `<!doctype html>
+<html><head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>${opts.fromName}</title>
+</head>
+<body style="margin:0;padding:0;background:#f6f6f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#222;">
+  <span style="display:none;font-size:1px;color:#f6f6f6;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${safePreview}</span>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f6f6f6;">
+    <tr><td align="center" style="padding:24px 12px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;">
+        <tr><td style="padding:32px 32px 24px 32px;line-height:1.6;font-size:16px;">
+          ${opts.bodyHtml}
+        </td></tr>
+        <tr><td style="padding:16px 32px 32px 32px;border-top:1px solid #eee;font-size:12px;color:#888;text-align:center;">
+          You're receiving this because you subscribed. <a href="{{UNSUBSCRIBE_URL}}" style="color:#888;">Unsubscribe</a>.
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+async function scheduleNewsletterHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const articleId = args?.article_id;
+  const scheduledAt = args?.scheduled_at;
+  const audienceType = args?.audience_type ?? "contacts";
+  const resendAudienceId = args?.resend_audience_id ?? null;
+  const force = args?.force === true;
+
+  if (typeof articleId !== "string" || articleId.length === 0) {
+    throw new Error("`article_id` is required");
+  }
+  if (typeof scheduledAt !== "string") {
+    throw new Error("`scheduled_at` is required (ISO 8601 datetime, one-time send)");
+  }
+  const when = new Date(scheduledAt);
+  if (isNaN(when.getTime())) throw new Error("`scheduled_at` is not a valid ISO 8601 datetime");
+  if (when.getTime() <= Date.now()) throw new Error("`scheduled_at` must be in the future");
+
+  if (audienceType !== "contacts" && audienceType !== "resend_list") {
+    throw new Error("`audience_type` must be 'contacts' or 'resend_list'");
+  }
+  if (audienceType === "resend_list" && !resendAudienceId) {
+    throw new Error("`resend_audience_id` is required when audience_type='resend_list'");
+  }
+
+  // Mirror the social-post safety cap: stop a runaway agent from queuing
+  // more than 5 future newsletters in one go. Override with force=true.
+  if (!force) {
+    const { count: pendingCount, error: countError } = await ctx.admin
+      .from("newsletter_schedules")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", ctx.userId)
+      .eq("status", "scheduled")
+      .gt("scheduled_at", new Date().toISOString());
+    if (countError) throw new Error(`Failed to check schedule cap: ${countError.message}`);
+    if ((pendingCount ?? 0) >= MCP_SCHEDULE_CAP) {
+      throw new Error(
+        `Schedule cap reached: ${pendingCount} newsletters already scheduled (cap is ${MCP_SCHEDULE_CAP}). ` +
+          `Ask the user to review/cancel pending sends at ${CALENDAR_URL} before scheduling more. ` +
+          `If the user explicitly wants to exceed the cap, call this tool again with \`force: true\`.`,
+      );
+    }
+  }
+
+  // Load article + newsletter_data to build the HTML payload exactly the
+  // way the Calendar UI does (Calendar.tsx schedule-newsletter branch).
+  const { data: article, error: artErr } = await ctx.admin
+    .from("articles")
+    .select("id, title, newsletter_data")
+    .eq("user_id", ctx.userId)
+    .eq("id", articleId)
+    .single();
+  if (artErr) throw new Error(`Failed to load article: ${artErr.message}`);
+  if (!article) throw new Error("Article not found");
+
+  const newsletterData = (article as any).newsletter_data;
+  if (!newsletterData || (!newsletterData.html && !newsletterData.body)) {
+    throw new Error(
+      "Article has no newsletter_data. Open the article in the Content Lab editor → Newsletter tab to generate the newsletter content first, then call this tool again.",
+    );
+  }
+
+  const bodyHtml: string = newsletterData.html || newsletterData.body || "";
+  const subject: string = args?.subject_line || newsletterData.subject || article.title;
+  const previewText: string = args?.preview_text || newsletterData.preview || "";
+  const fromName: string = args?.from_name || newsletterData.from_name || "Content Lab";
+  const fromEmail: string = args?.from_email || newsletterData.from_email || "";
+  const replyTo: string = args?.reply_to || newsletterData.reply_to || fromEmail;
+
+  if (!fromEmail) {
+    throw new Error(
+      "No `from_email` configured. Pass from_email explicitly or set it in the article's newsletter_data.",
+    );
+  }
+
+  const html = buildNewsletterHtml({ bodyHtml, previewText, fromName });
+
+  const { data, error } = await ctx.admin
+    .from("newsletter_schedules")
+    .insert({
+      user_id: ctx.userId,
+      article_id: articleId,
+      subject_line: subject,
+      preview_text: previewText,
+      html_content: html,
+      from_name: fromName,
+      from_email: fromEmail,
+      reply_to: replyTo,
+      audience_type: audienceType,
+      resend_audience_id: resendAudienceId,
+      scheduled_at: when.toISOString(),
+      status: "scheduled",
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return {
+    ...data,
+    review_url: CALENDAR_URL,
+    note: "Newsletter is a ONE-TIME scheduled send. The cron worker will pick it up at the scheduled time and send via Resend exactly once. Tell the user they can review or cancel at /calendar.",
+  };
+}
+
+async function cancelNewsletterScheduleHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const id = args?.id;
+  if (typeof id !== "string" || id.length === 0) throw new Error("`id` is required");
+
+  const { data, error } = await ctx.admin
+    .from("newsletter_schedules")
+    .update({ status: "cancelled", updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", ctx.userId)
+    .eq("status", "scheduled")
+    .select("id, status, scheduled_at")
+    .single();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Schedule not found, not yours, or no longer in 'scheduled' state.");
+  return { ...data, review_url: CALENDAR_URL };
 }
 
 // ---------------------------------------------------------------------------
@@ -329,7 +683,7 @@ const TOOLS: ToolDef[] = [
   {
     name: "create_article",
     description:
-      "Start generating a new SEO-ready article (1,500–2,000 words) from a topic, grounded in current web data via Perplexity. Costs 5 Content Lab credits. Returns IMMEDIATELY with status: started — generation runs in the background and typically completes in 60–120 seconds. Call `list_articles` after ~60s to see the finished article in the user's library.",
+      "Start generating a new SEO-ready article (1,500–2,000 words) from a topic, grounded in current web data via Perplexity. A photorealistic cover image is generated automatically via DALL-E 3 once the article is saved. Costs 10 Content Lab credits total (5 for the article + 5 for the cover image). Returns IMMEDIATELY with status: started — generation runs in the background and typically completes in 90–150 seconds end-to-end. Call `list_articles` after ~2 minutes to see the finished article (with its cover_image_url populated) in the user's library.",
     inputSchema: {
       type: "object",
       required: ["topic"],
@@ -360,7 +714,8 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: "list_articles",
-    description: "List the authenticated user's Content Lab articles, newest first.",
+    description:
+      "List the authenticated user's Content Lab articles, newest first. Body content is NOT included here to keep responses compact — call `get_article` with an id to fetch the full HTML content plus meta.",
     inputSchema: {
       type: "object",
       properties: {
@@ -371,8 +726,43 @@ const TOOLS: ToolDef[] = [
     handler: listArticlesHandler,
   },
   {
+    name: "get_article",
+    description:
+      "Fetch a single article by id, including the full HTML `content`, `meta_description`, `excerpt`, `cover_image_url`, `article_meta` (SEO keywords, FAQs, etc.), and `url_path`. Use this to read what was actually generated before writing social copy, editing, or publishing.",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: {
+        id: { type: "string", format: "uuid", description: "Article UUID from `list_articles`." },
+      },
+    },
+    handler: getArticleHandler,
+  },
+  {
+    name: "update_article",
+    description:
+      "Edit an existing article. Supports partial updates — only pass the fields you want to change. Fields: title, content (HTML), excerpt, meta_description, category, content_type, status (draft|published|scheduled|archived), cover_image_url. When `content` changes, `reading_time_minutes` is recomputed automatically. Slug and sync metadata (WordPress/Intercom ids) are server-controlled and not editable via this tool.",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: {
+        id: { type: "string", format: "uuid" },
+        title: { type: "string" },
+        content: { type: "string", description: "Full HTML body." },
+        excerpt: { type: "string" },
+        meta_description: { type: "string", description: "<=150 chars recommended for SEO." },
+        category: { type: "string" },
+        content_type: { type: "string", enum: ["blog", "landing", "comparison", "how-to", "user_guide"] },
+        status: { type: "string", enum: ["draft", "published", "scheduled", "archived"] },
+        cover_image_url: { type: "string", format: "uri" },
+      },
+    },
+    handler: updateArticleHandler,
+  },
+  {
     name: "list_social_posts",
-    description: "List the authenticated user's social posts (drafted, scheduled, posted, or failed), newest first.",
+    description:
+      "List the authenticated user's social posts (drafted, scheduled, posted, or failed), newest first. The response includes a `review_url` pointing at the user's Content Lab calendar (https://www.app.content-lab.ie/calendar) — surface this URL so the user can review, edit, or cancel scheduled posts.",
     inputSchema: {
       type: "object",
       properties: {
@@ -386,7 +776,7 @@ const TOOLS: ToolDef[] = [
   {
     name: "schedule_social_post",
     description:
-      "Schedule a LinkedIn post for future auto-publishing. The Content Lab cron worker (process-scheduled-posts) picks up due rows every minute and posts via the LinkedIn UGC API. Requires the user to have connected LinkedIn in Settings → Integrations.",
+      "Schedule a LinkedIn post for future auto-publishing. The Content Lab cron worker (process-scheduled-posts) picks up due rows every minute and posts via the LinkedIn UGC API. Requires the user to have connected LinkedIn in Settings → Integrations. A safety cap limits each user to 5 future-scheduled posts at a time; if exceeded, the tool errors unless `force: true` is passed. Always tell the user they can review or cancel scheduled posts at https://www.app.content-lab.ie/calendar.",
     inputSchema: {
       type: "object",
       required: ["platform", "content", "scheduled_at"],
@@ -403,9 +793,79 @@ const TOOLS: ToolDef[] = [
           format: "uuid",
           description: "Optional source article whose URL is attached as a link preview.",
         },
+        force: {
+          type: "boolean",
+          default: false,
+          description:
+            "Set to true to bypass the 5-post schedule cap. Only pass this when the user has explicitly asked to schedule more than 5 posts in one go.",
+        },
       },
     },
     handler: scheduleSocialPostHandler,
+  },
+  {
+    name: "list_newsletter_schedules",
+    description:
+      "List the authenticated user's newsletter schedules (one-time sends), newest first. Newsletters are NOT recurring — each row has a single `scheduled_at` timestamp and is sent exactly once. Response includes a `review_url` deep-link to https://www.app.content-lab.ie/calendar so the user can review, reschedule, or cancel.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: { type: "integer", minimum: 1, maximum: 200, default: 50 },
+        status: { type: "string", enum: ["scheduled", "sending", "sent", "failed", "cancelled"] },
+      },
+    },
+    handler: listNewsletterSchedulesHandler,
+  },
+  {
+    name: "schedule_newsletter",
+    description:
+      "Schedule a one-time newsletter send for an existing article that has newsletter_data populated. The send happens ONCE at `scheduled_at` — there is no recurrence; do NOT tell the user this is a recurring automation. The cron worker (process-newsletter-queue) picks up due rows every 5 minutes and sends via Resend. Audience is either the user's contacts table (`audience_type='contacts'`) or a Resend audience id (`audience_type='resend_list'` + `resend_audience_id`). Same 5-per-user safety cap as schedule_social_post; pass `force: true` to override. Always tell the user they can review or cancel at https://www.app.content-lab.ie/calendar.",
+    inputSchema: {
+      type: "object",
+      required: ["article_id", "scheduled_at"],
+      properties: {
+        article_id: { type: "string", format: "uuid", description: "Article id (must have newsletter_data set)." },
+        scheduled_at: {
+          type: "string",
+          format: "date-time",
+          description: "ISO 8601 datetime, must be in the future. One-time send.",
+        },
+        audience_type: {
+          type: "string",
+          enum: ["contacts", "resend_list"],
+          default: "contacts",
+          description: "`contacts` = the user's newsletter_contacts table. `resend_list` = a Resend audience.",
+        },
+        resend_audience_id: {
+          type: "string",
+          description: "Required when audience_type='resend_list'. The Resend audience UUID.",
+        },
+        subject_line: { type: "string", description: "Override the article's default subject." },
+        preview_text: { type: "string", description: "Inbox preview text shown next to the subject." },
+        from_name: { type: "string" },
+        from_email: { type: "string", format: "email" },
+        reply_to: { type: "string", format: "email" },
+        force: {
+          type: "boolean",
+          default: false,
+          description: "Set to true to bypass the 5-newsletter schedule cap. Only when the user explicitly asked.",
+        },
+      },
+    },
+    handler: scheduleNewsletterHandler,
+  },
+  {
+    name: "cancel_newsletter_schedule",
+    description:
+      "Cancel a one-time newsletter that's still in 'scheduled' state. Marks it as cancelled (kept in history). Errors if the row is already sent, sending, failed, or cancelled.",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: {
+        id: { type: "string", format: "uuid", description: "newsletter_schedules.id" },
+      },
+    },
+    handler: cancelNewsletterScheduleHandler,
   },
 ];
 
