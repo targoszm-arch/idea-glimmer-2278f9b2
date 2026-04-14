@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Linkedin, Youtube, Twitter, Instagram, Film, Loader2, Sparkles, Trash2, Copy, Check, ChevronDown, ChevronUp, Lightbulb, Video, Play, Images, Clapperboard, Eye, BookOpen } from "lucide-react";
 import { SocialPostPreviewModal } from "@/components/SocialPostPreviewModal";
 import { PLATFORM_META as SOCIAL_PLATFORM_META } from "@/components/SocialPostPreviewModal";
@@ -62,6 +63,12 @@ type SocialPost = {
 const SocialMedia = () => {
   const { showUpgrade, setShowUpgrade, showTopUp, setShowTopUp, checkCredits } = useUpgrade();
   const { user } = useAuth();
+  // Allow the Library tab to be deep-linked via `?tab=library`. The legacy
+  // `/social-library` route redirects here so there is only one URL in the
+  // app that shows the unified post list.
+  const [searchParams] = useSearchParams();
+  const initialActiveTab = searchParams.get("tab") === "library" ? "library" : "linkedin";
+  const [activeTab, setActiveTab] = useState<string>(initialActiveTab);
   const [platform, setPlatform] = useState<Platform>("linkedin");
   const [niche, setNiche] = useState("");
   const [ideas, setIdeas] = useState<SocialPostIdea[]>([]);
@@ -1219,12 +1226,25 @@ const SocialMedia = () => {
     <TopUpModal open={showTopUp} onClose={() => setShowTopUp(false)} />
     <PageLayout>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Social Media Generator</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Social Media</h1>
           <p className="text-muted-foreground mb-8">
-            Generate platform-specific social content ideas, then create full posts on demand.
+            Generate platform-specific ideas and turn them into full posts. The
+            <strong> All Posts</strong> tab at the right is your single source of truth —
+            every saved, scheduled, posted, or agent-generated post lives there.
           </p>
 
-          <Tabs value={platform} onValueChange={(v) => setPlatform(v as Platform)}>
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => {
+              setActiveTab(v);
+              // Track the selected platform separately so idea queries stay
+              // scoped to a real platform when the user flips to "library"
+              // and back. Without this, toggling the All Posts tab would
+              // reset `platform` to whichever string the Tabs control
+              // passes back ("library"), breaking every downstream filter.
+              if (v !== "library") setPlatform(v as Platform);
+            }}
+          >
             <TabsList className="grid w-full mb-6" style={{ gridTemplateColumns: `repeat(${platforms.length + 1}, 1fr)` }}>
               {platforms.map((p) => {
                 const Icon = p.icon;
@@ -1237,7 +1257,7 @@ const SocialMedia = () => {
               })}
               <TabsTrigger value="library" className="flex items-center gap-1.5 text-xs sm:text-sm">
                 <BookOpen className="h-4 w-4" />
-                <span className="hidden sm:inline">Library</span>
+                <span className="hidden sm:inline">All Posts</span>
               </TabsTrigger>
             </TabsList>
 
