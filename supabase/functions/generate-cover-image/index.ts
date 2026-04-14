@@ -106,7 +106,7 @@ Rules:
     // Step 2: Generate the image. Try Gemini first (better output quality),
     // fall back to DALL-E 3 if Gemini is unavailable or errors.
     let b64: string | null = null;
-    let providerUsed: "gemini" | "dall-e-3" | null = null;
+    let providerUsed: "gemini" | "gpt-image-1" | "dall-e-3" | null = null;
     let lastError: string | null = null;
 
     if (GEMINI_API_KEY) {
@@ -146,6 +146,10 @@ Rules:
     }
 
     if (!b64 && OPENAI_API_KEY) {
+      // OpenAI path — use gpt-image-1 (the newer model) at quality=high
+      // instead of dall-e-3 standard. Dramatically better face/hand/scene
+      // fidelity for editorial covers. Same OPENAI_API_KEY works. Returns
+      // b64_json by default; `response_format` is not a valid param here.
       const response = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
         headers: {
@@ -153,13 +157,11 @@ Rules:
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "dall-e-3",
+          model: "gpt-image-1",
           prompt: fullPrompt,
           n: 1,
           size: "1024x1024",
-          quality: "standard",
-          style: "natural",
-          response_format: "b64_json",
+          quality: "high",
         }),
       });
 
@@ -175,15 +177,41 @@ Rules:
           });
         }
         const t = await response.text();
-        console.error("OpenAI DALL-E error:", response.status, t);
-        return new Response(JSON.stringify({ error: `Image generation failed. Gemini error: ${lastError ?? "n/a"}. OpenAI error: ${t.slice(0, 200)}` }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        console.error("OpenAI image error:", response.status, t);
+        // gpt-image-1 may fail on orgs that aren't verified; fall through
+        // to dall-e-3 so the request still produces SOMETHING rather than
+        // a hard 500.
+        const dalleRes = await fetch("https://api.openai.com/v1/images/generations", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "dall-e-3",
+            prompt: fullPrompt,
+            n: 1,
+            size: "1024x1024",
+            quality: "hd",
+            style: "natural",
+            response_format: "b64_json",
+          }),
         });
+        if (!dalleRes.ok) {
+          const dt = await dalleRes.text();
+          console.error("DALL-E fallback error:", dalleRes.status, dt);
+          return new Response(JSON.stringify({ error: `Image generation failed. Gemini: ${lastError ?? "n/a"}. gpt-image-1: ${t.slice(0, 150)}. dall-e-3: ${dt.slice(0, 150)}` }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const dalleData = await dalleRes.json();
+        b64 = dalleData.data?.[0]?.b64_json ?? null;
+        providerUsed = "dall-e-3";
+      } else {
+        const data = await response.json();
+        b64 = data.data?.[0]?.b64_json ?? null;
+        providerUsed = "gpt-image-1";
       }
-
-      const data = await response.json();
-      b64 = data.data?.[0]?.b64_json ?? null;
-      providerUsed = "dall-e-3";
     }
 
     if (!b64) {
