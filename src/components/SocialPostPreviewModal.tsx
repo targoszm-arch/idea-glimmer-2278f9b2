@@ -19,6 +19,13 @@ interface Props {
   articleTitle?: string;
   articleId?: string;
   topic?: string;
+  // Reschedule mode: when `existingPostId` is set, Save updates that row
+  // instead of inserting a new one and `initialScheduledAt` pre-populates
+  // the datetime picker. SocialLibrary (Reschedule button) and Calendar
+  // (Reschedule affordance on scheduled rows) reuse this single modal so
+  // we don't grow a second scheduling UI.
+  existingPostId?: string;
+  initialScheduledAt?: string;
   onSaved?: () => void;    // called after save/schedule
 }
 
@@ -30,15 +37,22 @@ export const PLATFORM_META: Record<string, { label: string; icon: React.ReactNod
   instagram_reel:    { label: "Instagram",  icon: <Instagram className="h-4 w-4" />, color: "text-[#E1306C]", bg: "bg-[#E1306C]", charLimit: 2200 },
 };
 
+// Convert an ISO datetime (from DB) to the local `YYYY-MM-DDTHH:MM` shape
+// that <input type="datetime-local"> expects. Returns the default
+// "tomorrow 9am local" when no ISO is supplied.
+function toLocalInputValue(iso?: string): string {
+  const d = iso ? new Date(iso) : (() => { const x = new Date(); x.setDate(x.getDate() + 1); x.setHours(9, 0, 0, 0); return x; })();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function SocialPostPreviewModal({
-  open, onClose, platform, content, mediaUrl, mediaType, articleUrl, articleTitle, articleId, topic, onSaved
+  open, onClose, platform, content, mediaUrl, mediaType, articleUrl, articleTitle, articleId, topic, existingPostId, initialScheduledAt, onSaved
 }: Props) {
-  const [tab, setTab] = useState<"preview" | "schedule">("preview");
+  const isReschedule = !!existingPostId;
+  const [tab, setTab] = useState<"preview" | "schedule">(isReschedule ? "schedule" : "preview");
   const [editedContent, setEditedContent] = useState(content);
-  const [scheduleDate, setScheduleDate] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0);
-    return d.toISOString().slice(0, 16);
-  });
+  const [scheduleDate, setScheduleDate] = useState(() => toLocalInputValue(initialScheduledAt));
   const [posting, setPosting] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [posted, setPosted] = useState(false);
@@ -54,10 +68,13 @@ export function SocialPostPreviewModal({
   useEffect(() => {
     if (!open) return;
     setEditedContent(content);
-    setTab("preview");
+    // In reschedule mode the user is explicitly editing a scheduled row,
+    // so jump straight to the Schedule tab and preload the existing date.
+    setTab(isReschedule ? "schedule" : "preview");
+    setScheduleDate(toLocalInputValue(initialScheduledAt));
     setPosted(false);
     setScheduled(false);
-  }, [open, content]);
+  }, [open, content, isReschedule, initialScheduledAt]);
 
   if (!open) return null;
 
@@ -106,20 +123,40 @@ export function SocialPostPreviewModal({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
-      const { error } = await supabase.from("social_posts" as any).insert({
-        user_id: user.id, platform, content: editedContent,
-        topic: topic || articleTitle, title: articleTitle || topic,
-        article_id: articleId || null, article_title: articleTitle || null,
-        scheduled_at: new Date(scheduleDate).toISOString(), status: "scheduled",
-        media_url: mediaUrl || null, media_type: mediaType || null,
-      });
-      if (error) throw error;
-      setScheduled(true);
-      toast({ title: "✓ Post scheduled!", description: `Will be sent ${new Date(scheduleDate).toLocaleString()}` });
+      const newScheduledAt = new Date(scheduleDate).toISOString();
+
+      if (existingPostId) {
+        // Reschedule path: update the existing row in place so its id,
+        // article_id, and history stay intact. Also reset status to
+        // 'scheduled' in case the user is re-queuing a previously failed
+        // post.
+        const { error } = await supabase.from("social_posts" as any)
+          .update({
+            content: editedContent,
+            scheduled_at: newScheduledAt,
+            status: "scheduled",
+            error_message: null,
+          })
+          .eq("id", existingPostId);
+        if (error) throw error;
+        setScheduled(true);
+        toast({ title: "✓ Post rescheduled!", description: `Will be sent ${new Date(scheduleDate).toLocaleString()}` });
+      } else {
+        const { error } = await supabase.from("social_posts" as any).insert({
+          user_id: user.id, platform, content: editedContent,
+          topic: topic || articleTitle, title: articleTitle || topic,
+          article_id: articleId || null, article_title: articleTitle || null,
+          scheduled_at: newScheduledAt, status: "scheduled",
+          media_url: mediaUrl || null, media_type: mediaType || null,
+        });
+        if (error) throw error;
+        setScheduled(true);
+        toast({ title: "✓ Post scheduled!", description: `Will be sent ${new Date(scheduleDate).toLocaleString()}` });
+      }
       onSaved?.();
     } catch (e: any) {
       console.error("Schedule post failed:", e);
-      toast({ title: "Schedule failed", description: e.message || "Unknown error — check console", variant: "destructive" });
+      toast({ title: existingPostId ? "Reschedule failed" : "Schedule failed", description: e.message || "Unknown error — check console", variant: "destructive" });
     }
     setScheduling(false);
   }
@@ -248,7 +285,7 @@ export function SocialPostPreviewModal({
               <button onClick={schedulePost} disabled={scheduling || scheduled || !scheduleDate}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${scheduled ? "bg-green-500 text-white" : "bg-primary hover:bg-primary/90 text-primary-foreground"}`}>
                 {scheduled ? <Check className="h-4 w-4" /> : scheduling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calendar className="h-4 w-4" />}
-                {scheduled ? "Scheduled!" : "Schedule Post"}
+                {scheduled ? (isReschedule ? "Rescheduled!" : "Scheduled!") : (isReschedule ? "Reschedule Post" : "Schedule Post")}
               </button>
             </>
           )}

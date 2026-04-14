@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Linkedin, Twitter, Instagram, Copy, Check, Trash2, Search, ExternalLink, Bot, Clock } from "lucide-react";
+import { Linkedin, Twitter, Instagram, Copy, Check, Trash2, Search, ExternalLink, Bot, Clock, CalendarClock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import PageLayout from "@/components/PageLayout";
+import { SocialPostPreviewModal } from "@/components/SocialPostPreviewModal";
 
 type Platform = "linkedin" | "twitter" | "instagram";
 
@@ -52,6 +53,10 @@ export function SocialLibraryContent() {
   const [search, setSearch] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  // Reschedule state — holds the row currently open in the modal. Reuses
+  // the existing SocialPostPreviewModal in edit mode (existingPostId +
+  // initialScheduledAt) so there's no second scheduling UI.
+  const [rescheduling, setRescheduling] = useState<SocialPost | null>(null);
   const { toast } = useToast();
 
   useEffect(() => { load(); }, []);
@@ -250,6 +255,15 @@ export function SocialLibraryContent() {
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     )}
+                    {post.status === "scheduled" && (
+                      <button
+                        onClick={() => setRescheduling(post)}
+                        className="p-1.5 rounded hover:bg-black/5 text-sky-700 transition-colors"
+                        title="Reschedule — change send date or edit content"
+                      >
+                        <CalendarClock className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     <button
                       onClick={() => copyPost(post)}
                       className="p-1.5 rounded hover:bg-black/5 text-muted-foreground transition-colors"
@@ -301,6 +315,20 @@ export function SocialLibraryContent() {
           })}
         </div>
       )}
+
+      {/* Reschedule modal — reuses SocialPostPreviewModal in edit mode. */}
+      <SocialPostPreviewModal
+        open={!!rescheduling}
+        onClose={() => setRescheduling(null)}
+        platform={(rescheduling?.platform as any) || "linkedin"}
+        content={rescheduling?.content || ""}
+        articleId={rescheduling?.article_id || undefined}
+        articleTitle={rescheduling?.article_title || undefined}
+        topic={rescheduling?.topic || undefined}
+        existingPostId={rescheduling?.id}
+        initialScheduledAt={rescheduling?.scheduled_at || undefined}
+        onSaved={() => { setRescheduling(null); load(); }}
+      />
     </div>
   );
 }

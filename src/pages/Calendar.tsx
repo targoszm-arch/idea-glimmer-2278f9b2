@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { TONE_PRESETS } from "@/lib/tones";
+import { SocialPostPreviewModal } from "@/components/SocialPostPreviewModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -172,6 +173,13 @@ export default function CalendarPage() {
     | { kind: "newsletter"; schedule: any }
     | null
   >(null);
+
+  // Reuses SocialPostPreviewModal for both creating a new scheduled post
+  // from the calendar header and rescheduling an existing one from the
+  // scheduled-posts panels. `socialPostReschedule` is null when creating
+  // fresh, or the post row when editing an existing scheduled entry.
+  const [showSocialPostModal, setShowSocialPostModal] = useState(false);
+  const [socialPostReschedule, setSocialPostReschedule] = useState<any | null>(null);
 
   const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
@@ -412,6 +420,13 @@ export default function CalendarPage() {
             >
               <Plus className="w-4 h-4" /> Schedule Newsletter
             </button>
+            <button
+              onClick={() => setShowSocialPostModal(true)}
+              className="flex items-center gap-2 border border-primary text-primary rounded-lg px-4 py-2 text-sm font-semibold hover:bg-primary/5 transition-colors"
+              title="Schedule a LinkedIn post for a future date"
+            >
+              <Plus className="w-4 h-4" /> Schedule Social Post
+            </button>
           </div>
         </div>
 
@@ -634,13 +649,22 @@ export default function CalendarPage() {
                                 </a>
                               )}
                               {p.status === "scheduled" && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); deleteSocialPost(p.id); }}
-                                  className="p-1 rounded hover:bg-white text-red-500"
-                                  title="Cancel this scheduled post"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
+                                <>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setSocialPostReschedule(p); }}
+                                    className="p-1 rounded hover:bg-white text-sky-700"
+                                    title="Reschedule this post"
+                                  >
+                                    <Clock className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); deleteSocialPost(p.id); }}
+                                    className="p-1 rounded hover:bg-white text-red-500"
+                                    title="Cancel this scheduled post"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </>
                               )}
                             </div>
                           </div>
@@ -721,6 +745,13 @@ export default function CalendarPage() {
                             {" · "}{p.platform || "linkedin"}
                           </p>
                         </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSocialPostReschedule(p); }}
+                          className="shrink-0 p-1 rounded hover:bg-sky-50 text-sky-700"
+                          title="Reschedule this post"
+                        >
+                          <Clock className="w-3 h-3" />
+                        </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); deleteSocialPost(p.id); }}
                           className="shrink-0 p-1 rounded hover:bg-red-50 text-red-500"
@@ -916,6 +947,20 @@ export default function CalendarPage() {
             />
           )}
         </AnimatePresence>
+
+        {/* ── Social Post Schedule / Reschedule Modal ── */}
+        <SocialPostPreviewModal
+          open={showSocialPostModal || !!socialPostReschedule}
+          onClose={() => { setShowSocialPostModal(false); setSocialPostReschedule(null); }}
+          platform={(socialPostReschedule?.platform as any) || "linkedin"}
+          content={socialPostReschedule?.content || ""}
+          articleId={socialPostReschedule?.article_id || undefined}
+          articleTitle={socialPostReschedule?.article_title || undefined}
+          topic={socialPostReschedule?.topic || undefined}
+          existingPostId={socialPostReschedule?.id}
+          initialScheduledAt={socialPostReschedule?.scheduled_at || undefined}
+          onSaved={() => { setShowSocialPostModal(false); setSocialPostReschedule(null); loadAll(); }}
+        />
 
       </div>
     </PageLayout>
