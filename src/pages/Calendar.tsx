@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Plus, Play, Pause, Trash2, Edit, Clock, Zap, Check, Loader2, FileText, ArrowRight, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Play, Pause, Trash2, Edit, Clock, Zap, Check, Loader2, FileText, ArrowRight, CalendarDays, ExternalLink, X, Copy } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
@@ -159,6 +159,19 @@ export default function CalendarPage() {
   // and previously the only way to discover that was to open the modal
   // and click a hidden toggle.
   const [formInitialType, setFormInitialType] = useState<"article" | "newsletter">("article");
+
+  // Preview modal: opens when a user clicks a scheduled social post or
+  // newsletter row. For social posts it shows the full `content` text
+  // (plus a deep-link to `posted_url` when published). For newsletters it
+  // renders `html_content` in a sandboxed iframe. Replaces the old UX
+  // where every calendar row was opaque (title + date only) and a user
+  // had to hunt through the article editor / social library to see what
+  // was actually scheduled.
+  const [previewItem, setPreviewItem] = useState<
+    | { kind: "social"; post: any }
+    | { kind: "newsletter"; schedule: any }
+    | null
+  >(null);
 
   const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
@@ -575,11 +588,16 @@ export default function CalendarPage() {
                     <p className="text-xs font-medium text-muted-foreground uppercase mb-2">in Social Posts</p>
                     <div className="space-y-1.5">
                       {selectedDaySocialPosts.map((p: any) => (
-                        <div key={p.id} className={`rounded-lg px-3 py-2 ${
-                          p.status === "posted" ? "bg-green-50" :
-                          p.status === "failed" ? "bg-red-50" :
-                          "bg-sky-50"
-                        }`}>
+                        <div
+                          key={p.id}
+                          className={`rounded-lg px-3 py-2 cursor-pointer hover:brightness-95 transition ${
+                            p.status === "posted" ? "bg-green-50" :
+                            p.status === "failed" ? "bg-red-50" :
+                            "bg-sky-50"
+                          }`}
+                          onClick={() => setPreviewItem({ kind: "social", post: p })}
+                          title="Click to preview full post"
+                        >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
                               <p className={`text-xs font-medium truncate ${
@@ -602,15 +620,29 @@ export default function CalendarPage() {
                                 </p>
                               )}
                             </div>
-                            {p.status === "scheduled" && (
-                              <button
-                                onClick={() => deleteSocialPost(p.id)}
-                                className="shrink-0 p-1 rounded hover:bg-white text-red-500"
-                                title="Cancel this scheduled post"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            )}
+                            <div className="flex items-center gap-1 shrink-0">
+                              {p.status === "posted" && p.posted_url && (
+                                <a
+                                  href={p.posted_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="p-1 rounded hover:bg-white text-green-700"
+                                  title="View on LinkedIn"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                              {p.status === "scheduled" && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); deleteSocialPost(p.id); }}
+                                  className="p-1 rounded hover:bg-white text-red-500"
+                                  title="Cancel this scheduled post"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -622,8 +654,13 @@ export default function CalendarPage() {
                   <div className={selectedDayRuns.length > 0 || selectedDayAutomations.length > 0 || selectedDaySocialPosts.length > 0 ? "mt-3" : ""}>
                     <p className="text-xs font-medium text-muted-foreground uppercase mb-2">📧 Newsletters</p>
                     <div className="space-y-1.5">
-                      {selectedDayNewsletters.map(n => (
-                        <div key={n.id} className="flex items-center justify-between bg-purple-50 rounded-lg px-3 py-2">
+                      {selectedDayNewsletters.map((n: any) => (
+                        <div
+                          key={n.id}
+                          className="flex items-center justify-between bg-purple-50 rounded-lg px-3 py-2 cursor-pointer hover:brightness-95 transition"
+                          onClick={() => setPreviewItem({ kind: "newsletter", schedule: n })}
+                          title="Click to preview newsletter content"
+                        >
                           <div className="min-w-0">
                             <p className="text-xs font-medium text-purple-800 truncate">{n.subject_line}</p>
                             <p className="text-[10px] text-purple-600">
@@ -671,7 +708,12 @@ export default function CalendarPage() {
                     .filter((p: any) => p.status === "scheduled")
                     .sort((a: any, b: any) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
                     .map((p: any) => (
-                      <div key={p.id} className="px-4 py-2.5 flex items-start gap-2">
+                      <div
+                        key={p.id}
+                        className="px-4 py-2.5 flex items-start gap-2 cursor-pointer hover:bg-muted/30 transition"
+                        onClick={() => setPreviewItem({ kind: "social", post: p })}
+                        title="Click to preview full post"
+                      >
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-medium text-foreground truncate">{p.topic || (p.platform || "linkedin") + " post"}</p>
                           <p className="text-[10px] text-muted-foreground">
@@ -680,7 +722,7 @@ export default function CalendarPage() {
                           </p>
                         </div>
                         <button
-                          onClick={() => deleteSocialPost(p.id)}
+                          onClick={(e) => { e.stopPropagation(); deleteSocialPost(p.id); }}
                           className="shrink-0 p-1 rounded hover:bg-red-50 text-red-500"
                           title="Cancel this scheduled post"
                         >
@@ -865,8 +907,147 @@ export default function CalendarPage() {
           )}
         </AnimatePresence>
 
+        {/* ── Preview Modal ── */}
+        <AnimatePresence>
+          {previewItem && (
+            <CalendarPreviewModal
+              item={previewItem}
+              onClose={() => setPreviewItem(null)}
+            />
+          )}
+        </AnimatePresence>
+
       </div>
     </PageLayout>
+  );
+}
+
+// ─── Preview Modal ─────────────────────────────────────────────────────────────
+//
+// Renders the full body of a scheduled social post or newsletter so the user
+// can verify content before it publishes (or read what was sent). Hooked up
+// from the three calendar panels. Social posts render as plain text with a
+// copy button and a deep-link to `posted_url` when LinkedIn has published;
+// newsletters render `html_content` inside a sandboxed iframe so CSS from the
+// email template doesn't escape into the app chrome.
+function CalendarPreviewModal({
+  item,
+  onClose,
+}: {
+  item:
+    | { kind: "social"; post: any }
+    | { kind: "newsletter"; schedule: any };
+  onClose: () => void;
+}) {
+  const isSocial = item.kind === "social";
+  const post = isSocial ? item.post : null;
+  const nl = !isSocial ? item.schedule : null;
+
+  const copyContent = async () => {
+    if (!post?.content) return;
+    try {
+      await navigator.clipboard.writeText(post.content);
+      toast.success("Post content copied");
+    } catch {
+      toast.error("Copy failed");
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+          <div className="min-w-0">
+            <h3 className="font-semibold text-sm truncate">
+              {isSocial
+                ? post.topic || `${post.platform || "linkedin"} post`
+                : nl.subject_line}
+            </h3>
+            <p className="text-[11px] text-muted-foreground">
+              {new Date(isSocial ? post.scheduled_at : nl.scheduled_at).toLocaleString()}
+              {" · "}
+              {isSocial ? (post.platform || "linkedin") : "newsletter"}
+              {" · "}
+              <span className={
+                (isSocial ? post.status : nl.status) === "posted" || (isSocial ? post.status : nl.status) === "sent"
+                  ? "text-green-700 font-medium"
+                  : (isSocial ? post.status : nl.status) === "failed"
+                  ? "text-red-700 font-medium"
+                  : "text-foreground"
+              }>{isSocial ? post.status : nl.status}</span>
+              {!isSocial && nl.recipient_count ? ` · ${nl.recipient_count} recipients` : ""}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded hover:bg-secondary text-muted-foreground"
+            title="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          {isSocial ? (
+            <div className="p-5">
+              {post.error_message && (
+                <div className="mb-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+                  {post.error_message}
+                </div>
+              )}
+              <pre className="whitespace-pre-wrap break-words font-sans text-sm text-foreground bg-secondary/30 rounded-lg p-4">
+                {post.content || <span className="italic text-muted-foreground">No content</span>}
+              </pre>
+            </div>
+          ) : (
+            <iframe
+              title="Newsletter preview"
+              srcDoc={nl.html_content || "<p style='padding:32px;font-family:sans-serif;color:#888'>No HTML content stored for this newsletter.</p>"}
+              sandbox=""
+              className="w-full h-[60vh] border-0"
+            />
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-border flex items-center justify-end gap-2">
+          {isSocial && post.content && (
+            <button
+              onClick={copyContent}
+              className="text-xs px-3 py-1.5 rounded-lg bg-secondary text-foreground hover:bg-secondary/70 flex items-center gap-1.5"
+            >
+              <Copy className="w-3 h-3" />
+              Copy text
+            </button>
+          )}
+          {isSocial && post.status === "posted" && post.posted_url && (
+            <a
+              href={post.posted_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-primary/90 flex items-center gap-1.5"
+            >
+              View on LinkedIn
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

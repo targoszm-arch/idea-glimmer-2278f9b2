@@ -19,7 +19,7 @@ const NAV_GROUPS = [
     items: [
       { label: "Library",  href: "/dashboard", icon: Library,      desc: "Your article library" },
       { label: "Media",    href: "/brand",      icon: Video,        desc: "Brand assets & media" },
-      { label: "Social",   href: "/social",     icon: Share2,       desc: "Social post ideas" },
+      { label: "Social",   href: "/social",     icon: Share2,       desc: "Generate platform-specific ideas" },
       { label: "Ideas",    href: "/ideas",       icon: Lightbulb,   desc: "Content idea bank" },
     ],
   },
@@ -28,7 +28,7 @@ const NAV_GROUPS = [
     items: [
       { label: "Post",     href: "/new",           icon: PenSquare,   desc: "Write a new article" },
       { label: "Schedule", href: "/calendar",      icon: CalendarDays,desc: "Calendar & automations" },
-      { label: "Social Library", href: "/social-library", icon: Bookmark, desc: "Saved social posts" },
+      { label: "All Posts", href: "/social?tab=library", icon: Bookmark, desc: "Every social post — saved, scheduled, posted, agent-written" },
     ],
   },
   {
