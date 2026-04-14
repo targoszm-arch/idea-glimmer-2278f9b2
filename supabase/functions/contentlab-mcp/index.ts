@@ -312,6 +312,89 @@ async function listArticlesHandler(args: any, ctx: AuthContext): Promise<unknown
   return { count: data?.length ?? 0, articles: data ?? [] };
 }
 
+// get_article — returns full body including `content` so Claude can read
+// what was actually generated before writing social copy or refining it.
+// The list_* tools deliberately omit content to keep token use reasonable;
+// callers should list first, then get by id.
+async function getArticleHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const id = args?.id;
+  if (typeof id !== "string" || id.length === 0) throw new Error("`id` is required");
+
+  const { data, error } = await ctx.admin
+    .from("articles")
+    .select(
+      "id, title, slug, content, excerpt, meta_description, category, content_type, status, cover_image_url, reading_time_minutes, article_meta, url_path, created_at, updated_at",
+    )
+    .eq("user_id", ctx.userId)
+    .eq("id", id)
+    .single();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Article not found");
+  return data;
+}
+
+// update_article — partial update of the user's own article. Only
+// whitelisted fields are accepted; id/slug/user_id/sync metadata stay
+// server-controlled. The row's `user_id` filter ensures one user can't
+// mutate another user's article even with a valid key.
+async function updateArticleHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const id = args?.id;
+  if (typeof id !== "string" || id.length === 0) throw new Error("`id` is required");
+
+  const allowed = [
+    "title",
+    "content",
+    "excerpt",
+    "meta_description",
+    "category",
+    "content_type",
+    "status",
+    "cover_image_url",
+  ] as const;
+
+  const update: Record<string, unknown> = {};
+  for (const key of allowed) {
+    if (args[key] !== undefined) update[key] = args[key];
+  }
+
+  if (Object.keys(update).length === 0) {
+    throw new Error(`No updatable fields provided. Allowed: ${allowed.join(", ")}`);
+  }
+
+  if (typeof update.status === "string" && !["draft", "published", "scheduled", "archived"].includes(update.status as string)) {
+    throw new Error("`status` must be one of: draft, published, scheduled, archived");
+  }
+
+  // Recompute reading time whenever content changes so the library's
+  // estimated-read badge stays in sync with the edit.
+  if (typeof update.content === "string") {
+    const plainText = (update.content as string).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const wordCount = plainText.split(/\s+/).filter(Boolean).length;
+    (update as Record<string, unknown>).reading_time_minutes = Math.max(1, Math.ceil(wordCount / 200));
+    // Keep excerpt roughly consistent if caller didn't pass one.
+    if (typeof update.excerpt !== "string") {
+      (update as Record<string, unknown>).excerpt = plainText.slice(0, 200);
+    }
+  }
+
+  update.updated_at = new Date().toISOString();
+
+  const { data, error } = await ctx.admin
+    .from("articles")
+    .update(update)
+    .eq("user_id", ctx.userId)
+    .eq("id", id)
+    .select(
+      "id, title, slug, status, content_type, category, cover_image_url, updated_at",
+    )
+    .single();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Article not found or you don't have access");
+  return data;
+}
+
 async function listSocialPostsHandler(args: any, ctx: AuthContext): Promise<unknown> {
   const limit = clampInt(args?.limit, 1, 200, 50);
 
@@ -439,7 +522,8 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: "list_articles",
-    description: "List the authenticated user's Content Lab articles, newest first.",
+    description:
+      "List the authenticated user's Content Lab articles, newest first. Body content is NOT included here to keep responses compact — call `get_article` with an id to fetch the full HTML content plus meta.",
     inputSchema: {
       type: "object",
       properties: {
@@ -448,6 +532,40 @@ const TOOLS: ToolDef[] = [
       },
     },
     handler: listArticlesHandler,
+  },
+  {
+    name: "get_article",
+    description:
+      "Fetch a single article by id, including the full HTML `content`, `meta_description`, `excerpt`, `cover_image_url`, `article_meta` (SEO keywords, FAQs, etc.), and `url_path`. Use this to read what was actually generated before writing social copy, editing, or publishing.",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: {
+        id: { type: "string", format: "uuid", description: "Article UUID from `list_articles`." },
+      },
+    },
+    handler: getArticleHandler,
+  },
+  {
+    name: "update_article",
+    description:
+      "Edit an existing article. Supports partial updates — only pass the fields you want to change. Fields: title, content (HTML), excerpt, meta_description, category, content_type, status (draft|published|scheduled|archived), cover_image_url. When `content` changes, `reading_time_minutes` is recomputed automatically. Slug and sync metadata (WordPress/Intercom ids) are server-controlled and not editable via this tool.",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: {
+        id: { type: "string", format: "uuid" },
+        title: { type: "string" },
+        content: { type: "string", description: "Full HTML body." },
+        excerpt: { type: "string" },
+        meta_description: { type: "string", description: "<=150 chars recommended for SEO." },
+        category: { type: "string" },
+        content_type: { type: "string", enum: ["blog", "landing", "comparison", "how-to", "user_guide"] },
+        status: { type: "string", enum: ["draft", "published", "scheduled", "archived"] },
+        cover_image_url: { type: "string", format: "uri" },
+      },
+    },
+    handler: updateArticleHandler,
   },
   {
     name: "list_social_posts",
