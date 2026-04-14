@@ -52,18 +52,16 @@ async function publishToLinkedIn(accessToken: string, linkedinId: string, conten
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // This endpoint runs with service role and is called by pg_cron only.
-  // We still accept a shared-secret header so ad-hoc HTTP callers can't
-  // trigger it.
-  const authHeader = req.headers.get("Authorization") ?? "";
+  // Deployed with `verify_jwt: false` and no internal auth check — matches
+  // `process-newsletter-queue`. The function only processes rows where
+  // `status='scheduled' AND scheduled_at <= now()`, so an arbitrary caller
+  // can at worst cause the cron to do its job slightly earlier. Previously
+  // this required `Authorization: Bearer ${SERVICE_ROLE_KEY}`, but the cron
+  // migration relied on `current_setting('app.service_role_key')` which was
+  // never set on prod — so every cron invocation was silently returning
+  // 401 and posts stayed `scheduled` forever. Removing the check aligns
+  // with the newsletter worker that has been running this way for months.
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const expected = `Bearer ${serviceKey}`;
-  if (authHeader !== expected) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
 
   // Find all scheduled posts that are due (look back 7 days so we don't miss any
