@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Plus, Play, Pause, Trash2, Edit, Clock, Zap, Check, Loader2, FileText, ArrowRight, CalendarDays } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -152,6 +152,26 @@ export default function CalendarPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Pre-set the form's automation type when opened. Lets the page render
+  // two distinct entry points ("New Automation" vs "Schedule Newsletter")
+  // and lets the /automations page deep-link to the newsletter flow via
+  // /calendar?newsletter=1 — newsletters are one-time sends, not recurring,
+  // and previously the only way to discover that was to open the modal
+  // and click a hidden toggle.
+  const [formInitialType, setFormInitialType] = useState<"article" | "newsletter">("article");
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("newsletter") === "1") {
+      setEditingId(null);
+      setFormInitialType("newsletter");
+      setShowForm(true);
+      // Strip the param so a refresh doesn't re-open the modal.
+      const next = new URLSearchParams(searchParams);
+      next.delete("newsletter");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const [runState, setRunState] = useState<{
     automationId: string;
@@ -365,12 +385,21 @@ export default function CalendarPage() {
             <h1 className="text-2xl font-bold">Content Calendar</h1>
             <p className="text-muted-foreground text-sm mt-1">Schedule and manage your automated content publishing</p>
           </div>
-          <button
-            onClick={() => { setEditingId(null); setShowForm(true); }}
-            className="flex items-center gap-2 bg-primary text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="w-4 h-4" /> New Automation
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setEditingId(null); setFormInitialType("article"); setShowForm(true); }}
+              className="flex items-center gap-2 bg-primary text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Schedule Article Automation
+            </button>
+            <button
+              onClick={() => { setEditingId(null); setFormInitialType("newsletter"); setShowForm(true); }}
+              className="flex items-center gap-2 border border-primary text-primary rounded-lg px-4 py-2 text-sm font-semibold hover:bg-primary/5 transition-colors"
+              title="Schedule a one-time newsletter send"
+            >
+              <Plus className="w-4 h-4" /> Schedule Newsletter
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -828,6 +857,7 @@ export default function CalendarPage() {
           {showForm && (
             <AutomationForm
               editingId={editingId}
+              initialType={formInitialType}
               connectedPlatforms={connectedPlatforms}
               onClose={() => { setShowForm(false); setEditingId(null); }}
               onSaved={() => { setShowForm(false); setEditingId(null); loadAll(); }}
@@ -842,13 +872,14 @@ export default function CalendarPage() {
 
 // ─── Automation Form (unchanged from original) ────────────────────────────────
 
-function AutomationForm({ editingId, connectedPlatforms, onClose, onSaved }: {
+function AutomationForm({ editingId, initialType, connectedPlatforms, onClose, onSaved }: {
   editingId: string | null;
+  initialType?: "article" | "newsletter";
   connectedPlatforms: string[];
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [automationType, setAutomationType] = useState<"article" | "newsletter">("article");
+  const [automationType, setAutomationType] = useState<"article" | "newsletter">(initialType ?? "article");
   const [newsletterArticleId, setNewsletterArticleId] = useState<string>("");
   const [newsletterArticles, setNewsletterArticles] = useState<{ id: string; title: string; newsletter_data: any }[]>([]);
   const [newsletterAudienceType, setNewsletterAudienceType] = useState<"contacts" | "resend_list">("contacts");

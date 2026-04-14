@@ -257,6 +257,29 @@ export default function Automations({ embedded = false }: { embedded?: boolean }
         </button>
       </div>
 
+      {/* Newsletters are one-time scheduled sends, not recurring automations.
+          This page only handles cron-driven article generation, so users
+          looking to "schedule a newsletter" land here and get stuck. Send
+          them to the Calendar with the newsletter modal pre-opened. */}
+      <button
+        type="button"
+        onClick={() => navigate("/calendar?newsletter=1")}
+        className="w-full text-left mb-6 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 flex items-start justify-between gap-3 hover:bg-purple-100 transition-colors"
+      >
+        <div className="flex items-start gap-3">
+          <span className="text-xl leading-none mt-0.5">✉</span>
+          <div>
+            <p className="text-sm font-semibold text-purple-900">Looking to schedule a newsletter?</p>
+            <p className="text-xs text-purple-700 mt-0.5">
+              Newsletters are one-time sends, not recurring automations. Pick an article and a send date on the Content Calendar.
+            </p>
+          </div>
+        </div>
+        <span className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-purple-700">
+          Schedule newsletter <ArrowRight className="w-3.5 h-3.5" />
+        </span>
+      </button>
+
       {(loading || authLoading) ? (
         <div className="text-center py-20 text-muted-foreground flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /> Loading…</div>
       ) : automations.length === 0 ? (
