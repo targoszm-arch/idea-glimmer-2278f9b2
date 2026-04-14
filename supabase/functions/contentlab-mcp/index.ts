@@ -475,6 +475,198 @@ async function scheduleSocialPostHandler(args: any, ctx: AuthContext): Promise<u
 }
 
 // ---------------------------------------------------------------------------
+// Newsletter tools
+//
+// Newsletters are ONE-TIME scheduled sends. There is no recurrence. The
+// schedule-newsletter edge function inserts a single row with
+// status='scheduled' and a single `scheduled_at` timestamp; the cron
+// worker (process-newsletter-queue) picks up due rows every 5 minutes
+// and sends them via Resend exactly once.
+//
+// Tool descriptions intentionally repeat "one-time" so an agent doesn't
+// later assume there's a frequency knob and tell the user otherwise.
+// ---------------------------------------------------------------------------
+
+async function listNewsletterSchedulesHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const limit = clampInt(args?.limit, 1, 200, 50);
+
+  let query = ctx.admin
+    .from("newsletter_schedules")
+    .select(
+      "id, article_id, subject_line, preview_text, audience_type, resend_audience_id, scheduled_at, status, recipient_count, sent_at, error_message, created_at, updated_at",
+    )
+    .eq("user_id", ctx.userId)
+    .order("scheduled_at", { ascending: false })
+    .limit(limit);
+
+  if (args?.status) query = query.eq("status", args.status);
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return {
+    count: data?.length ?? 0,
+    schedules: data ?? [],
+    review_url: CALENDAR_URL,
+  };
+}
+
+// Build the newsletter HTML the same way Calendar.tsx does when a user
+// schedules from the UI: take the article's saved `newsletter_data.html`
+// and wrap it with Resend-friendly defaults (preview text, unsubscribe
+// link, open pixel placeholder for send-newsletter to inject). If the
+// article has no newsletter_data we error rather than guessing — Claude
+// should generate newsletter_data first via the newsletter editor.
+function buildNewsletterHtml(opts: {
+  bodyHtml: string;
+  previewText: string;
+  fromName: string;
+}): string {
+  const safePreview = opts.previewText.replace(/[<>]/g, "");
+  return `<!doctype html>
+<html><head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>${opts.fromName}</title>
+</head>
+<body style="margin:0;padding:0;background:#f6f6f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#222;">
+  <span style="display:none;font-size:1px;color:#f6f6f6;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${safePreview}</span>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f6f6f6;">
+    <tr><td align="center" style="padding:24px 12px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;">
+        <tr><td style="padding:32px 32px 24px 32px;line-height:1.6;font-size:16px;">
+          ${opts.bodyHtml}
+        </td></tr>
+        <tr><td style="padding:16px 32px 32px 32px;border-top:1px solid #eee;font-size:12px;color:#888;text-align:center;">
+          You're receiving this because you subscribed. <a href="{{UNSUBSCRIBE_URL}}" style="color:#888;">Unsubscribe</a>.
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+async function scheduleNewsletterHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const articleId = args?.article_id;
+  const scheduledAt = args?.scheduled_at;
+  const audienceType = args?.audience_type ?? "contacts";
+  const resendAudienceId = args?.resend_audience_id ?? null;
+  const force = args?.force === true;
+
+  if (typeof articleId !== "string" || articleId.length === 0) {
+    throw new Error("`article_id` is required");
+  }
+  if (typeof scheduledAt !== "string") {
+    throw new Error("`scheduled_at` is required (ISO 8601 datetime, one-time send)");
+  }
+  const when = new Date(scheduledAt);
+  if (isNaN(when.getTime())) throw new Error("`scheduled_at` is not a valid ISO 8601 datetime");
+  if (when.getTime() <= Date.now()) throw new Error("`scheduled_at` must be in the future");
+
+  if (audienceType !== "contacts" && audienceType !== "resend_list") {
+    throw new Error("`audience_type` must be 'contacts' or 'resend_list'");
+  }
+  if (audienceType === "resend_list" && !resendAudienceId) {
+    throw new Error("`resend_audience_id` is required when audience_type='resend_list'");
+  }
+
+  // Mirror the social-post safety cap: stop a runaway agent from queuing
+  // more than 5 future newsletters in one go. Override with force=true.
+  if (!force) {
+    const { count: pendingCount, error: countError } = await ctx.admin
+      .from("newsletter_schedules")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", ctx.userId)
+      .eq("status", "scheduled")
+      .gt("scheduled_at", new Date().toISOString());
+    if (countError) throw new Error(`Failed to check schedule cap: ${countError.message}`);
+    if ((pendingCount ?? 0) >= MCP_SCHEDULE_CAP) {
+      throw new Error(
+        `Schedule cap reached: ${pendingCount} newsletters already scheduled (cap is ${MCP_SCHEDULE_CAP}). ` +
+          `Ask the user to review/cancel pending sends at ${CALENDAR_URL} before scheduling more. ` +
+          `If the user explicitly wants to exceed the cap, call this tool again with \`force: true\`.`,
+      );
+    }
+  }
+
+  // Load article + newsletter_data to build the HTML payload exactly the
+  // way the Calendar UI does (Calendar.tsx schedule-newsletter branch).
+  const { data: article, error: artErr } = await ctx.admin
+    .from("articles")
+    .select("id, title, newsletter_data")
+    .eq("user_id", ctx.userId)
+    .eq("id", articleId)
+    .single();
+  if (artErr) throw new Error(`Failed to load article: ${artErr.message}`);
+  if (!article) throw new Error("Article not found");
+
+  const newsletterData = (article as any).newsletter_data;
+  if (!newsletterData || (!newsletterData.html && !newsletterData.body)) {
+    throw new Error(
+      "Article has no newsletter_data. Open the article in the Content Lab editor → Newsletter tab to generate the newsletter content first, then call this tool again.",
+    );
+  }
+
+  const bodyHtml: string = newsletterData.html || newsletterData.body || "";
+  const subject: string = args?.subject_line || newsletterData.subject || article.title;
+  const previewText: string = args?.preview_text || newsletterData.preview || "";
+  const fromName: string = args?.from_name || newsletterData.from_name || "Content Lab";
+  const fromEmail: string = args?.from_email || newsletterData.from_email || "";
+  const replyTo: string = args?.reply_to || newsletterData.reply_to || fromEmail;
+
+  if (!fromEmail) {
+    throw new Error(
+      "No `from_email` configured. Pass from_email explicitly or set it in the article's newsletter_data.",
+    );
+  }
+
+  const html = buildNewsletterHtml({ bodyHtml, previewText, fromName });
+
+  const { data, error } = await ctx.admin
+    .from("newsletter_schedules")
+    .insert({
+      user_id: ctx.userId,
+      article_id: articleId,
+      subject_line: subject,
+      preview_text: previewText,
+      html_content: html,
+      from_name: fromName,
+      from_email: fromEmail,
+      reply_to: replyTo,
+      audience_type: audienceType,
+      resend_audience_id: resendAudienceId,
+      scheduled_at: when.toISOString(),
+      status: "scheduled",
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return {
+    ...data,
+    review_url: CALENDAR_URL,
+    note: "Newsletter is a ONE-TIME scheduled send. The cron worker will pick it up at the scheduled time and send via Resend exactly once. Tell the user they can review or cancel at /calendar.",
+  };
+}
+
+async function cancelNewsletterScheduleHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const id = args?.id;
+  if (typeof id !== "string" || id.length === 0) throw new Error("`id` is required");
+
+  const { data, error } = await ctx.admin
+    .from("newsletter_schedules")
+    .update({ status: "cancelled", updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", ctx.userId)
+    .eq("status", "scheduled")
+    .select("id, status, scheduled_at")
+    .single();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Schedule not found, not yours, or no longer in 'scheduled' state.");
+  return { ...data, review_url: CALENDAR_URL };
+}
+
+// ---------------------------------------------------------------------------
 // Tool registry
 // ---------------------------------------------------------------------------
 
@@ -610,6 +802,70 @@ const TOOLS: ToolDef[] = [
       },
     },
     handler: scheduleSocialPostHandler,
+  },
+  {
+    name: "list_newsletter_schedules",
+    description:
+      "List the authenticated user's newsletter schedules (one-time sends), newest first. Newsletters are NOT recurring — each row has a single `scheduled_at` timestamp and is sent exactly once. Response includes a `review_url` deep-link to https://www.app.content-lab.ie/calendar so the user can review, reschedule, or cancel.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: { type: "integer", minimum: 1, maximum: 200, default: 50 },
+        status: { type: "string", enum: ["scheduled", "sending", "sent", "failed", "cancelled"] },
+      },
+    },
+    handler: listNewsletterSchedulesHandler,
+  },
+  {
+    name: "schedule_newsletter",
+    description:
+      "Schedule a one-time newsletter send for an existing article that has newsletter_data populated. The send happens ONCE at `scheduled_at` — there is no recurrence; do NOT tell the user this is a recurring automation. The cron worker (process-newsletter-queue) picks up due rows every 5 minutes and sends via Resend. Audience is either the user's contacts table (`audience_type='contacts'`) or a Resend audience id (`audience_type='resend_list'` + `resend_audience_id`). Same 5-per-user safety cap as schedule_social_post; pass `force: true` to override. Always tell the user they can review or cancel at https://www.app.content-lab.ie/calendar.",
+    inputSchema: {
+      type: "object",
+      required: ["article_id", "scheduled_at"],
+      properties: {
+        article_id: { type: "string", format: "uuid", description: "Article id (must have newsletter_data set)." },
+        scheduled_at: {
+          type: "string",
+          format: "date-time",
+          description: "ISO 8601 datetime, must be in the future. One-time send.",
+        },
+        audience_type: {
+          type: "string",
+          enum: ["contacts", "resend_list"],
+          default: "contacts",
+          description: "`contacts` = the user's newsletter_contacts table. `resend_list` = a Resend audience.",
+        },
+        resend_audience_id: {
+          type: "string",
+          description: "Required when audience_type='resend_list'. The Resend audience UUID.",
+        },
+        subject_line: { type: "string", description: "Override the article's default subject." },
+        preview_text: { type: "string", description: "Inbox preview text shown next to the subject." },
+        from_name: { type: "string" },
+        from_email: { type: "string", format: "email" },
+        reply_to: { type: "string", format: "email" },
+        force: {
+          type: "boolean",
+          default: false,
+          description: "Set to true to bypass the 5-newsletter schedule cap. Only when the user explicitly asked.",
+        },
+      },
+    },
+    handler: scheduleNewsletterHandler,
+  },
+  {
+    name: "cancel_newsletter_schedule",
+    description:
+      "Cancel a one-time newsletter that's still in 'scheduled' state. Marks it as cancelled (kept in history). Errors if the row is already sent, sending, failed, or cancelled.",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: {
+        id: { type: "string", format: "uuid", description: "newsletter_schedules.id" },
+      },
+    },
+    handler: cancelNewsletterScheduleHandler,
   },
 ];
 
