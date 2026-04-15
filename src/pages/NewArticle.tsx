@@ -24,6 +24,7 @@ import { supabase } from "@/lib/supabase";
 import { TONE_PRESETS } from "@/lib/tones";
 import { streamAI } from "@/lib/ai-stream";
 import { toSlug, buildUrlPath } from "@/lib/slug";
+import { buildArticleJsonLd, injectJsonLd, type ArticleMeta } from "@/lib/articleJsonLd";
 import { toast } from "@/hooks/use-toast";
 import { MediaLibraryPicker } from "../components/MediaLibraryPicker";
 import { UnsplashPicker } from "../components/UnsplashPicker";
@@ -289,8 +290,30 @@ const NewArticle = () => {
           })
           .trim();
 
+        // Inject FAQPage + BlogPosting JSON-LD from the structured metadata
+        // the model emitted (ARTICLE_META_JSON.faq_pairs). Done server-side
+        // here rather than asking the model to output <script> tags — JSON
+        // syntax was the single biggest source of broken articles.
+        let finalContent = cleanContent;
         if (cleanContent) {
-          editor?.commands.setContent(cleanContent);
+          try {
+            const parsedMeta: ArticleMeta | undefined = metaJsonMatch?.[1]
+              ? JSON.parse(metaJsonMatch[1].trim())
+              : undefined;
+            const titleMatch = cleanContent.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+            const h1Title = titleMatch?.[1]?.replace(/<[^>]+>/g, "").trim() || title || topic;
+            const description = metaDescMatch?.[1]?.trim().slice(0, 150) || "";
+            const jsonLd = buildArticleJsonLd({
+              title: h1Title,
+              description,
+              articleSection: category || parsedMeta?.primary_focus,
+              meta: parsedMeta,
+            });
+            if (jsonLd) finalContent = injectJsonLd(cleanContent, jsonLd);
+          } catch (e) {
+            console.warn("JSON-LD build skipped:", e);
+          }
+          editor?.commands.setContent(finalContent);
         }
 
         setIsGenerating(false);

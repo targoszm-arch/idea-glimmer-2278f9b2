@@ -180,26 +180,89 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
         ? titleMatch[1].replace(/<[^>]+>/g, "").trim().slice(0, 200)
         : args.topic.slice(0, 80);
 
-      // Parse meta JSON block and strip it from content
+      // Parse metadata from the comment blocks emitted by the current
+      // generate-article prompt:
+      //   <!-- META_DESCRIPTION: ... -->
+      //   <!-- ARTICLE_META_JSON: {...} -->
+      // (The old META_JSON_START/END format is still matched as a fallback
+      // for any cached prompts.)
       let articleMeta: Record<string, unknown> | null = null;
       let metaDescription = "";
-      const metaMatch = html.match(/<!--\s*META_JSON_START([\s\S]*?)META_JSON_END\s*-->/);
-      if (metaMatch) {
+
+      const metaDescMatch = html.match(/<!--\s*META_DESCRIPTION:\s*(.*?)\s*-->/i);
+      if (metaDescMatch?.[1]) metaDescription = metaDescMatch[1].trim().slice(0, 150);
+
+      const metaJsonMatch = html.match(/<!--\s*ARTICLE_META_JSON:\s*([\s\S]*?)\s*-->/i)
+        || html.match(/<!--\s*META_JSON_START([\s\S]*?)META_JSON_END\s*-->/i);
+      if (metaJsonMatch?.[1]) {
         try {
-          articleMeta = JSON.parse(metaMatch[1].trim());
-          const md = articleMeta?.meta_description;
-          if (typeof md === "string") metaDescription = md;
+          articleMeta = JSON.parse(metaJsonMatch[1].trim());
+          // Legacy: some older prompts stored meta_description inside the
+          // JSON blob; prefer that when the dedicated comment is missing.
+          if (!metaDescription && typeof (articleMeta as any)?.meta_description === "string") {
+            metaDescription = (articleMeta as any).meta_description;
+          }
         } catch (e) {
           console.warn(`[create_article] meta JSON parse failed for user ${ctx.userId}:`, e);
         }
       }
 
-      // Clean: strip meta block, strip any leftover code fences, strip inline styles.
-      const cleanContent = html
+      // Build FAQPage + BlogPosting JSON-LD server-side from the structured
+      // metadata — the model is explicitly told NOT to emit <script> tags
+      // because JSON syntax errors were the single biggest breakage source.
+      const faqPairs = Array.isArray((articleMeta as any)?.faq_pairs)
+        ? ((articleMeta as any).faq_pairs as Array<{ question: string; answer: string }>)
+            .filter(f => f?.question && f?.answer)
+        : [];
+      const jsonLdBlocks: string[] = [];
+      if (faqPairs.length > 0) {
+        jsonLdBlocks.push(
+          `<script type="application/ld+json">${JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: faqPairs.map(f => ({
+              "@type": "Question",
+              name: f.question,
+              acceptedAnswer: { "@type": "Answer", text: f.answer },
+            })),
+          })}</script>`,
+        );
+      }
+      {
+        const today = new Date().toISOString().split("T")[0];
+        const blog: Record<string, unknown> = {
+          "@context": "https://schema.org",
+          "@type": "BlogPosting",
+          headline: title,
+          description: metaDescription,
+          datePublished: today,
+          dateModified: today,
+        };
+        const section = (args.category as string) || (articleMeta as any)?.primary_focus;
+        if (section) blog.articleSection = section;
+        const kws = (articleMeta as any)?.keywords;
+        if (Array.isArray(kws) && kws.length) blog.keywords = kws.join(", ");
+        jsonLdBlocks.push(`<script type="application/ld+json">${JSON.stringify(blog)}</script>`);
+      }
+
+      // Clean: strip meta comment blocks, code fences, inline styles, any
+      // stray <script> blocks the model may have emitted despite the prompt.
+      const cleanedHtml = html
+        .replace(/<!--\s*META_TITLE:[\s\S]*?-->/gi, "")
+        .replace(/<!--\s*META_DESCRIPTION:[\s\S]*?-->/gi, "")
+        .replace(/<!--\s*COVER_IMAGE_PROMPT:[\s\S]*?-->/gi, "")
+        .replace(/<!--\s*ARTICLE_META_JSON:[\s\S]*?-->/gi, "")
         .replace(/<!--\s*META_JSON_START[\s\S]*?META_JSON_END\s*-->/g, "")
+        .replace(/<script[^>]*application\/ld\+json[^>]*>[\s\S]*?<\/script>/gi, "")
         .replace(/^```html\s*|\s*```\s*$/g, "")
         .replace(/\s*style="[^"]*"/gi, "")
         .trim();
+
+      // Append our freshly-built JSON-LD so the published article has valid
+      // structured data every time.
+      const cleanContent = jsonLdBlocks.length > 0
+        ? `${cleanedHtml}\n${jsonLdBlocks.join("\n")}`
+        : cleanedHtml;
 
       const plainText = cleanContent.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
       const excerpt = plainText.slice(0, 200);
