@@ -34,6 +34,10 @@ import CalendarPage from "./pages/Calendar";
 import SignupConfirm from "./pages/SignupConfirm";
 import NewsletterAnalytics from "./pages/NewsletterAnalytics";
 import OAuthAuthorize from "./pages/OAuthAuthorize";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
+import Support from "./pages/Support";
+import ClaudeConnector from "./pages/ClaudeConnector";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +71,10 @@ const App = () => (
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/signup/confirm" element={<SignupConfirm />} />
             <Route path="/oauth/authorize" element={<OAuthAuthorize />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/support" element={<Support />} />
+            <Route path="/connect/claude" element={<ClaudeConnector />} />
             <Route path="/settings/api-key" element={<ProtectedRoute><APIKey /></ProtectedRoute>} />
             <Route path="/settings/brand" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/settings/integrations" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
