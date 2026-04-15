@@ -43,7 +43,15 @@ const CALENDAR_URL = `${APP_URL}/calendar`;
 // override by passing `force: true` in the tool arguments.
 const MCP_SCHEDULE_CAP = 5;
 
-type AuthContext = { userId: string; admin: SupabaseClient; token: string };
+type AuthMethod = "api_key" | "oauth" | "jwt";
+type AuthContext = {
+  userId: string;
+  admin: SupabaseClient;
+  token: string;
+  authMethod: AuthMethod;
+  // Populated for OAuth tokens (the client_id claim from the access token).
+  oauthClientId?: string;
+};
 
 // ---------------------------------------------------------------------------
 // Auth — accepts two credential types:
@@ -65,6 +73,8 @@ async function authenticate(req: Request): Promise<AuthContext | Response> {
   const admin = createClient(supabaseUrl, supabaseServiceKey);
 
   let userId: string | null = null;
+  let authMethod: AuthMethod = "api_key";
+  let oauthClientId: string | undefined;
 
   if (token.startsWith("cl_")) {
     const { data: keyData } = await admin
@@ -76,14 +86,17 @@ async function authenticate(req: Request): Promise<AuthContext | Response> {
     if (!keyData) return jsonResponse({ error: "Invalid API key" }, 401);
 
     userId = keyData.user_id;
+    authMethod = "api_key";
     await admin.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("key", token);
   } else if (isLikelyJwt(token)) {
     // Try MCP OAuth access token first. If that fails (wrong issuer, bad
     // signature), fall back to Supabase JWT so `supabase functions invoke`
     // local testing still works.
-    const oauthUser = await verifyMcpOAuthToken(token);
-    if (oauthUser) {
-      userId = oauthUser;
+    const oauthClaims = await verifyMcpOAuthToken(token);
+    if (oauthClaims) {
+      userId = oauthClaims.sub;
+      oauthClientId = oauthClaims.cid;
+      authMethod = "oauth";
     } else {
       const anon = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
         global: { headers: { Authorization: authHeader } },
@@ -91,12 +104,13 @@ async function authenticate(req: Request): Promise<AuthContext | Response> {
       const { data: { user } } = await anon.auth.getUser();
       if (!user) return jsonResponse({ error: "Unauthorized" }, 401);
       userId = user.id;
+      authMethod = "jwt";
     }
   } else {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
-  return { userId: userId!, admin, token };
+  return { userId: userId!, admin, token, authMethod, oauthClientId };
 }
 
 function isLikelyJwt(token: string): boolean {
@@ -104,9 +118,10 @@ function isLikelyJwt(token: string): boolean {
 }
 
 // Verifies an MCP OAuth access token (HS256 JWT issued by mcp-oauth-token).
-// Returns the user id (sub claim) on success, or null on any failure — the
-// caller decides how to handle invalid tokens.
-async function verifyMcpOAuthToken(token: string): Promise<string | null> {
+// Returns the verified claims (sub + cid) on success, or null on any failure.
+async function verifyMcpOAuthToken(
+  token: string,
+): Promise<{ sub: string; cid?: string } | null> {
   const secret = Deno.env.get("MCP_OAUTH_SIGNING_KEY");
   if (!secret) return null; // OAuth disabled in this environment
 
@@ -147,7 +162,7 @@ async function verifyMcpOAuthToken(token: string): Promise<string | null> {
     if (typeof payload.exp !== "number" || payload.exp < now) return null;
     if (typeof payload.sub !== "string" || payload.sub.length === 0) return null;
 
-    return payload.sub;
+    return { sub: payload.sub, cid: typeof payload.cid === "string" ? payload.cid : undefined };
   } catch {
     return null;
   }
@@ -1129,6 +1144,34 @@ function handleToolsList(id: any) {
   });
 }
 
+// JSON-RPC custom error code for rate-limit rejection. Picked from the
+// implementation-defined server-error range (-32000 to -32099) per the
+// JSON-RPC 2.0 spec.
+const RPC_RATE_LIMITED = -32000;
+
+// Fields that must never be written to the audit log. arguments JSON is
+// passed to the MCP tool by the model, so in principle it's user-visible —
+// but we defensively strip anything that looks like a credential in case a
+// tool's schema is ever extended with a sensitive field.
+const AUDIT_REDACT_KEYS = new Set([
+  "password", "token", "access_token", "refresh_token", "secret", "api_key",
+  "authorization", "bearer",
+]);
+
+function redactArguments(args: unknown): unknown {
+  if (!args || typeof args !== "object") return args;
+  if (Array.isArray(args)) return args.map(redactArguments);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(args as Record<string, unknown>)) {
+    if (AUDIT_REDACT_KEYS.has(k.toLowerCase())) {
+      out[k] = "[redacted]";
+    } else {
+      out[k] = redactArguments(v);
+    }
+  }
+  return out;
+}
+
 async function handleToolsCall(id: any, params: any, ctx: AuthContext) {
   const name = params?.name;
   if (!name) return rpcError(id, RPC_INVALID_PARAMS, "Missing tool `name`");
@@ -1141,18 +1184,69 @@ async function handleToolsCall(id: any, params: any, ctx: AuthContext) {
     });
   }
 
+  // Per-user rate limit. Default 120 calls/hour, overrideable per-user
+  // via mcp_rate_limits.hourly_limit. Uses a SQL helper that counts
+  // invocations in the trailing hour.
+  const { data: limitRow } = await ctx.admin.rpc("check_mcp_rate_limit", {
+    p_user_id: ctx.userId,
+  });
+  const limit = Array.isArray(limitRow) ? limitRow[0] : limitRow;
+  if (limit && limit.allowed === false) {
+    // Log the block so we can see when someone hits the ceiling.
+    await logInvocation(ctx, name, params?.arguments, "rate_limited", 0, RPC_RATE_LIMITED);
+    return rpcError(
+      id,
+      RPC_RATE_LIMITED,
+      `Rate limit exceeded (${limit.hourly_limit}/hour). Retry after ${limit.retry_after_seconds}s.`,
+    );
+  }
+
+  const startedAt = Date.now();
   try {
     const result = await tool.handler(params.arguments ?? {}, ctx);
+    const duration = Date.now() - startedAt;
+    await logInvocation(ctx, name, params?.arguments, "ok", duration, null);
     return rpcResult(id, {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
       isError: false,
     });
   } catch (e) {
+    const duration = Date.now() - startedAt;
     const text = e instanceof Error ? e.message : String(e);
+    await logInvocation(ctx, name, params?.arguments, "error", duration, RPC_INTERNAL_ERROR);
     return rpcResult(id, {
       content: [{ type: "text", text }],
       isError: true,
     });
+  }
+}
+
+// Best-effort audit write. Failures are logged but never surface to the
+// caller — logging must not break tool calls.
+async function logInvocation(
+  ctx: AuthContext,
+  toolName: string,
+  args: unknown,
+  status: "ok" | "error" | "rate_limited",
+  durationMs: number,
+  errorCode: number | null,
+): Promise<void> {
+  try {
+    const { error } = await ctx.admin.from("mcp_tool_invocations").insert({
+      user_id: ctx.userId,
+      tool_name: toolName,
+      auth_method: ctx.authMethod,
+      client_id: ctx.oauthClientId ?? null,
+      arguments: redactArguments(args) ?? null,
+      status,
+      error_code: errorCode,
+      duration_ms: durationMs,
+    });
+    if (error) {
+      console.warn(`[mcp_tool_invocations] insert failed: ${error.message}`);
+    }
+  } catch (e) {
+    console.warn("[mcp_tool_invocations] insert threw:", e);
   }
 }
 
