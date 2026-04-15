@@ -121,20 +121,29 @@ serve(async (req) => {
 
       // Optionally fetch the article URL so the post includes a link preview.
       // IMPORTANT: this URL is what LinkedIn scrapes for the og:* metadata and
-      // what readers actually click. It MUST be the public-facing marketing
-      // site (skillstudio.ai) — not the internal Content Lab app. Previously
-      // this pointed at `app.content-lab.ie/article/<slug>`, which is an
-      // authenticated app URL; every shared LinkedIn post linked to a login
-      // screen.
+      // what readers actually click. Use the article's own `url_path` which
+      // already encodes the correct category/slug structure (e.g.
+      // "getting-started/<slug>", "instructional-design/<slug>", etc). The
+      // site renders each article at `https://www.skillstudio.ai/<url_path>`.
+      //
+      // History of this bug:
+      // - v2: `app.content-lab.ie/article/<slug>` — internal auth-gated URL
+      // - v6: `skillstudio.ai/latest-articles/<slug>` — hardcoded the wrong
+      //       category. Only 1 of 116 articles is actually under
+      //       `latest-articles/`; the rest are under other categories, so
+      //       every share linked to a 404.
+      // - now: use `url_path` → correct for any category; fall back to bare
+      //       slug for legacy rows where url_path was never populated.
       let articleUrl: string | null = null;
       if (post.article_id) {
         const { data: article } = await supabase
           .from("articles")
-          .select("slug")
+          .select("url_path, slug")
           .eq("id", post.article_id)
           .maybeSingle();
-        if (article?.slug) {
-          articleUrl = `https://www.skillstudio.ai/latest-articles/${article.slug}`;
+        const path = (article?.url_path || article?.slug || "").replace(/^\/+/, "");
+        if (path) {
+          articleUrl = `https://www.skillstudio.ai/${path}`;
         }
       }
 

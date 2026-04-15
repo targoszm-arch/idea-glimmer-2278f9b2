@@ -46,31 +46,38 @@ serve(async (req) => {
 
     const { prompt, context } = bodyJson;
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
+    // "Nano Banana" = Google's gemini-2.5-flash-image. Much better quality
+    // for editorial cover photos than DALL-E 3 standard; when GEMINI_API_KEY
+    // is configured we prefer it and only fall back to OpenAI on error.
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!OPENAI_API_KEY && !GEMINI_API_KEY) throw new Error("No image provider configured. Set GEMINI_API_KEY (preferred) or OPENAI_API_KEY.");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Step 1: Use GPT to convert the abstract topic into a concrete, text-free visual scene.
-    // This prevents DALL-E from seeing words like "SEO", "analytics", "sharing" and
-    // rendering them as garbled text labels in the image.
+    // Step 1: Refine the topic into a concrete, text-free visual scene.
+    // This uses OpenAI when available (cheap, reliable) and falls back to
+    // passing the raw prompt through otherwise — Gemini's image model tends
+    // to handle looser prompts well on its own.
     const topicInput = context
       ? `${prompt}. Context: ${context.substring(0, 300)}`
       : prompt;
 
-    const sceneRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You convert article topics into short DALL-E image prompts (max 40 words).
+    let scenePrompt = prompt; // fallback
+    if (OPENAI_API_KEY) {
+      const sceneRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: `You convert article topics into short image prompts (max 40 words).
 
 Rules:
 - Describe ONLY physical objects, environments, lighting, and camera angles.
@@ -79,65 +86,141 @@ Rules:
 - Think: "What real-world photograph would a magazine use as a cover for this article?"
 - Focus on people, workspaces, nature, objects, or architectural scenes.
 - Output ONLY the scene description, nothing else.`
-          },
-          { role: "user", content: topicInput }
-        ],
-        max_tokens: 80,
-        temperature: 0.7,
-      }),
-    });
-
-    let scenePrompt = prompt; // fallback
-    if (sceneRes.ok) {
-      const sceneData = await sceneRes.json();
-      const generated = sceneData.choices?.[0]?.message?.content?.trim();
-      if (generated) scenePrompt = generated;
-    }
-
-    // Step 2: Generate image with DALL-E using the sanitized scene prompt
-    const response = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "dall-e-3",
-        prompt: `Professional editorial photograph. ${scenePrompt}. Shot on DSLR, natural lighting, shallow depth of field. Photorealistic, not illustrated. Contains absolutely no text, letters, words, numbers, labels, watermarks, or any written characters.`,
-        n: 1,
-        size: "1024x1024",
-        quality: "standard",
-        style: "natural",
-        response_format: "b64_json",
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402 || response.status === 401) {
-        return new Response(JSON.stringify({ error: "OpenAI API key issue — check billing or key validity." }), {
-          status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const t = await response.text();
-      console.error("OpenAI DALL-E error:", response.status, t);
-      return new Response(JSON.stringify({ error: "Image generation failed" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+            { role: "user", content: topicInput }
+          ],
+          max_tokens: 80,
+          temperature: 0.7,
+        }),
       });
+
+      if (sceneRes.ok) {
+        const sceneData = await sceneRes.json();
+        const generated = sceneData.choices?.[0]?.message?.content?.trim();
+        if (generated) scenePrompt = generated;
+      }
     }
 
-    const data = await response.json();
-    const b64 = data.data?.[0]?.b64_json;
+    const fullPrompt = `Professional editorial photograph. ${scenePrompt}. Shot on DSLR, natural lighting, shallow depth of field. Photorealistic, not illustrated. Contains absolutely no text, letters, words, numbers, labels, watermarks, or any written characters.`;
+
+    // Step 2: Generate the image. Try Gemini first (better output quality),
+    // fall back to DALL-E 3 if Gemini is unavailable or errors.
+    let b64: string | null = null;
+    let providerUsed: "gemini" | "gpt-image-1" | "dall-e-3" | null = null;
+    let lastError: string | null = null;
+
+    if (GEMINI_API_KEY) {
+      try {
+        const gemRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: fullPrompt }] }],
+              generationConfig: { responseModalities: ["IMAGE"] },
+            }),
+          },
+        );
+
+        if (gemRes.ok) {
+          const gemData = await gemRes.json();
+          const parts = gemData?.candidates?.[0]?.content?.parts || [];
+          const imgPart = parts.find((p: any) => p?.inlineData?.data || p?.inline_data?.data);
+          const inline = imgPart?.inlineData || imgPart?.inline_data;
+          if (inline?.data) {
+            b64 = inline.data;
+            providerUsed = "gemini";
+          } else {
+            lastError = "Gemini returned no image part";
+            console.warn("Gemini no-image response:", JSON.stringify(gemData).slice(0, 500));
+          }
+        } else {
+          lastError = `Gemini HTTP ${gemRes.status}: ${(await gemRes.text()).slice(0, 300)}`;
+          console.warn(lastError);
+        }
+      } catch (e: any) {
+        lastError = `Gemini threw: ${e?.message ?? e}`;
+        console.warn(lastError);
+      }
+    }
+
+    if (!b64 && OPENAI_API_KEY) {
+      // OpenAI path — use gpt-image-1 (the newer model) at quality=high
+      // instead of dall-e-3 standard. Dramatically better face/hand/scene
+      // fidelity for editorial covers. Same OPENAI_API_KEY works. Returns
+      // b64_json by default; `response_format` is not a valid param here.
+      const response = await fetch("https://api.openai.com/v1/images/generations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-image-1",
+          prompt: fullPrompt,
+          n: 1,
+          size: "1024x1024",
+          quality: "high",
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later." }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (response.status === 402 || response.status === 401) {
+          return new Response(JSON.stringify({ error: "OpenAI API key issue — check billing or key validity." }), {
+            status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const t = await response.text();
+        console.error("OpenAI image error:", response.status, t);
+        // gpt-image-1 may fail on orgs that aren't verified; fall through
+        // to dall-e-3 so the request still produces SOMETHING rather than
+        // a hard 500.
+        const dalleRes = await fetch("https://api.openai.com/v1/images/generations", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "dall-e-3",
+            prompt: fullPrompt,
+            n: 1,
+            size: "1024x1024",
+            quality: "hd",
+            style: "natural",
+            response_format: "b64_json",
+          }),
+        });
+        if (!dalleRes.ok) {
+          const dt = await dalleRes.text();
+          console.error("DALL-E fallback error:", dalleRes.status, dt);
+          return new Response(JSON.stringify({ error: `Image generation failed. Gemini: ${lastError ?? "n/a"}. gpt-image-1: ${t.slice(0, 150)}. dall-e-3: ${dt.slice(0, 150)}` }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const dalleData = await dalleRes.json();
+        b64 = dalleData.data?.[0]?.b64_json ?? null;
+        providerUsed = "dall-e-3";
+      } else {
+        const data = await response.json();
+        b64 = data.data?.[0]?.b64_json ?? null;
+        providerUsed = "gpt-image-1";
+      }
+    }
 
     if (!b64) {
-      return new Response(JSON.stringify({ error: "No image generated" }), {
+      return new Response(JSON.stringify({ error: `No image generated. ${lastError ?? ""}` }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    console.log(`[generate-cover-image] provider=${providerUsed}`);
 
     // Convert base64 to binary
     const binaryString = atob(b64);

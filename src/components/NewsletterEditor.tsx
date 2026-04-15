@@ -30,6 +30,7 @@ interface Props {
     cover_image_url?: string | null;
     id?: string;
     slug?: string;
+    url_path?: string | null;
   };
   brandName?: string;
   brandLogoUrl?: string;
@@ -43,6 +44,11 @@ export function NewsletterEditor({ open, onClose, article, brandName, brandLogoU
   const [activeTab, setActiveTab] = useState<"preview" | "edit" | "html">("preview");
   const [showScheduler, setShowScheduler] = useState(false);
   const [articleSlug, setArticleSlug] = useState<string>(article.slug || "");
+  // url_path encodes the article's actual category + slug in the shape the
+  // live site serves it (e.g. "getting-started/<slug>",
+  // "instructional-design/<slug>"). Previously the newsletter CTA was
+  // hardcoded to "/latest-articles/<slug>" which 404s for 115/116 articles.
+  const [articleUrlPath, setArticleUrlPath] = useState<string>(article.url_path || "");
   const [brandSettings, setBrandSettings] = useState({
     fromName: brandName || "",
     fromEmail: "",
@@ -83,10 +89,11 @@ export function NewsletterEditor({ open, onClose, article, brandName, brandLogoU
       else if (logoUrl) setBrandSettings(prev => ({ ...prev, logoUrl }));
     });
 
-    // Load real slug from DB if we have an article id
+    // Load real slug + url_path from DB if we have an article id
     if (article.id) {
-      supabase.from("articles").select("slug").eq("id", article.id).maybeSingle().then(({ data }: any) => {
+      supabase.from("articles").select("slug, url_path").eq("id", article.id).maybeSingle().then(({ data }: any) => {
         if (data?.slug) setArticleSlug(data.slug);
+        if (data?.url_path) setArticleUrlPath(data.url_path);
       });
     }
     if (article.id) {
@@ -105,15 +112,19 @@ export function NewsletterEditor({ open, onClose, article, brandName, brandLogoU
     }
   }, [open]);
 
-  // Build article URL — recomputes when brandSettings loads or slug is fetched from DB
+  // Build article URL — recomputes when brandSettings loads or slug / url_path
+  // is fetched from DB. Prefer the stored `url_path` (which already encodes
+  // the correct category/slug, e.g. "getting-started/<slug>") over a
+  // hardcoded "/latest-articles/<slug>" prefix that only matches 1/116
+  // articles. Fall back to the bare slug for legacy rows missing url_path.
   const articleUrl = React.useMemo(() => {
     const websiteBase = brandSettings.websiteUrl || ctaUrl || "";
     if (!websiteBase) return "";
     const base = websiteBase.replace(/\/$/, "");
-    const slug = articleSlug || article.slug || "";
-    if (slug) return `${base}/latest-articles/${slug}`;
+    const path = (articleUrlPath || article.url_path || articleSlug || article.slug || "").replace(/^\/+/, "");
+    if (path) return `${base}/${path}`;
     return base;
-  }, [brandSettings.websiteUrl, articleSlug, article.slug, ctaUrl]);
+  }, [brandSettings.websiteUrl, articleUrlPath, article.url_path, articleSlug, article.slug, ctaUrl]);
 
   const generate = async () => {
     setLoading(true);
