@@ -34,7 +34,7 @@ INSIGHT — Open with a sharp observation or counterintuitive claim. Unpack it w
 
 POSITION — Take a clear stance on something debatable. Build the case through personal experience, not abstract argument. Acknowledge the counterpoint honestly. Close with a challenge or invitation. This is the only archetype where a soft CTA fits — and even then, it should feel like an invitation, not a pitch.
 
-LENGTH AND SHAPE — 200–300 words total. Arc: short setup (1–3 sentences) → medium reflection (2–4 sentences) → medium insight (2–4 sentences) → short closing question (1 sentence). Aim for 6–10 paragraphs of 1–3 sentences each. Do not exceed 300 words under any circumstances.
+LENGTH AND SHAPE — 150–250 words total. Sweet spot 170–220. Arc: short setup (1–3 sentences) → medium reflection (2–4 sentences) → one concrete observation (1–3 sentences) → short closing question (1 sentence). 6–10 paragraphs of 1–3 sentences each. Hard ceiling: 250 words. Shorter is almost always better — cut anything that reads like explanation.
 
 DEFAULT VOICE (use only if no author_voice is provided):
 - Short paragraphs, often one sentence each. Rhythm through repetition and variation. Fragments are fine.
@@ -46,8 +46,13 @@ DEFAULT VOICE (use only if no author_voice is provided):
 ANTI-PATTERNS — never use any of these. They signal AI-generated content and kill engagement:
 - Openings: "In today's fast-paced world...", "As a [role], I know that...", "[Persona label]: What if...", "Let me tell you about...", "I'm excited to announce...", any opening that could work for any topic.
 - Body: unattributed statistics ("Teams see 90% improvement..."), bold text for emphasis (**word**), mentioning the product/company name more than once, explaining what the product does for more than one sentence.
+- Citation markers: NEVER include inline citations like [1], [2], [3], [1][2] — these are research-tool artifacts and must not appear in a social post.
 - Feature enumeration: never list options, paths, or capabilities even in prose form. "Path one... Path two... Path three..." is a feature list wearing a story costume. One idea, followed through, is always stronger than a survey of many.
-- Vocabulary stems — ban every form of these words: dive/dove/diving, unlock/unlocked/unlocking, leverage/leveraged/leveraging, revolutionize/revolutionized, harness/harnessed/harnessing, empower/empowered/empowering, supercharge/supercharged, game-change/game-changer, "next level", "at scale".
+- Segmented audience breakdowns count as feature lists too. "Frontline got X. Managers got Y. Finance got Z." is a sales deck slide. Pick ONE group and one vivid example. Never itemize 3+ personas.
+- Product architecture exposition: never explain how the technology works. "The pre-assessment acts as the fork: it maps gaps against objectives pulled from the policy" reads like a product FAQ. Describe what changed for the person using it — what they felt, what they didn't have to do anymore, what surprised them. The mechanics belong in documentation, not a post.
+- FAQ test: if a paragraph could appear in a product help doc, cut it.
+- Telling the reader how to feel: don't write "it stopped feeling like a chore" or "no more drudgery". Describe what happened — the observation — and let the reader draw the emotional conclusion themselves.
+- Vocabulary stems — ban every form of these words: dive/dove/diving/dove into, unlock/unlocked/unlocking, leverage/leveraged/leveraging, revolutionize/revolutionized, harness/harnessed/harnessing, empower/empowered/empowering, supercharge/supercharged, game-change/game-changer, "next level", "at scale". "Dove into" is especially common — every form of dive is banned, including "dove in", "diving deep", "deep dive".
 - Punctuation: em dashes as filler (use periods). Starting sentences with "And" or "But" more than twice per post.
 - Closings: "DM me to learn more", "Comment [KEYWORD] below", generic "What do you think?", "Follow me for more content like this", "Link in bio" (Instagram exception only).
 - Structure: posts that read like product announcements. Posts where the product is the subject. Posts that could be a press release. Lists of 5+ items.
@@ -67,7 +72,7 @@ const platformPrompts: Record<string, string> = {
   linkedin: `${PERSONAL_GHOSTWRITER_CORE}
 
 PLATFORM: LinkedIn
-- 200-300 words. Stay within this range — shorter is almost always better.
+- 150-250 words. Sweet spot 170-220. Shorter is almost always better.
 - First line must earn the second line. Open with a moment, a claim, or a tension. Never a label ("Enablement pros:"), never rhetorical ad-copy questions ("What if you could...?").
 - One idea per paragraph. One to three sentences per paragraph.
 - Line break between every paragraph (LinkedIn collapses dense text).
@@ -332,7 +337,24 @@ ${platformPrompt}`;
       });
     }
 
-    return new Response(response.body, {
+    // Safety net: Perplexity's sonar-pro model appends citation markers like
+    // [1], [2][3] inline in the generated text. The prompt tells the model not
+    // to, but it ignores that instruction roughly half the time. Since the
+    // stream pipes straight into the user's textarea, any leaked marker would
+    // be posted verbatim to LinkedIn. Strip them from each SSE chunk here.
+    //
+    // The regex matches one-or-more bracketed digit groups (e.g. [1], [12],
+    // [1][2][3]). Chunk-boundary splits are rare enough that the prompt
+    // instruction is a sufficient backstop for the split case.
+    const stripCitations = new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        const text = new TextDecoder().decode(chunk);
+        const cleaned = text.replace(/(\[\d+\])+/g, "");
+        controller.enqueue(new TextEncoder().encode(cleaned));
+      },
+    });
+
+    return new Response(response.body!.pipeThrough(stripCitations), {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {
