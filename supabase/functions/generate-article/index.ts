@@ -30,6 +30,12 @@ type PromptVars = {
   app_description: string;
   app_audience: string;
   reference_urls: string[];
+  // Blog-only media options. When true, the prompt asks the model to embed
+  // placeholder comments in the body and emit matching prompt comments in
+  // the metadata tail, so the caller can generate + substitute images
+  // after the article is saved. Default false for both.
+  include_inline_image?: boolean;
+  include_infographic?: boolean;
 };
 
 function sharedPreamble(v: PromptVars): string {
@@ -71,13 +77,28 @@ ${v.category ? `Category: ${v.category}` : "Category: general"}
 `.trim();
 }
 
-function metadataTail(includeFaqPairs: boolean): string {
+function metadataTail(
+  includeFaqPairs: boolean,
+  includeInlineImage = false,
+  includeInfographic = false,
+): string {
   const faqField = includeFaqPairs
     ? `,
   "faq_pairs": [
     {"question": "Exact Q from FAQ section", "answer": "Exact A from FAQ section"}
   ]`
     : "";
+
+  // Extra metadata lines the caller parses to drive post-generation image
+  // creation. Only emitted when the corresponding flag is true — we don't
+  // want the model guessing at prompts the caller isn't going to use.
+  const inlineImageLine = includeInlineImage
+    ? `\n<!-- INLINE_IMAGE_PROMPT: [vivid 10-15 word photorealistic scene that illustrates the article's single most important claim — NOT a repeat of the cover scene. Different subject, different angle.] -->`
+    : "";
+  const infographicLines = includeInfographic
+    ? `\n<!-- INFOGRAPHIC_PROMPT: [15-25 words describing concretely what data, comparison, or process the infographic should visualize based on the article's actual content — reference real numbers, named items, or steps from the body.] -->\n<!-- INFOGRAPHIC_STYLE: [pick exactly one of: stats | comparison | timeline | process | general — based on which fits the INFOGRAPHIC_PROMPT above] -->`
+    : "";
+
   return `
 --------------------
 METADATA (append after final HTML)
@@ -85,7 +106,7 @@ METADATA (append after final HTML)
 
 <!-- META_TITLE: [exact H1 text] -->
 <!-- META_DESCRIPTION: [one sentence, under 20 words, under 150 characters] -->
-<!-- COVER_IMAGE_PROMPT: [vivid 10-15 word photorealistic scene representing the topic] -->
+<!-- COVER_IMAGE_PROMPT: [vivid 10-15 word photorealistic scene representing the topic] -->${inlineImageLine}${infographicLines}
 <!-- ARTICLE_META_JSON:
 {
   "keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
@@ -105,7 +126,49 @@ Do NOT output any <script type="application/ld+json"> tags yourself — the call
 `.trim();
 }
 
+// Body-level instructions telling the model to embed placeholder HTML
+// comments where inline images / infographics should go. The caller
+// substitutes these with real <img> tags after generation completes.
+function mediaPlacementInstructions(
+  includeInlineImage: boolean,
+  includeInfographic: boolean,
+): string {
+  if (!includeInlineImage && !includeInfographic) return "";
+  const lines: string[] = [
+    `\n--------------------`,
+    `INLINE MEDIA PLACEMENT`,
+    `--------------------`,
+    ``,
+    `The article will have visual assets inserted into the body. Place these HTML comment placeholders inline — the caller will substitute them with real <img> tags after generation. The placement you choose is final; put each placeholder at the exact point in the narrative where the visual will help the reader.`,
+  ];
+  if (includeInlineImage) {
+    lines.push(
+      ``,
+      `- Insert exactly ONE <!-- INLINE_IMAGE_HERE --> comment in the body. Put it on its own line, between two <p> tags (NOT inside any tag). Best position: after the intro paragraph (before the first H2), or between two middle H2 sections where a visual break genuinely helps. Never inside the Table of Contents, Key Takeaways list, or FAQ block. Never before <h1> or after the final metadata.`,
+    );
+  }
+  if (includeInfographic) {
+    lines.push(
+      ``,
+      `- Insert exactly ONE <!-- INFOGRAPHIC_HERE --> comment in the body. Put it on its own line, between two top-level elements. Best position: immediately after a section that contains comparisons, named data points, or an enumerated process — somewhere a data visual actually earns its place. If the article has a comparison <table>, place the infographic directly after that section's closing </p>. Never inside the Table of Contents or the FAQ block.`,
+    );
+  }
+  if (includeInlineImage && includeInfographic) {
+    lines.push(
+      ``,
+      `- The inline image and the infographic must be placed at DIFFERENT sections — not adjacent, not in the same H2 block. Spread them through the article so the reader gets visual breaks in at least two distinct places.`,
+    );
+  }
+  lines.push(
+    ``,
+    `- The INLINE_IMAGE_PROMPT and INFOGRAPHIC_PROMPT (in the metadata tail) must reference the SPECIFIC content you're illustrating at the placement point. The prompt for each visual must be derived from the section it's adjacent to, not from the overall topic.`,
+  );
+  return lines.join("\n");
+}
+
 function buildBlogPrompt(v: PromptVars): string {
+  const includeInlineImage = !!v.include_inline_image;
+  const includeInfographic = !!v.include_infographic;
   return `You are an expert AI content writer generating an SEO-ready article grounded in current web data.
 
 ${sharedPreamble(v)}
@@ -160,8 +223,9 @@ Follow this exact output order:
    </div>
 
 8. Closing metadata (see METADATA section below).
+${mediaPlacementInstructions(includeInlineImage, includeInfographic)}
 
-${metadataTail(true)}`;
+${metadataTail(true, includeInlineImage, includeInfographic)}`;
 }
 
 function buildUserGuidePrompt(v: PromptVars): string {
@@ -324,12 +388,28 @@ serve(async (req) => {
       app_description = "",
       app_audience = "",
       reference_urls = [],
+      // Media options are blog-only; user guide + how-to have rigid
+      // step structures that an inline image would break. The edge
+      // function accepts the flags for any content_type but only
+      // buildBlogPrompt honors them.
+      include_inline_image = false,
+      include_infographic = false,
     } = parsedBody ?? await req.json();
 
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
     if (!PERPLEXITY_API_KEY) throw new Error("PERPLEXITY_API_KEY is not configured");
 
-    const vars: PromptVars = { topic, tone, tone_description, category, app_description, app_audience, reference_urls };
+    const vars: PromptVars = {
+      topic,
+      tone,
+      tone_description,
+      category,
+      app_description,
+      app_audience,
+      reference_urls,
+      include_inline_image: content_type === "blog" && !!include_inline_image,
+      include_infographic: content_type === "blog" && !!include_infographic,
+    };
     const systemPrompt = getSystemPrompt(content_type, vars);
     const userMessage = getUserMessage(content_type, topic);
 

@@ -831,7 +831,7 @@ const EditArticle = () => {
 
                   <ImagePlus className="h-4 w-4" />
                   }
-                    Generate AI Cover
+                    Generate Images
                   </button>
                   <button
                     onClick={() => setShowMediaLibrary(true)}

@@ -44,6 +44,15 @@ const NewArticle = () => {
   const [category, setCategory] = useState("");
   const [contentType, setContentType] = useState<"blog" | "user_guide" | "how_to">("blog");
   const [isGenerating, setIsGenerating] = useState(false);
+  // Blog-only media options. When checked, the article prompt asks the
+  // model to emit placeholder HTML comments at chosen positions and
+  // matching prompt comments in the metadata tail. After streaming
+  // completes we fire the image generators and substitute the placeholders.
+  const [includeInlineImage, setIncludeInlineImage] = useState(false);
+  const [includeInfographic, setIncludeInfographic] = useState(false);
+  // Non-blocking progress for the post-generation asset pipeline (hero is
+  // still generated on demand via the existing "Generate Images" button).
+  const [isGeneratingMedia, setIsGeneratingMedia] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showAssistant, setShowAssistant] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
@@ -203,6 +212,14 @@ const NewArticle = () => {
 
     const tonePreset = TONE_PRESETS.find((t) => t.key === tone);
 
+    // Media options only take effect for blog content (the edge function
+    // also enforces this server-side, but we zero them out here so the
+    // post-streaming pipeline doesn't try to parse placeholders that were
+    // never going to exist).
+    const mediaForBlog = contentType === "blog";
+    const wantInlineImage = mediaForBlog && includeInlineImage;
+    const wantInfographic = mediaForBlog && includeInfographic;
+
     await streamAI({
       functionName: "generate-article",
       body: {
@@ -213,7 +230,9 @@ const NewArticle = () => {
         content_type: contentType,
         app_description: aiSettings?.app_description || "",
         app_audience: aiSettings?.app_audience || "",
-        reference_urls: aiSettings?.reference_urls || []
+        reference_urls: aiSettings?.reference_urls || [],
+        include_inline_image: wantInlineImage,
+        include_infographic: wantInfographic,
       },
       onDelta: (text) => {
         accumulated += text;
@@ -325,13 +344,127 @@ const NewArticle = () => {
         setIsGenerating(false);
         deductLocally("generate_article");
         toast({ title: "Article generated!", description: "Review and edit the content, then save." });
+
+        // Kick off inline media pipeline after streaming completes. The
+        // article is already in the editor; we only fetch + substitute
+        // asset URLs here. Runs asynchronously so the user can read.
+        if (wantInlineImage || wantInfographic) {
+          void generateInlineMedia(accumulated, finalContent, {
+            wantInlineImage,
+            wantInfographic,
+          });
+        }
       },
       onError: (error) => {
         setIsGenerating(false);
         toast({ title: "Generation failed", description: error, variant: "destructive" });
       }
     });
-  }, [aiSettings, category, editor, title, topic, tone]);
+  }, [aiSettings, category, editor, title, topic, tone, contentType, includeInlineImage, includeInfographic]);
+
+  // Parse the inline-image and infographic prompts from the model's
+  // metadata tail and fire the matching edge functions. When an asset
+  // returns, replace the body placeholder (<!-- INLINE_IMAGE_HERE -->
+  // or <!-- INFOGRAPHIC_HERE -->) with a real <img> tag. The whole thing
+  // is best-effort: if one asset fails we keep the article and surface
+  // a toast, but never block the user from editing.
+  const generateInlineMedia = async (
+    rawAccumulated: string,
+    contentWithJsonLd: string,
+    opts: { wantInlineImage: boolean; wantInfographic: boolean },
+  ) => {
+    setIsGeneratingMedia(true);
+    try {
+      const inlinePromptMatch = opts.wantInlineImage
+        ? rawAccumulated.match(/<!--\s*INLINE_IMAGE_PROMPT:\s*([\s\S]*?)\s*-->/i)
+        : null;
+      const infoPromptMatch = opts.wantInfographic
+        ? rawAccumulated.match(/<!--\s*INFOGRAPHIC_PROMPT:\s*([\s\S]*?)\s*-->/i)
+        : null;
+      const infoStyleMatch = opts.wantInfographic
+        ? rawAccumulated.match(/<!--\s*INFOGRAPHIC_STYLE:\s*(stats|comparison|timeline|process|general)\s*-->/i)
+        : null;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const base = import.meta.env.VITE_SUPABASE_URL;
+      const contextSnippet = editor?.getText()?.substring(0, 500) || "";
+
+      const inlineReq = inlinePromptMatch?.[1]?.trim()
+        ? fetch(`${base}/functions/v1/generate-cover-image`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ prompt: inlinePromptMatch[1].trim(), context: contextSnippet }),
+          })
+        : null;
+      const infoReq = infoPromptMatch?.[1]?.trim()
+        ? fetch(`${base}/functions/v1/generate-infographic`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              prompt: infoPromptMatch[1].trim(),
+              style: infoStyleMatch?.[1]?.toLowerCase() || "general",
+            }),
+          })
+        : null;
+
+      const [inlineRes, infoRes] = await Promise.all([
+        inlineReq ? inlineReq.then((r) => r.json()).catch((e) => ({ error: String(e) })) : null,
+        infoReq ? infoReq.then((r) => r.json()).catch((e) => ({ error: String(e) })) : null,
+      ]);
+
+      let updated = contentWithJsonLd;
+      const INLINE_IMG = (url: string, alt: string) =>
+        `<p><img src="${url}" alt="${alt.replace(/"/g, "&quot;")}" /></p>`;
+
+      if (inlineRes?.image_url) {
+        updated = updated.replace(
+          /<!--\s*INLINE_IMAGE_HERE\s*-->/i,
+          INLINE_IMG(inlineRes.image_url, inlinePromptMatch?.[1]?.trim() || "Article image"),
+        );
+        deductLocally("generate_cover_image");
+      } else if (opts.wantInlineImage) {
+        toast({
+          title: "Inline image failed",
+          description: inlineRes?.error || "No image returned",
+          variant: "destructive",
+        });
+      }
+
+      if (infoRes?.image_url) {
+        updated = updated.replace(
+          /<!--\s*INFOGRAPHIC_HERE\s*-->/i,
+          INLINE_IMG(infoRes.image_url, infoPromptMatch?.[1]?.trim() || "Infographic"),
+        );
+        deductLocally("generate_infographic");
+      } else if (opts.wantInfographic) {
+        toast({
+          title: "Infographic failed",
+          description: infoRes?.error || "No image returned",
+          variant: "destructive",
+        });
+      }
+
+      // Clean up any placeholder that didn't get substituted (e.g. one
+      // asset succeeded, the other failed) so they don't show up in the
+      // rendered article as bare HTML comments.
+      updated = updated
+        .replace(/<!--\s*INLINE_IMAGE_HERE\s*-->/gi, "")
+        .replace(/<!--\s*INFOGRAPHIC_HERE\s*-->/gi, "");
+
+      if (updated !== contentWithJsonLd) {
+        editor?.commands.setContent(updated);
+        toast({ title: "Images added to article" });
+      }
+    } catch (e: any) {
+      toast({
+        title: "Media generation failed",
+        description: e?.message || "Unknown error",
+        variant: "destructive",
+      });
+    }
+    setIsGeneratingMedia(false);
+  };
 
   const handleSaveCoverToLibrary = async () => {
     if (!coverImageUrl) return;
@@ -815,12 +948,55 @@ const NewArticle = () => {
               />
             </div>
 
+            {/* Media options — blog only. Inline image and infographic
+                prompts are emitted by the model in the metadata tail and
+                the caller substitutes them into <!-- *_HERE --> placeholder
+                comments after generation. */}
+            {contentType === "blog" && (
+              <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-xs font-medium text-foreground">
+                  Also generate for this article
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  The AI picks the best position inside the article and writes a prompt tied to the section it sits next to.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-4 text-sm">
+                  <label className="inline-flex items-center gap-2 text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={includeInlineImage}
+                      onChange={(e) => setIncludeInlineImage(e.target.checked)}
+                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                    />
+                    Inline image <span className="text-xs text-muted-foreground">(+5 credits)</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={includeInfographic}
+                      onChange={(e) => setIncludeInfographic(e.target.checked)}
+                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                    />
+                    Infographic <span className="text-xs text-muted-foreground">(+5 credits)</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
             <button
               onClick={handleGenerate}
               disabled={isGenerating}
               className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50">
               {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {isGenerating ? "Generating..." : "Generate Article"}
+              {isGenerating
+                ? "Generating..."
+                : (() => {
+                    if (contentType !== "blog") return "Generate Article";
+                    const extras = (includeInlineImage ? 1 : 0) + (includeInfographic ? 1 : 0);
+                    return extras > 0
+                      ? `Generate Article (+${extras} image${extras > 1 ? "s" : ""})`
+                      : "Generate Article";
+                  })()}
             </button>
           </div>
 
@@ -890,7 +1066,7 @@ const NewArticle = () => {
                       disabled={isGeneratingImage}
                       className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50">
                       {isGeneratingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-                      Generate AI Cover
+                      Generate Images
                     </button>
                     <button
                       onClick={() => setShowUnsplash(true)}
