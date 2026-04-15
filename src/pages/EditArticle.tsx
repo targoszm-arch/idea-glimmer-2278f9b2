@@ -831,7 +831,7 @@ const EditArticle = () => {
 
                   <ImagePlus className="h-4 w-4" />
                   }
-                    Generate Images
+                    Generate Hero Image
                   </button>
                   <button
                     onClick={() => setShowMediaLibrary(true)}
