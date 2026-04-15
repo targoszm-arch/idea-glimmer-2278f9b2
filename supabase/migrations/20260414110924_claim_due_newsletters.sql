@@ -10,6 +10,35 @@
 -- This RPC claims up to N due rows in one statement using
 -- FOR UPDATE SKIP LOCKED, flips them to 'sending', and returns them.
 -- A second concurrent caller skips the locked rows entirely.
+
+-- Defensive: ensure newsletter_schedules exists before we reference it as
+-- a return type. Supabase Preview builds the schema declaratively and
+-- sometimes skips prior-migration content changes, which left this RPC
+-- failing with "type public.newsletter_schedules does not exist". The
+-- CREATE TABLE IF NOT EXISTS is a no-op on prod and on any preview that
+-- already ran 20260328031155_newsletter_scheduling.
+CREATE TABLE IF NOT EXISTS public.newsletter_schedules (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  article_id uuid,
+  subject_line text NOT NULL,
+  preview_text text,
+  html_content text NOT NULL,
+  from_name text NOT NULL DEFAULT 'ContentLab',
+  from_email text NOT NULL,
+  reply_to text,
+  audience_type text NOT NULL DEFAULT 'contacts',
+  resend_audience_id text,
+  scheduled_at timestamptz NOT NULL,
+  sent_at timestamptz,
+  status text NOT NULL DEFAULT 'scheduled',
+  recipient_count integer DEFAULT 0,
+  error_message text,
+  cta_url text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
 create or replace function public.claim_due_newsletters(p_limit int default 10)
 returns setof public.newsletter_schedules
 language sql
