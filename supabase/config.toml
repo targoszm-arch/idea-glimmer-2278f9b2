@@ -66,6 +66,17 @@ verify_jwt = false
 [functions.contentlab-mcp]
 verify_jwt = false
 
+# MCP OAuth 2.1 endpoints — all public (Claude calls them without a
+# Supabase session; auth is per-OAuth-protocol via the function bodies).
+[functions.mcp-oauth-metadata]
+verify_jwt = false
+
+[functions.mcp-oauth-register]
+verify_jwt = false
+
+[functions.mcp-oauth-token]
+verify_jwt = false
+
 # Cron workers — callable by pg_cron without a JWT. Mirrors
 # process-newsletter-queue which ships the same way.
 [functions.process-scheduled-posts]

@@ -22,7 +22,16 @@ const Login = () => {
     if (error) {
       toast.error(error.message);
     } else {
-      navigate("/dashboard");
+      // If an OAuth consent flow stashed a return path before bouncing
+      // through login, send the user back there so they can finish
+      // approving the MCP connector.
+      const returnTo = sessionStorage.getItem("mcp_oauth_return_to");
+      if (returnTo) {
+        sessionStorage.removeItem("mcp_oauth_return_to");
+        navigate(returnTo, { replace: true });
+      } else {
+        navigate("/dashboard");
+      }
     }
   };
 

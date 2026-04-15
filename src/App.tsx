@@ -33,6 +33,7 @@ import Automations from "./pages/Automations";
 import CalendarPage from "./pages/Calendar";
 import SignupConfirm from "./pages/SignupConfirm";
 import NewsletterAnalytics from "./pages/NewsletterAnalytics";
+import OAuthAuthorize from "./pages/OAuthAuthorize";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +66,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/signup/confirm" element={<SignupConfirm />} />
+            <Route path="/oauth/authorize" element={<OAuthAuthorize />} />
             <Route path="/settings/api-key" element={<ProtectedRoute><APIKey /></ProtectedRoute>} />
             <Route path="/settings/brand" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/settings/integrations" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
