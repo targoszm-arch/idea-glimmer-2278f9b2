@@ -8,17 +8,70 @@ const corsHeaders = {
 
 const PLAIN_TEXT_RULE = `\n\nIMPORTANT: Output plain text only. Do NOT use any markdown formatting whatsoever — no #, ##, ###, **, *, -, bullet dashes, or any other markdown syntax. Use line breaks, spacing, and numbered lists (1. 2. 3.) for structure instead.`;
 
-const platformPrompts: Record<string, string> = {
-  linkedin: `Generate a professional LinkedIn post for this brand.
-Structure:
-- Attention-grabbing hook (1-2 lines)
-- Problem statement (2-3 lines)  
-- Solution/insight with the brand's positioning (3-5 lines)
-- Key takeaway or stat
-- Clear CTA (e.g. "Comment below", "DM me", "Check the link in comments")
-- 3-5 relevant hashtags
+// ─── Refactored personal-ghostwriter prompt ─────────────────────────────────
+//
+// These three prompts (linkedin / twitter / instagram) share the same
+// narrative-first DNA: the post is an original micro-essay in the author's
+// voice, not a reformatted summary of the seed material. Platform-specific
+// rules layer on top of the shared `PERSONAL_GHOSTWRITER_CORE` block. The
+// carousel/reel/youtube prompts below are untouched — they have rigid output
+// shapes (JSON, scene scripts) that the personal-essay style doesn't fit.
+//
+// Streaming note: the output must be the post text only. No `---` metadata
+// footer — this response streams live into the user's textarea, so any
+// trailing debug block would show up on screen and leak into LinkedIn when
+// posted.
 
-Keep it under 1,300 characters. Use line breaks for readability. Write in first person as a thought leader.${PLAIN_TEXT_RULE}`,
+const PERSONAL_GHOSTWRITER_CORE = `You are a personal brand ghostwriter. You write social media posts that read like one person thinking out loud — not a brand broadcasting a message.
+
+Your posts are personal essays in miniature. They start with a specific moment, build through honest reflection, and land on an insight the reader can apply to their own life. The product or company is context, never the subject.
+
+POST ARCHETYPES — pick one based on the seed material (or the requested post_type):
+
+STORY — Start with a specific moment ("I was in a meeting today and..." or "Someone asked me recently..."). Walk through what happened. Arrive at what it taught you. Close with a question. The insight emerges from the narrative; never state the moral before the story.
+
+INSIGHT — Open with a sharp observation or counterintuitive claim. Unpack it with specific examples. Show the implication. Close with a question that turns the lens on the reader.
+
+POSITION — Take a clear stance on something debatable. Build the case through personal experience, not abstract argument. Acknowledge the counterpoint honestly. Close with a challenge or invitation. This is the only archetype where a soft CTA fits — and even then, it should feel like an invitation, not a pitch.
+
+DEFAULT VOICE (use only if no author_voice is provided):
+- Short paragraphs, often one sentence each. Rhythm through repetition and variation. Fragments are fine.
+- Plain, direct language. "I realized" not "It became apparent." No jargon.
+- First person. Speak from experience, not authority. Use "I noticed", "I learned", "I was wrong".
+- Skeptical of hype. Value thinking over shipping. See the small things as truth-tellers.
+- Never sound like: a marketing team, a corporate blog, a thought leader dispensing wisdom, a salesperson with a hook.
+
+ANTI-PATTERNS — never use any of these. They signal AI-generated content and kill engagement:
+- Openings: "In today's fast-paced world...", "As a [role], I know that...", "[Persona label]: What if...", "Let me tell you about...", "I'm excited to announce...", any opening that could work for any topic.
+- Body: unattributed statistics ("Teams see 90% improvement..."), bold text for emphasis (**word**), bulleted feature lists disguised as insights, mentioning the product/company name more than once, explaining what the product does for more than one sentence.
+- Vocabulary: "game-changer", "unlock", "leverage", "revolutionize", "harness", "empower", "supercharge", "dive deep", "next level", "at scale".
+- Punctuation: em dashes as filler (use periods). Starting sentences with "And" or "But" more than twice per post.
+- Closings: "DM me to learn more", "Comment [KEYWORD] below", generic "What do you think?", "Follow me for more content like this", "Link in bio" (Instagram exception only).
+- Structure: posts that read like product announcements. Posts where the product is the subject. Posts that could be a press release. Lists of 5+ items.
+
+CTA HANDLING — a cta_goal is a goal, NOT copy. Never output hard CTAs like "DM me" or "Comment AVATAR". Weave the goal into the post's natural arc:
+- speaking invites → tell a story that implies authority; end with a reflective question.
+- product awareness → share a genuine insight from building/using the product. Product is context, not subject.
+- community building → ask a specific question that invites the reader's own experience.
+
+OUTPUT RULES:
+- Output the post text only. Ready to paste. No preamble, no "Here's your post:", no metadata footer, no quotation marks wrapping the whole post.
+- If an article_content is provided, extract ONE surprising or specific insight — do not summarize it.
+- Never invent statistics. If a number isn't in the seed, don't claim one.${PLAIN_TEXT_RULE}`;
+
+const platformPrompts: Record<string, string> = {
+  linkedin: `${PERSONAL_GHOSTWRITER_CORE}
+
+PLATFORM: LinkedIn
+- 200-500 words. Sweet spot 250-400.
+- First line must earn the second line. Open with a moment, a claim, or a tension. Never a label ("Enablement pros:"), never rhetorical ad-copy questions ("What if you could...?").
+- One idea per paragraph. One to three sentences per paragraph.
+- Line break between every paragraph (LinkedIn collapses dense text).
+- End with ONE specific question aimed at the reader's own experience. Not "What do you think?". Something like: "What skill are you losing because everything is optimized for speed?"
+- 3-5 hashtags at the very end, on their own line. Broad enough to have reach, specific enough to signal the topic.
+- No emojis unless the voice profile explicitly uses them.
+- No bold text, no bullet-point feature lists. The writing itself carries the emphasis.
+- Hard cap: 3,000 characters.`,
 
   youtube: `Generate YouTube video content for this brand.
 Structure:
@@ -43,18 +96,28 @@ A detailed script outline with:
 THUMBNAIL CONCEPT
 A brief description of an engaging thumbnail idea${PLAIN_TEXT_RULE}`,
 
-  twitter: `Generate a Twitter/X thread for this brand.
-Structure:
-Tweet 1: Hook tweet that stops the scroll (under 280 chars)
-Tweets 2-8: Each tweet covers one key point (each under 280 chars)
-Final tweet: CTA + relevant hashtags
+  twitter: `${PERSONAL_GHOSTWRITER_CORE}
 
-Format each tweet clearly as:
-🧵 1/
-🧵 2/
-etc.
+PLATFORM: Twitter / X
+- Default: a single tweet, 280 characters max including spaces and any URL.
+- If the seed is substantial enough to warrant a thread, output a 3-7 tweet thread. Each tweet under 280 characters.
+- Format threads as:
+  1/
+  2/
+  (each tweet separated by a blank line)
+- The first tweet must stand alone as a hook. No setup, no context-setting. Lead with the sharpest version of the insight.
+- The last tweet lands the insight or asks the question.
+- 0-1 hashtags. Inline only if they read as natural language.`,
 
-Make it punchy, use data points, and create curiosity gaps between tweets.${PLAIN_TEXT_RULE}`,
+  instagram: `${PERSONAL_GHOSTWRITER_CORE}
+
+PLATFORM: Instagram (single-image caption)
+- Hook line above the fold (first ~125 characters): a sentence that creates curiosity or tension.
+- Body: 2-5 short paragraphs. Same narrative structure as LinkedIn but slightly warmer and more conversational.
+- End with ONE specific question aimed at the reader's experience.
+- 8-15 hashtags grouped at the very end, separated from the caption by two blank lines.
+- 1-3 emojis are fine if they feel natural to the voice. Never decorative.
+- Hard cap: 2,200 characters.`,
 
   instagram_carousel: `Generate an Instagram carousel post for this brand.
 You MUST output valid JSON (and nothing else) with this exact structure:
@@ -175,6 +238,12 @@ serve(async (req) => {
       app_description = "",
       app_audience = "",
       reference_urls = [],
+      // Refactored-prompt inputs. All optional; when omitted the prompt falls
+      // back to its defaults (archetype auto-selected, neutral voice, no CTA).
+      post_type,            // "story" | "insight" | "position"
+      cta_goal,             // e.g. "speaking invites" | "product awareness" | "community building"
+      author_voice = "",    // free-text voice profile pasted by the user in AI Settings
+      article_content = "", // full article body to extract an insight from
     } = await req.json();
 
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
@@ -183,12 +252,41 @@ serve(async (req) => {
     const platformPrompt = platformPrompts[platform];
     if (!platformPrompt) throw new Error(`Unknown platform: ${platform}`);
 
+    // The three personal-ghostwriter platforms include their own voice /
+    // anti-pattern / archetype instructions, so we skip the generic
+    // "strategist" preamble and layer brand + voice context on top instead.
+    const isGhostwriterPlatform = platform === "linkedin" || platform === "twitter" || platform === "instagram";
+
     let contextBlock = "";
     if (app_description) contextBlock += `\nApp/Product context: ${app_description}`;
     if (app_audience) contextBlock += `\nTarget audience: ${app_audience}`;
-    if (reference_urls.length > 0) contextBlock += `\nIMPORTANT — Reference posts/content the user likes (study these for tone, structure, hooks, and style): ${reference_urls.join(", ")}. Analyse these links and generate content that matches their style, format, and engagement patterns.`;
+    if (reference_urls.length > 0) contextBlock += `\nReference posts/content the user likes (study for tone, structure, hooks, and style): ${reference_urls.join(", ")}`;
 
-    const systemPrompt = `You are an expert social media content strategist.
+    let systemPrompt: string;
+
+    if (isGhostwriterPlatform) {
+      const voiceBlock = author_voice
+        ? `\n\nAUTHOR VOICE — follow this exactly. Do not invent a voice that isn't here:\n${author_voice}`
+        : "";
+      const brandBlock = contextBlock
+        ? `\n\nBRAND CONTEXT (use as context only — the post is NOT a product announcement):${contextBlock}`
+        : "";
+      const toneBlock = tone_description
+        ? `\n\nTone preset: ${tone}. ${tone_description}`
+        : tone
+          ? `\n\nTone preset: ${tone}.`
+          : "";
+      const archetypeBlock = post_type
+        ? `\n\nREQUESTED ARCHETYPE: ${post_type}. Build the post in this shape.`
+        : "";
+      const ctaBlock = cta_goal
+        ? `\n\nCTA GOAL (weave into the post's natural arc, do NOT write it as a literal CTA line): ${cta_goal}`
+        : "";
+
+      systemPrompt = `${platformPrompt}${voiceBlock}${brandBlock}${toneBlock}${archetypeBlock}${ctaBlock}`;
+    } else {
+      // Preserve existing behavior for carousel / reel / youtube prompts.
+      systemPrompt = `You are an expert social media content strategist.
 ${contextBlock ? `\nBRAND CONTEXT:\n${contextBlock}\n` : ""}
 Tone: ${tone}. Clear, confident, practical. Avoid hype.
 ${tone_description ? `Tone details: ${tone_description}` : ""}
@@ -197,6 +295,14 @@ CRITICAL: Write content that represents THIS user's brand and product — not an
 CRITICAL: Write the content directly. No meta-commentary. No disclaimers. No citation brackets.
 
 ${platformPrompt}`;
+    }
+
+    // The user message carries the seed. When an article is provided, the
+    // model uses it to pull ONE surprising insight (see OUTPUT RULES in the
+    // ghostwriter core prompt) — never to summarize.
+    const userMessage = article_content
+      ? `Topic: ${topic}\n\nSource article (extract ONE insight, do not summarize):\n${article_content.slice(0, 8000)}`
+      : `Create a ${platform.replace("_", " ")} post about: ${topic}`;
 
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
@@ -208,7 +314,7 @@ ${platformPrompt}`;
         model: "sonar-pro",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Create ${platform.replace("_", " ")} content about: ${topic}` },
+          { role: "user", content: userMessage },
         ],
         stream: true,
       }),

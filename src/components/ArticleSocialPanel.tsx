@@ -9,8 +9,11 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 type Platform = "linkedin" | "twitter" | "instagram";
 
+// LinkedIn's real post limit is 3,000 characters. The previous 1,300 limit
+// came from the old "short thought leadership" prompt and would flag
+// perfectly valid posts as over-limit.
 const PLATFORMS: { id: Platform; label: string; icon: React.ReactNode; color: string; charLimit: number }[] = [
-  { id: "linkedin", label: "LinkedIn", icon: <Linkedin className="h-4 w-4" />, color: "text-[#0A66C2]", charLimit: 1300 },
+  { id: "linkedin", label: "LinkedIn", icon: <Linkedin className="h-4 w-4" />, color: "text-[#0A66C2]", charLimit: 3000 },
   { id: "twitter", label: "Twitter / X", icon: <Twitter className="h-4 w-4" />, color: "text-[#1DA1F2]", charLimit: 280 },
   { id: "instagram", label: "Instagram", icon: <Instagram className="h-4 w-4" />, color: "text-[#E1306C]", charLimit: 2200 },
 ];
@@ -22,6 +25,18 @@ interface Props {
   onClose: () => void;
 }
 
+// Fields from ai_settings we forward to generate-social-post so the output
+// reflects the user's brand context and personal voice. Everything is
+// optional — an unset row simply falls back to the prompt's neutral defaults.
+interface AiSettingsCtx {
+  app_description: string;
+  app_audience: string;
+  tone_label: string;
+  tone_description: string;
+  reference_urls: string[];
+  social_voice_profile: string;
+}
+
 export function ArticleSocialPanel({ articleContent, articleTitle, articleId, onClose }: Props) {
   const [platform, setPlatform] = useState<Platform>("linkedin");
   const [generated, setGenerated] = useState<Record<Platform, string>>({ linkedin: "", twitter: "", instagram: "" });
@@ -31,11 +46,27 @@ export function ArticleSocialPanel({ articleContent, articleTitle, articleId, on
   const [saved, setSaved] = useState<Record<Platform, boolean>>({ linkedin: false, twitter: false, instagram: false });
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [postType, setPostType] = useState<"story" | "insight" | "position">("story");
+  const [aiSettings, setAiSettings] = useState<AiSettingsCtx | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     supabase.from("linkedin_connections" as any).select("linkedin_id").maybeSingle().then(({ data }) => {
       setLinkedinConnected(!!data);
+    });
+    // Load AI settings so generation reflects the user's brand + voice.
+    // This matches the pattern used by SocialMedia.tsx.
+    supabase.from("ai_settings").select("*").limit(1).maybeSingle().then(({ data }) => {
+      if (data) {
+        setAiSettings({
+          app_description: data.app_description || "",
+          app_audience: data.app_audience || "",
+          tone_label: data.tone_label || "",
+          tone_description: data.tone_description || "",
+          reference_urls: data.reference_urls || [],
+          social_voice_profile: (data as any).social_voice_profile || "",
+        });
+      }
     });
   }, []);
 
@@ -56,7 +87,19 @@ export function ArticleSocialPanel({ articleContent, articleTitle, articleId, on
           Authorization: `Bearer ${session?.access_token}`,
           apikey: SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({ platform: p, topic: articleTitle, article_content: plainText }),
+        body: JSON.stringify({
+          platform: p,
+          topic: articleTitle,
+          article_content: plainText,
+          post_type: postType,
+          cta_goal: "product awareness",
+          author_voice: aiSettings?.social_voice_profile || "",
+          app_description: aiSettings?.app_description || "",
+          app_audience: aiSettings?.app_audience || "",
+          tone: aiSettings?.tone_label || "",
+          tone_description: aiSettings?.tone_description || "",
+          reference_urls: aiSettings?.reference_urls || [],
+        }),
       });
 
       if (!res.ok || !res.body) throw new Error("Generation failed");
@@ -158,6 +201,28 @@ export function ArticleSocialPanel({ articleContent, articleTitle, articleId, on
             {saved[p.id] && (
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border border-white" />
             )}
+          </button>
+        ))}
+      </div>
+
+      {/* Post archetype — controls the narrative shape of the generated post.
+          Selection only takes effect on the next Generate / Regenerate click. */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border flex-shrink-0 text-xs">
+        <span className="text-muted-foreground">Shape:</span>
+        {([
+          { id: "story", label: "Story", hint: "Personal moment → insight" },
+          { id: "insight", label: "Insight", hint: "Sharp claim → unpack" },
+          { id: "position", label: "Position", hint: "Take a stance" },
+        ] as const).map(opt => (
+          <button
+            key={opt.id}
+            title={opt.hint}
+            onClick={() => setPostType(opt.id)}
+            className={`px-2 py-1 rounded-md font-medium transition-colors ${
+              postType === opt.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            {opt.label}
           </button>
         ))}
       </div>
