@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { TONE_PRESETS } from "@/lib/tones";
 import { SocialPostPreviewModal } from "@/components/SocialPostPreviewModal";
+import { SocialPostPicker, type PickedPost } from "@/components/SocialPostPicker";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -178,7 +179,11 @@ export default function CalendarPage() {
   // from the calendar header and rescheduling an existing one from the
   // scheduled-posts panels. `socialPostReschedule` is null when creating
   // fresh, or the post row when editing an existing scheduled entry.
-  const [showSocialPostModal, setShowSocialPostModal] = useState(false);
+  // `socialPostDraft` holds the picker result when creating fresh; the
+  // picker (SocialPostPicker) runs first so the user chooses *what* to
+  // schedule before the preview/schedule modal opens.
+  const [socialPostPickerOpen, setSocialPostPickerOpen] = useState(false);
+  const [socialPostDraft, setSocialPostDraft] = useState<PickedPost | null>(null);
   const [socialPostReschedule, setSocialPostReschedule] = useState<any | null>(null);
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -421,7 +426,7 @@ export default function CalendarPage() {
               <Plus className="w-4 h-4" /> Schedule Newsletter
             </button>
             <button
-              onClick={() => setShowSocialPostModal(true)}
+              onClick={() => setSocialPostPickerOpen(true)}
               className="flex items-center gap-2 border border-primary text-primary rounded-lg px-4 py-2 text-sm font-semibold hover:bg-primary/5 transition-colors"
               title="Schedule a LinkedIn post for a future date"
             >
@@ -948,18 +953,29 @@ export default function CalendarPage() {
           )}
         </AnimatePresence>
 
+        {/* ── Social Post Picker ── */}
+        {/* Runs before the preview modal on the create-new path so the user
+            picks a draft (or chooses a blank platform) first. The reschedule
+            path bypasses this — clicking Reschedule on an existing row sets
+            socialPostReschedule and opens the preview modal directly. */}
+        <SocialPostPicker
+          open={socialPostPickerOpen}
+          onClose={() => setSocialPostPickerOpen(false)}
+          onPick={(d) => { setSocialPostPickerOpen(false); setSocialPostDraft(d); }}
+        />
+
         {/* ── Social Post Schedule / Reschedule Modal ── */}
         <SocialPostPreviewModal
-          open={showSocialPostModal || !!socialPostReschedule}
-          onClose={() => { setShowSocialPostModal(false); setSocialPostReschedule(null); }}
-          platform={(socialPostReschedule?.platform as any) || "linkedin"}
-          content={socialPostReschedule?.content || ""}
-          articleId={socialPostReschedule?.article_id || undefined}
-          articleTitle={socialPostReschedule?.article_title || undefined}
-          topic={socialPostReschedule?.topic || undefined}
+          open={!!socialPostReschedule || !!socialPostDraft}
+          onClose={() => { setSocialPostDraft(null); setSocialPostReschedule(null); }}
+          platform={(socialPostReschedule?.platform as any) || socialPostDraft?.platform || "linkedin"}
+          content={socialPostReschedule?.content ?? socialPostDraft?.content ?? ""}
+          articleId={socialPostReschedule?.article_id || socialPostDraft?.articleId || undefined}
+          articleTitle={socialPostReschedule?.article_title || socialPostDraft?.articleTitle || undefined}
+          topic={socialPostReschedule?.topic || socialPostDraft?.topic || undefined}
           existingPostId={socialPostReschedule?.id}
           initialScheduledAt={socialPostReschedule?.scheduled_at || undefined}
-          onSaved={() => { setShowSocialPostModal(false); setSocialPostReschedule(null); loadAll(); }}
+          onSaved={() => { setSocialPostDraft(null); setSocialPostReschedule(null); loadAll(); }}
         />
 
       </div>

@@ -222,6 +222,7 @@ export function SocialPostPreviewModal({
                   value={editedContent}
                   onChange={e => setEditedContent(e.target.value)}
                   rows={6}
+                  placeholder={`Write your ${meta.label} post…`}
                   className="w-full text-sm border border-border rounded-lg p-3 bg-background resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 leading-relaxed"
                 />
                 <p className={`text-xs mt-1 text-right ${overLimit ? "text-destructive" : "text-muted-foreground"}`}>
