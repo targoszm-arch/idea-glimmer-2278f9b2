@@ -46,7 +46,10 @@ const MCP_SCHEDULE_CAP = 5;
 type AuthContext = { userId: string; admin: SupabaseClient; token: string };
 
 // ---------------------------------------------------------------------------
-// Auth — copied from framer-sync-articles/index.ts (lines 12-54)
+// Auth — accepts two credential types:
+//   1. `cl_` API keys (legacy custom-connector flow; the shape used since v1)
+//   2. OAuth 2.1 access tokens (HS256 JWTs issued by mcp-oauth-token)
+// The legacy path is copied from framer-sync-articles/index.ts (lines 12-54).
 // ---------------------------------------------------------------------------
 async function authenticate(req: Request): Promise<AuthContext | Response> {
   const authHeader = req.headers.get("Authorization") ?? "";
@@ -74,17 +77,89 @@ async function authenticate(req: Request): Promise<AuthContext | Response> {
 
     userId = keyData.user_id;
     await admin.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("key", token);
+  } else if (isLikelyJwt(token)) {
+    // Try MCP OAuth access token first. If that fails (wrong issuer, bad
+    // signature), fall back to Supabase JWT so `supabase functions invoke`
+    // local testing still works.
+    const oauthUser = await verifyMcpOAuthToken(token);
+    if (oauthUser) {
+      userId = oauthUser;
+    } else {
+      const anon = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await anon.auth.getUser();
+      if (!user) return jsonResponse({ error: "Unauthorized" }, 401);
+      userId = user.id;
+    }
   } else {
-    // JWT path — useful for local testing with `supabase functions invoke`.
-    const anon = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await anon.auth.getUser();
-    if (!user) return jsonResponse({ error: "Unauthorized" }, 401);
-    userId = user.id;
+    return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
   return { userId: userId!, admin, token };
+}
+
+function isLikelyJwt(token: string): boolean {
+  return token.split(".").length === 3;
+}
+
+// Verifies an MCP OAuth access token (HS256 JWT issued by mcp-oauth-token).
+// Returns the user id (sub claim) on success, or null on any failure — the
+// caller decides how to handle invalid tokens.
+async function verifyMcpOAuthToken(token: string): Promise<string | null> {
+  const secret = Deno.env.get("MCP_OAUTH_SIGNING_KEY");
+  if (!secret) return null; // OAuth disabled in this environment
+
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [encodedHeader, encodedPayload, encodedSignature] = parts;
+
+  try {
+    // Check signature first — we only trust the payload if the signature matches.
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"],
+    );
+    const signingInput = `${encodedHeader}.${encodedPayload}`;
+    const signatureBytes = base64urlDecode(encodedSignature);
+    const ok = await crypto.subtle.verify(
+      "HMAC",
+      key,
+      signatureBytes,
+      new TextEncoder().encode(signingInput),
+    );
+    if (!ok) return null;
+
+    const payload = JSON.parse(new TextDecoder().decode(base64urlDecode(encodedPayload)));
+
+    // Issuer + audience must match what mcp-oauth-token signed. The
+    // audience check (RFC 8707) prevents a token issued for some other
+    // resource from being accepted here.
+    if (payload.iss !== "https://rnshobvpqegttrpaowxe.supabase.co") return null;
+    if (payload.aud !== "https://rnshobvpqegttrpaowxe.supabase.co/functions/v1/contentlab-mcp") {
+      return null;
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (typeof payload.exp !== "number" || payload.exp < now) return null;
+    if (typeof payload.sub !== "string" || payload.sub.length === 0) return null;
+
+    return payload.sub;
+  } catch {
+    return null;
+  }
+}
+
+function base64urlDecode(s: string): Uint8Array {
+  const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
+  const b64 = (s + pad).replace(/-/g, "+").replace(/_/g, "/");
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
 }
 
 // ---------------------------------------------------------------------------
