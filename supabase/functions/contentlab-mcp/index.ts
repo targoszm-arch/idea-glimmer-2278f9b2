@@ -29,7 +29,7 @@ const RPC_METHOD_NOT_FOUND = -32601;
 const RPC_INVALID_PARAMS = -32602;
 const RPC_INTERNAL_ERROR = -32603;
 
-const DEFAULT_PROTOCOL_VERSION = "2024-11-05";
+const DEFAULT_PROTOCOL_VERSION = "2025-06-18";
 const SERVER_INFO = { name: "contentlab-mcp", version: "0.1.0" };
 
 // Public app URL used for deep-links surfaced back to MCP clients.
@@ -374,46 +374,49 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
       }
       console.log(`[create_article] saved article ${data.id} (${title}) for user ${ctx.userId}`);
 
-      // Generate a cover image the same way the browser UI does (DALL-E 3 via
-      // the generate-cover-image edge function). The UI treats this as a
-      // separate step a user clicks, but for MCP-driven article creation we
-      // do it automatically — Claude has no other affordance to request one.
-      // Costs 5 additional credits. If it fails, we still keep the article.
-      try {
-        const coverPrompt = metaDescription.trim() || title;
-        const contextSnippet = plainText.slice(0, 500);
-        const coverRes = await fetch(`${supabaseUrl}/functions/v1/generate-cover-image`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${serviceKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            prompt: coverPrompt,
-            context: contextSnippet,
-            user_id_override: ctx.userId,
-          }),
-        });
-        if (!coverRes.ok) {
-          const errText = await coverRes.text();
-          console.warn(`[create_article] cover image skipped for article ${data.id}: ${coverRes.status} ${errText}`);
-        } else {
-          const coverJson = await coverRes.json();
-          const imageUrl: string | undefined = coverJson?.image_url;
-          if (imageUrl) {
-            const { error: updateErr } = await admin
-              .from("articles")
-              .update({ cover_image_url: imageUrl })
-              .eq("id", data.id);
-            if (updateErr) {
-              console.warn(`[create_article] cover image URL update failed for article ${data.id}: ${updateErr.message}`);
-            } else {
-              console.log(`[create_article] cover image attached to article ${data.id}`);
+      // Cover image is opt-in via `generate_cover_image: true`. Anthropic's
+      // connector-directory policy prohibits AI media generation by default,
+      // so we only call DALL-E when the user (via Claude) explicitly asked.
+      // The web-app "Create article" flow has its own path and is unaffected.
+      if (args?.generate_cover_image === true) {
+        try {
+          const coverPrompt = metaDescription.trim() || title;
+          const contextSnippet = plainText.slice(0, 500);
+          const coverRes = await fetch(`${supabaseUrl}/functions/v1/generate-cover-image`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${serviceKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              prompt: coverPrompt,
+              context: contextSnippet,
+              user_id_override: ctx.userId,
+            }),
+          });
+          if (!coverRes.ok) {
+            const errText = await coverRes.text();
+            console.warn(`[create_article] cover image skipped for article ${data.id}: ${coverRes.status} ${errText}`);
+          } else {
+            const coverJson = await coverRes.json();
+            const imageUrl: string | undefined = coverJson?.image_url;
+            if (imageUrl) {
+              const { error: updateErr } = await admin
+                .from("articles")
+                .update({ cover_image_url: imageUrl })
+                .eq("id", data.id);
+              if (updateErr) {
+                console.warn(`[create_article] cover image URL update failed for article ${data.id}: ${updateErr.message}`);
+              } else {
+                console.log(`[create_article] cover image attached to article ${data.id}`);
+              }
             }
           }
+        } catch (e) {
+          console.warn(`[create_article] cover image generation threw for article ${data.id}:`, e);
         }
-      } catch (e) {
-        console.warn(`[create_article] cover image generation threw for article ${data.id}:`, e);
+      } else {
+        console.log(`[create_article] skipping cover image for article ${data.id} (opt-in flag not set)`);
       }
     } catch (e) {
       console.error(`[create_article] background generation threw for user ${ctx.userId}:`, e);
@@ -810,10 +813,28 @@ async function cancelNewsletterScheduleHandler(args: any, ctx: AuthContext): Pro
 
 type Handler = (args: any, ctx: AuthContext) => Promise<unknown>;
 
+// MCP tool annotations — surfaced to Claude during tools/list so the model
+// can reason about whether a tool is safe to auto-call. Required by the
+// Anthropic connector directory. See:
+//   https://modelcontextprotocol.io/specification/2025-06-18/server/tools
+interface ToolAnnotations {
+  // Human-readable name, shown in the UI. Separate from the snake_case tool name.
+  title?: string;
+  // True = tool does not modify state. Claude can call freely.
+  readOnlyHint?: boolean;
+  // True = tool can irreversibly delete or overwrite user data.
+  destructiveHint?: boolean;
+  // True = calling the same tool twice with the same args has the same effect.
+  idempotentHint?: boolean;
+  // True = tool interacts with external systems (LinkedIn, email, etc).
+  openWorldHint?: boolean;
+}
+
 interface ToolDef {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  annotations?: ToolAnnotations;
   handler: Handler;
 }
 
@@ -821,7 +842,7 @@ const TOOLS: ToolDef[] = [
   {
     name: "create_article",
     description:
-      "Start generating a new SEO-ready article (1,500–2,000 words) from a topic, grounded in current web data via Perplexity. A photorealistic cover image is generated automatically via DALL-E 3 once the article is saved. Costs 10 Content Lab credits total (5 for the article + 5 for the cover image). Returns IMMEDIATELY with status: started — generation runs in the background and typically completes in 90–150 seconds end-to-end. Call `list_articles` after ~2 minutes to see the finished article (with its cover_image_url populated) in the user's library.",
+      "Start generating a new SEO-ready article (1,500–2,000 words) from a topic, grounded in current web data via Perplexity. Costs 5 Content Lab credits for the article text. Returns IMMEDIATELY with status: started — generation runs in the background and typically completes in 90–150 seconds. Call `list_articles` after ~2 minutes to see the finished article in the user's library. A cover image is NOT generated by default; pass `generate_cover_image: true` to opt in (adds 5 credits, uses DALL-E 3). Users can always add or change a cover image later from the Content Lab editor.",
     inputSchema: {
       type: "object",
       required: ["topic"],
@@ -846,7 +867,20 @@ const TOOLS: ToolDef[] = [
           items: { type: "string", format: "uri" },
           description: "Optional reference URLs whose style/voice should be emulated.",
         },
+        generate_cover_image: {
+          type: "boolean",
+          default: false,
+          description:
+            "Set to true to additionally generate a cover image via DALL-E 3 (adds 5 credits). Off by default — only pass true when the user explicitly asked for an image.",
+        },
       },
+    },
+    annotations: {
+      title: "Create article",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
     },
     handler: createArticleHandler,
   },
@@ -861,6 +895,13 @@ const TOOLS: ToolDef[] = [
         status: { type: "string", enum: ["draft", "published", "scheduled", "archived"] },
       },
     },
+    annotations: {
+      title: "List articles",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: listArticlesHandler,
   },
   {
@@ -873,6 +914,13 @@ const TOOLS: ToolDef[] = [
       properties: {
         id: { type: "string", format: "uuid", description: "Article UUID from `list_articles`." },
       },
+    },
+    annotations: {
+      title: "Get article",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
     },
     handler: getArticleHandler,
   },
@@ -895,6 +943,13 @@ const TOOLS: ToolDef[] = [
         cover_image_url: { type: "string", format: "uri" },
       },
     },
+    annotations: {
+      title: "Update article",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     handler: updateArticleHandler,
   },
   {
@@ -908,6 +963,13 @@ const TOOLS: ToolDef[] = [
         status: { type: "string", enum: ["draft", "scheduled", "posted", "failed"] },
         platform: { type: "string", enum: ["linkedin"] },
       },
+    },
+    annotations: {
+      title: "List social posts",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
     },
     handler: listSocialPostsHandler,
   },
@@ -939,6 +1001,13 @@ const TOOLS: ToolDef[] = [
         },
       },
     },
+    annotations: {
+      title: "Schedule LinkedIn post",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
     handler: scheduleSocialPostHandler,
   },
   {
@@ -951,6 +1020,13 @@ const TOOLS: ToolDef[] = [
         limit: { type: "integer", minimum: 1, maximum: 200, default: 50 },
         status: { type: "string", enum: ["scheduled", "sending", "sent", "failed", "cancelled"] },
       },
+    },
+    annotations: {
+      title: "List newsletter schedules",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
     },
     handler: listNewsletterSchedulesHandler,
   },
@@ -990,6 +1066,13 @@ const TOOLS: ToolDef[] = [
         },
       },
     },
+    annotations: {
+      title: "Schedule newsletter send",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
     handler: scheduleNewsletterHandler,
   },
   {
@@ -1002,6 +1085,13 @@ const TOOLS: ToolDef[] = [
       properties: {
         id: { type: "string", format: "uuid", description: "newsletter_schedules.id" },
       },
+    },
+    annotations: {
+      title: "Cancel newsletter schedule",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
     },
     handler: cancelNewsletterScheduleHandler,
   },
@@ -1030,7 +1120,12 @@ function handleInitialize(id: any, params: any) {
 
 function handleToolsList(id: any) {
   return rpcResult(id, {
-    tools: TOOLS.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })),
+    tools: TOOLS.map(({ name, description, inputSchema, annotations }) => ({
+      name,
+      description,
+      inputSchema,
+      ...(annotations ? { annotations } : {}),
+    })),
   });
 }
 
