@@ -12,6 +12,7 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
   const [selectedTone, setSelectedTone] = useState("");
   const [appDescription, setAppDescription] = useState("");
   const [appAudience, setAppAudience] = useState("");
+  const [socialVoiceProfile, setSocialVoiceProfile] = useState("");
   const [referenceUrls, setReferenceUrls] = useState<string[]>([]);
   const [newUrl, setNewUrl] = useState("");
   const [loading, setLoading] = useState(true);
@@ -45,6 +46,7 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
         setSelectedTone(data.tone_key || "");
         setAppDescription(data.app_description || "");
         setAppAudience(data.app_audience || "");
+        setSocialVoiceProfile((data as any).social_voice_profile || "");
         setReferenceUrls(data.reference_urls || []);
         setNewsletterFromName((data as any).newsletter_from_name || "ContentLab");
         setNewsletterFromEmail((data as any).newsletter_from_email || "");
@@ -68,6 +70,7 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
       tone_description: tone.description,
       app_description: appDescription,
       app_audience: appAudience,
+      social_voice_profile: socialVoiceProfile,
       reference_urls: referenceUrls,
       newsletter_from_name: newsletterFromName,
       newsletter_from_email: newsletterFromEmail,
@@ -190,6 +193,34 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
               className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
             <p className="mt-1.5 text-xs text-muted-foreground">{appAudience.length}/800 characters</p>
+          </section>
+
+          {/* Social Voice Profile */}
+          <section className="mb-8 rounded-xl border border-border bg-card p-6">
+            <h2 className="mb-1 text-lg font-bold text-foreground">Your Social Voice</h2>
+            <p className="mb-2 text-sm text-muted-foreground">
+              The strongest way to make AI-generated social posts sound like you: paste 3-5 of your
+              best-performing posts, or describe your voice in your own words. This is injected directly
+              into the LinkedIn / Twitter / Instagram generation prompt.
+            </p>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Tip: look for your own cadence (short sentences? fragments?), vocabulary (plain vs.
+              technical), perspective (first person? do you admit uncertainty?), and what you believe
+              about your craft. Leave blank to use a neutral default.
+            </p>
+            <textarea
+              value={socialVoiceProfile}
+              onChange={(e) => setSocialVoiceProfile(e.target.value.slice(0, 6000))}
+              placeholder={`Paste 3-5 of your best posts here, separated by two blank lines. Or describe your voice directly — e.g.
+
+Cadence: short paragraphs, one sentence each. Fragments are fine.
+Vocabulary: plain, direct. No jargon.
+Perspective: first person, admits being wrong, asks questions I don't have answers to.
+Beliefs: care about craft, skeptical of hype, small things tell the truth.`}
+              rows={10}
+              className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-mono"
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">{socialVoiceProfile.length}/6000 characters</p>
           </section>
 
           {/* Reference URLs */}

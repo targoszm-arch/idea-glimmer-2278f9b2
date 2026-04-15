@@ -21,6 +21,7 @@ export type Database = {
           created_at: string
           id: string
           reference_urls: string[]
+          social_voice_profile: string
           tone_description: string
           tone_key: string
           tone_label: string
@@ -33,6 +34,7 @@ export type Database = {
           created_at?: string
           id?: string
           reference_urls?: string[]
+          social_voice_profile?: string
           tone_description?: string
           tone_key?: string
           tone_label?: string
@@ -45,6 +47,7 @@ export type Database = {
           created_at?: string
           id?: string
           reference_urls?: string[]
+          social_voice_profile?: string
           tone_description?: string
           tone_key?: string
           tone_label?: string

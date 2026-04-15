@@ -103,6 +103,7 @@ const SocialMedia = () => {
     tone_label: string;
     tone_description: string;
     reference_urls: string[];
+    social_voice_profile: string;
   } | null>(null);
 
   const [brandAssets, setBrandAssets] = useState<{ logos: any[]; visuals: any[] }>({ logos: [], visuals: [] });
@@ -355,6 +356,7 @@ const SocialMedia = () => {
         app_description: aiSettings?.app_description || "",
         app_audience: aiSettings?.app_audience || "",
         reference_urls: aiSettings?.reference_urls || [],
+        author_voice: aiSettings?.social_voice_profile || "",
         brand_assets: brandAssets,
       },
       onDelta: (text) => {
@@ -700,6 +702,7 @@ const SocialMedia = () => {
         app_description: aiSettings?.app_description || "",
         app_audience: aiSettings?.app_audience || "",
         reference_urls: aiSettings?.reference_urls || [],
+        author_voice: aiSettings?.social_voice_profile || "",
         brand_assets: brandAssets,
       },
       onDelta: (text) => {
