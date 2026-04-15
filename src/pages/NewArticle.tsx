@@ -51,7 +51,7 @@ const NewArticle = () => {
   const [includeInlineImage, setIncludeInlineImage] = useState(false);
   const [includeInfographic, setIncludeInfographic] = useState(false);
   // Non-blocking progress for the post-generation asset pipeline (hero is
-  // still generated on demand via the existing "Generate Images" button).
+  // still generated on demand via the "Generate Hero Image" button).
   const [isGeneratingMedia, setIsGeneratingMedia] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showAssistant, setShowAssistant] = useState(false);
@@ -988,15 +988,7 @@ const NewArticle = () => {
               disabled={isGenerating}
               className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50">
               {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {isGenerating
-                ? "Generating..."
-                : (() => {
-                    if (contentType !== "blog") return "Generate Article";
-                    const extras = (includeInlineImage ? 1 : 0) + (includeInfographic ? 1 : 0);
-                    return extras > 0
-                      ? `Generate Article (+${extras} image${extras > 1 ? "s" : ""})`
-                      : "Generate Article";
-                  })()}
+              {isGenerating ? "Generating..." : "Generate Article"}
             </button>
           </div>
 
@@ -1066,7 +1058,7 @@ const NewArticle = () => {
                       disabled={isGeneratingImage}
                       className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50">
                       {isGeneratingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-                      Generate Images
+                      Generate Hero Image
                     </button>
                     <button
                       onClick={() => setShowUnsplash(true)}
