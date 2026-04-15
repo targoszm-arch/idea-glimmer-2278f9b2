@@ -10,7 +10,7 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
-import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X, Upload, ChevronDown, Send, Mail, Share2 } from "lucide-react";
+import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X, Upload, ChevronDown, Send, Mail, Share2, BookmarkPlus, Check } from "lucide-react";
 import { ArticleSocialPanel } from "@/components/ArticleSocialPanel";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
@@ -24,6 +24,7 @@ import OutOfCreditsDialog from "@/components/OutOfCreditsDialog";
 import PlatformLogo from "@/components/PlatformLogo";
 import RelatedArticlesPicker from "@/components/RelatedArticlesPicker";
 import { toSlug, buildUrlPath } from "@/lib/slug";
+import { saveImageToLibrary } from "@/lib/imageLibrary";
 import DOMPurify from "dompurify";
 import { MediaLibraryPicker } from "../components/MediaLibraryPicker";
 import { UnsplashPicker } from "../components/UnsplashPicker";
@@ -43,6 +44,8 @@ const EditArticle = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [showAssistant, setShowAssistant] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const [coverSavedToLibrary, setCoverSavedToLibrary] = useState(false);
+  const [isSavingCoverToLibrary, setIsSavingCoverToLibrary] = useState(false);
   const [framerItemId, setFramerItemId] = useState<string | null>(null);
   const [intercomArticleId, setIntercomArticleId] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
@@ -248,6 +251,29 @@ const EditArticle = () => {
     }
   };
 
+  const handleSaveCoverToLibrary = async () => {
+    if (!coverImageUrl) return;
+    setIsSavingCoverToLibrary(true);
+    const source: "ai_generated" | "upload" | "unsplash" =
+      coverImageUrl.includes("/article-covers/")
+        ? "ai_generated"
+        : coverImageUrl.includes("unsplash.com")
+        ? "unsplash"
+        : "upload";
+    const result = await saveImageToLibrary({
+      imageUrl: coverImageUrl,
+      title: title?.trim() || "Cover image",
+      source,
+    });
+    setIsSavingCoverToLibrary(false);
+    if (result.ok) {
+      setCoverSavedToLibrary(true);
+      toast({ title: "Saved to Media Library", description: "Reusable via Media Library picker." });
+    } else {
+      toast({ title: "Save failed", description: result.error || "Unknown error", variant: "destructive" });
+    }
+  };
+
   const handleGenerateCoverImage = async () => {
     const imagePrompt = metaDescription.trim() || title.trim();
     if (!imagePrompt) {
@@ -276,6 +302,7 @@ const EditArticle = () => {
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Image generation failed");
       setCoverImageUrl(data.image_url);
+      setCoverSavedToLibrary(false); // new image → not yet in library
       toast({ title: "Cover image generated!" });
     } catch (e: any) {
       toast({ title: "Image generation failed", description: e.message, variant: "destructive" });
@@ -316,6 +343,7 @@ const EditArticle = () => {
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Upload failed");
       setCoverImageUrl(data.image_url);
+      setCoverSavedToLibrary(false); // new image → not yet in library
       toast({ title: "Cover image uploaded!" });
     } catch (e: any) {
       toast({ title: "Upload failed", description: e.message, variant: "destructive" });
@@ -730,10 +758,22 @@ const EditArticle = () => {
                   </button>
                   <div className="absolute bottom-2 right-2 flex gap-2">
                     <button
+                    onClick={handleSaveCoverToLibrary}
+                    disabled={isSavingCoverToLibrary || coverSavedToLibrary}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-70"
+                    title={coverSavedToLibrary ? "Already in Media Library" : "Save to Media Library for reuse"}>
+                      {isSavingCoverToLibrary
+                        ? <Loader2 className="h-3 w-3 animate-spin" />
+                        : coverSavedToLibrary
+                          ? <Check className="h-3 w-3 text-green-600" />
+                          : <BookmarkPlus className="h-3 w-3" />}
+                      {coverSavedToLibrary ? "Saved" : "Save to Library"}
+                    </button>
+                    <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploadingImage}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm hover:bg-background disabled:opacity-50">
-                    
+
                       <Upload className="h-3 w-3" />
                       Replace
                     </button>
@@ -940,7 +980,7 @@ const EditArticle = () => {
     <CanvaDesignPicker
       open={showCanvaPicker}
       onClose={() => setShowCanvaPicker(false)}
-      onSelect={(url) => { setCoverImageUrl(url); setShowCanvaPicker(false); }}
+      onSelect={(url) => { setCoverImageUrl(url); setCoverSavedToLibrary(true); setShowCanvaPicker(false); }}
     />
     <NewsletterEditor
       open={showNewsletter}
@@ -950,7 +990,7 @@ const EditArticle = () => {
     <ImageLibraryPicker
       open={showImageLibrary}
       onClose={() => setShowImageLibrary(false)}
-      onSelect={(url) => { setCoverImageUrl(url); setShowImageLibrary(false); }}
+      onSelect={(url) => { setCoverImageUrl(url); setCoverSavedToLibrary(false); setShowImageLibrary(false); }}
     />
     <UnsplashPicker
       open={showUnsplash}
@@ -961,6 +1001,7 @@ const EditArticle = () => {
           editor.chain().focus().setImage({ src: url }).run();
         } else {
           setCoverImageUrl(url);
+          setCoverSavedToLibrary(false);
         }
         setShowUnsplash(false);
       }}
@@ -968,7 +1009,7 @@ const EditArticle = () => {
     <MediaLibraryPicker
       open={showMediaLibrary}
       onClose={() => setShowMediaLibrary(false)}
-      onSelect={(url) => { setCoverImageUrl(url); setShowMediaLibrary(false); }}
+      onSelect={(url) => { setCoverImageUrl(url); setCoverSavedToLibrary(true); setShowMediaLibrary(false); }}
     />
     </>);
 
