@@ -1,8 +1,7 @@
-ALTER TABLE public.articles ADD COLUMN IF NOT EXISTS source text DEFAULT 'manual';
-ALTER TABLE public.articles ADD COLUMN IF NOT EXISTS automation_name text;
--- Tag any existing articles that came from automation_runs
-UPDATE public.articles a
-SET source = 'automation'
-WHERE EXISTS (
-  SELECT 1 FROM public.automation_runs ar WHERE ar.article_id = a.id
-);
+-- Applied on prod via direct SQL (dashboard or MCP) before this project
+-- adopted the migration CLI. The DDL originally here is already in place
+-- in the live database — re-running it would fail on duplicate-object
+-- errors. Kept as an empty stub so `supabase migration list` matches
+-- what's actually tracked in the remote `schema_migrations` table.
+--
+-- The original SQL is preserved in git history: `git log --follow supabase/migrations/20260324240000_article_source.sql`

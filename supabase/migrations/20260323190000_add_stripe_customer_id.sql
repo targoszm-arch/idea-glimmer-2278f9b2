@@ -1,5 +1,7 @@
-ALTER TABLE user_credits 
-  ADD COLUMN IF NOT EXISTS stripe_customer_id text,
-  ADD COLUMN IF NOT EXISTS stripe_payment_status text DEFAULT 'unpaid';
-
-CREATE INDEX IF NOT EXISTS idx_user_credits_stripe_customer ON user_credits(stripe_customer_id);
+-- Applied on prod via direct SQL (dashboard or MCP) before this project
+-- adopted the migration CLI. The DDL originally here is already in place
+-- in the live database — re-running it would fail on duplicate-object
+-- errors. Kept as an empty stub so `supabase migration list` matches
+-- what's actually tracked in the remote `schema_migrations` table.
+--
+-- The original SQL is preserved in git history: `git log --follow supabase/migrations/20260323190000_add_stripe_customer_id.sql`
