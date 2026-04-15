@@ -1,16 +1,7 @@
--- API keys table for ContentLab Framer plugin
-CREATE TABLE IF NOT EXISTS api_keys (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  key text NOT NULL UNIQUE DEFAULT 'cl_' || replace(gen_random_uuid()::text, '-', ''),
-  name text NOT NULL DEFAULT 'ContentLab Plugin Key',
-  created_at timestamptz DEFAULT now(),
-  last_used_at timestamptz
-);
-
-ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can manage own api keys"
-  ON api_keys FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+-- Applied on prod via direct SQL (dashboard or MCP) before this project
+-- adopted the migration CLI. The DDL originally here is already in place
+-- in the live database — re-running it would fail on duplicate-object
+-- errors. Kept as an empty stub so `supabase migration list` matches
+-- what's actually tracked in the remote `schema_migrations` table.
+--
+-- The original SQL is preserved in git history: `git log --follow supabase/migrations/20260323000000_create_api_keys.sql`

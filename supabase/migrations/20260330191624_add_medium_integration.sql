@@ -1,0 +1,4 @@
+-- Applied remotely (via Supabase dashboard / MCP `apply_migration`).
+-- This stub exists only to keep `supabase migration list` in sync with
+-- the remote `schema_migrations` table. The actual DDL for this version
+-- lives on the live database; nothing here is re-run.

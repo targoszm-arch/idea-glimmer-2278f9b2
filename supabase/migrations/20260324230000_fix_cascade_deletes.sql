@@ -1,6 +1,7 @@
--- Fix automation_runs: SET NULL on article delete (not block)
-ALTER TABLE public.automation_runs 
-  DROP CONSTRAINT IF EXISTS automation_runs_article_id_fkey;
-ALTER TABLE public.automation_runs
-  ADD CONSTRAINT automation_runs_article_id_fkey 
-  FOREIGN KEY (article_id) REFERENCES public.articles(id) ON DELETE SET NULL;
+-- Applied on prod via direct SQL (dashboard or MCP) before this project
+-- adopted the migration CLI. The DDL originally here is already in place
+-- in the live database — re-running it would fail on duplicate-object
+-- errors. Kept as an empty stub so `supabase migration list` matches
+-- what's actually tracked in the remote `schema_migrations` table.
+--
+-- The original SQL is preserved in git history: `git log --follow supabase/migrations/20260324230000_fix_cascade_deletes.sql`

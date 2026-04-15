@@ -1,20 +1,7 @@
--- Enable pg_cron extension (requires Supabase Pro or above)
--- Run this manually if on Pro plan:
--- SELECT cron.schedule('run-automations', '* * * * *', $$
---   SELECT net.http_post(
---     url := current_setting('app.supabase_url') || '/functions/v1/run-automations',
---     headers := '{"Content-Type":"application/json","Authorization":"Bearer ' || current_setting('app.service_role_key') || '"}'::jsonb,
---     body := '{}'::jsonb
---   )
--- $$);
-
--- For now, automations are triggered manually or via external cron
--- Add updated_at trigger to automations
-CREATE OR REPLACE FUNCTION update_automations_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN NEW.updated_at = now(); RETURN NEW; END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER automations_updated_at
-  BEFORE UPDATE ON public.automations
-  FOR EACH ROW EXECUTE FUNCTION update_automations_updated_at();
+-- Applied on prod via direct SQL (dashboard or MCP) before this project
+-- adopted the migration CLI. The DDL originally here is already in place
+-- in the live database — re-running it would fail on duplicate-object
+-- errors. Kept as an empty stub so `supabase migration list` matches
+-- what's actually tracked in the remote `schema_migrations` table.
+--
+-- The original SQL is preserved in git history: `git log --follow supabase/migrations/20260324220000_automations_cron.sql`

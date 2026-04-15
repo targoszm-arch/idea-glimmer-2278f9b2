@@ -1,0 +1,7 @@
+-- Historical one-off data fix for a single user's credits (mandy.1983@hotmail.com).
+-- Referenced column `stripe_payment_status` is added by a later migration,
+-- which caused Supabase Preview branch builds to fail with SQLSTATE 42703.
+-- On the live production DB this UPDATE already ran successfully; on any
+-- fresh/preview DB the target row doesn't exist so a re-run would be a
+-- no-op anyway. Stubbed to keep the migration ledger intact without
+-- breaking preview builds.

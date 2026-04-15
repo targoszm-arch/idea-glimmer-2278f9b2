@@ -1,7 +1,7 @@
--- Add Notion and Shopify integration columns to articles table
-ALTER TABLE articles
-  ADD COLUMN IF NOT EXISTS notion_page_id text,
-  ADD COLUMN IF NOT EXISTS shopify_article_id text;
-
-COMMENT ON COLUMN articles.notion_page_id IS 'Notion page ID for synced articles';
-COMMENT ON COLUMN articles.shopify_article_id IS 'Shopify article ID for synced articles';
+-- Applied on prod via direct SQL (dashboard or MCP) before this project
+-- adopted the migration CLI. The DDL originally here is already in place
+-- in the live database — re-running it would fail on duplicate-object
+-- errors. Kept as an empty stub so `supabase migration list` matches
+-- what's actually tracked in the remote `schema_migrations` table.
+--
+-- The original SQL is preserved in git history: `git log --follow supabase/migrations/20260319045012_add_notion_shopify_columns.sql`

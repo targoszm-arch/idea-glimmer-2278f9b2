@@ -2,11 +2,17 @@
 -- Without these, inserts from SocialPostPreviewModal fail silently and scheduled posts
 -- never appear on the Calendar or in the Social Library.
 
+-- On prod these columns already exist (added out-of-band over time). On a
+-- fresh Supabase Preview branch the base social_posts table ships without
+-- user_id (see migration 20260308210534) so we create it here too, guarded
+-- with IF NOT EXISTS so the ALTER is a no-op on prod.
 ALTER TABLE public.social_posts
+  ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   ADD COLUMN IF NOT EXISTS scheduled_at timestamptz,
   ADD COLUMN IF NOT EXISTS status text DEFAULT 'draft',
   ADD COLUMN IF NOT EXISTS article_id uuid REFERENCES public.articles(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS article_title text,
+  ADD COLUMN IF NOT EXISTS title text,
   ADD COLUMN IF NOT EXISTS media_url text,
   ADD COLUMN IF NOT EXISTS media_type text,
   ADD COLUMN IF NOT EXISTS posted_at timestamptz,

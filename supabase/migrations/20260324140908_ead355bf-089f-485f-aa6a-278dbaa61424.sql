@@ -1,5 +1,7 @@
-UPDATE user_credits 
-SET credits = 20, plan = 'free', 
-    stripe_payment_status = 'unpaid',
-    updated_at = now()
-WHERE user_id = 'a0e6acd3-b7c5-490f-b3fe-de3900a4425c';
+-- Historical one-off data fix for a single user's credits (reverted to free
+-- plan). Referenced column `stripe_payment_status` is added by a later
+-- migration, which caused Supabase Preview branch builds to fail with
+-- SQLSTATE 42703. On the live production DB this UPDATE already ran; on
+-- any fresh/preview DB the target row doesn't exist so a re-run would be
+-- a no-op anyway. Stubbed to keep the migration ledger intact without
+-- breaking preview builds.
