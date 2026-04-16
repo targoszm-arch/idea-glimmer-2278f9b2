@@ -35,7 +35,7 @@ const REGISTER_URL = `${SUPABASE_URL}/functions/v1/mcp-oauth-register`;
 // RFC 8414 authorization-server metadata. The `issuer` must exactly
 // match the signing claim in access-token JWTs issued by mcp-oauth-token.
 const AUTHORIZATION_SERVER_METADATA = {
-  issuer: SUPABASE_URL,
+  issuer: MCP_URL,
   authorization_endpoint: AUTH_URL,
   token_endpoint: TOKEN_URL,
   registration_endpoint: REGISTER_URL,
@@ -52,7 +52,7 @@ const AUTHORIZATION_SERVER_METADATA = {
 // server above.
 const PROTECTED_RESOURCE_METADATA = {
   resource: MCP_URL,
-  authorization_servers: [SUPABASE_URL],
+  authorization_servers: [MCP_URL],
   scopes_supported: ["mcp"],
   bearer_methods_supported: ["header"],
   resource_documentation: `${APP_URL}/connect/claude`,
