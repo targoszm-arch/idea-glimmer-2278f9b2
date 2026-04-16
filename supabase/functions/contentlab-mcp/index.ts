@@ -153,7 +153,13 @@ async function verifyMcpOAuthToken(
     // Issuer + audience must match what mcp-oauth-token signed. The
     // audience check (RFC 8707) prevents a token issued for some other
     // resource from being accepted here.
-    if (payload.iss !== "https://rnshobvpqegttrpaowxe.supabase.co") return null;
+    // Accept both the old issuer (SUPABASE_URL) and the new one (MCP_URL)
+    // so tokens issued before this change still work.
+    const validIssuers = [
+      "https://rnshobvpqegttrpaowxe.supabase.co",
+      "https://rnshobvpqegttrpaowxe.supabase.co/functions/v1/contentlab-mcp",
+    ];
+    if (!validIssuers.includes(payload.iss)) return null;
     if (payload.aud !== "https://rnshobvpqegttrpaowxe.supabase.co/functions/v1/contentlab-mcp") {
       return null;
     }
@@ -1254,28 +1260,46 @@ async function logInvocation(
 // HTTP entrypoint
 // ---------------------------------------------------------------------------
 
-// OAuth discovery constants. Claude looks for these on the MCP endpoint
-// itself — either via WWW-Authenticate header on 401, or via a GET to
-// /.well-known/oauth-protected-resource relative to the MCP URL.
+// OAuth discovery constants. ALL discovery metadata is served from this
+// function (the MCP URL itself). Claude appends /.well-known/* paths to
+// the authorization_servers URL, and Supabase doesn't serve /.well-known
+// at the project root — so we MUST handle it here.
 const SUPABASE_URL_CONST = "https://rnshobvpqegttrpaowxe.supabase.co";
+const APP_URL_CONST = "https://www.app.content-lab.ie";
 const MCP_URL_CONST = `${SUPABASE_URL_CONST}/functions/v1/contentlab-mcp`;
-const METADATA_URL = `${SUPABASE_URL_CONST}/functions/v1/mcp-oauth-metadata`;
-const RESOURCE_METADATA_URL = `${METADATA_URL}/.well-known/oauth-protected-resource`;
+const TOKEN_URL_CONST = `${SUPABASE_URL_CONST}/functions/v1/mcp-oauth-token`;
+const REGISTER_URL_CONST = `${SUPABASE_URL_CONST}/functions/v1/mcp-oauth-register`;
 
-// Protected resource metadata (RFC 9728) — served directly from this
-// endpoint so Claude can discover the auth server without hitting a
-// separate function. Duplicates what mcp-oauth-metadata serves, but
-// Claude needs it HERE on the MCP URL.
+// The resource_metadata URL points to THIS function's well-known path.
+const RESOURCE_METADATA_URL = `${MCP_URL_CONST}/.well-known/oauth-protected-resource`;
+
+// Protected resource metadata (RFC 9728). authorization_servers points to
+// the MCP URL itself — Claude will fetch {mcp-url}/.well-known/oauth-
+// authorization-server which we also serve below.
 const PROTECTED_RESOURCE_META = {
   resource: MCP_URL_CONST,
-  authorization_servers: [SUPABASE_URL_CONST],
+  authorization_servers: [MCP_URL_CONST],
   scopes_supported: ["mcp"],
   bearer_methods_supported: ["header"],
-  resource_documentation: "https://www.app.content-lab.ie/connect/claude",
+  resource_documentation: `${APP_URL_CONST}/connect/claude`,
 };
 
-// WWW-Authenticate header for 401 responses. Tells Claude where to find
-// the resource metadata so it can bootstrap the OAuth flow.
+// Authorization server metadata (RFC 8414). Issuer = MCP URL so that
+// the well-known URL construction resolves back to this same function.
+const AUTH_SERVER_META = {
+  issuer: MCP_URL_CONST,
+  authorization_endpoint: `${APP_URL_CONST}/oauth/authorize`,
+  token_endpoint: TOKEN_URL_CONST,
+  registration_endpoint: REGISTER_URL_CONST,
+  response_types_supported: ["code"],
+  grant_types_supported: ["authorization_code", "refresh_token"],
+  code_challenge_methods_supported: ["S256"],
+  token_endpoint_auth_methods_supported: ["none"],
+  scopes_supported: ["mcp"],
+  service_documentation: `${APP_URL_CONST}/connect/claude`,
+};
+
+// WWW-Authenticate header for 401 responses.
 const WWW_AUTH_HEADER = `Bearer resource_metadata="${RESOURCE_METADATA_URL}"`;
 
 serve(async (req) => {
@@ -1284,22 +1308,20 @@ serve(async (req) => {
   const url = new URL(req.url);
   const path = url.pathname;
 
-  // GET /.well-known/oauth-protected-resource — RFC 9728 discovery.
-  // Claude fetches this to find which authorization server to use.
+  // ---- OAuth discovery GET endpoints ------------------------------------
+
+  // RFC 9728: protected-resource metadata.
   if (req.method === "GET" && path.endsWith("/.well-known/oauth-protected-resource")) {
-    return new Response(JSON.stringify(PROTECTED_RESOURCE_META), {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=300",
-      },
-    });
+    return wellKnownJson(PROTECTED_RESOURCE_META);
   }
 
-  // GET with no specific path — return 401 with WWW-Authenticate so Claude
-  // can discover the OAuth flow. This is the standard MCP auth handshake:
-  // client pings the server → gets 401 + resource_metadata link → follows it.
+  // RFC 8414: authorization-server metadata. Claude fetches this after
+  // reading authorization_servers from the protected-resource metadata.
+  if (req.method === "GET" && path.endsWith("/.well-known/oauth-authorization-server")) {
+    return wellKnownJson(AUTH_SERVER_META);
+  }
+
+  // Any other GET → 401 with discovery header (standard MCP auth handshake).
   if (req.method === "GET") {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -1396,6 +1418,17 @@ async function routeMessage(msg: any, ctx: AuthContext): Promise<any | null> {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function wellKnownJson(payload: unknown): Response {
+  return new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      "Cache-Control": "public, max-age=300",
+    },
+  });
+}
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {

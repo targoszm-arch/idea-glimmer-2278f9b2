@@ -187,7 +187,7 @@ async function issueTokens(opts: {
   const accessTokenExp = now + ACCESS_TOKEN_TTL_SECONDS;
 
   const accessToken = await signJwt({
-    iss: SUPABASE_URL,
+    iss: MCP_URL,
     aud: MCP_URL,
     sub: opts.userId,
     cid: opts.clientId,
