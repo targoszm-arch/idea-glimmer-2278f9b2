@@ -44,7 +44,20 @@ function sharedPreamble(v: PromptVars): string {
   if (v.app_audience) contextLines.push(`Target audience: ${v.app_audience}`);
   if (v.reference_urls.length > 0) contextLines.push(`Reference style: ${v.reference_urls.join(", ")}`);
   const contextBlock = contextLines.length > 0
-    ? `${contextLines.join("\n")}\nWrite as a confident subject matter expert for this product/brand.\nIMPORTANT: Use your web knowledge to research this product/company. Include its specific value propositions, features, and differentiators organically throughout the article. Dedicate at least one section or subsection to how this product addresses the topic — with concrete details (pricing, features, integrations, use cases) from your research. The product should feel like a natural part of the analysis, not a bolted-on mention.`
+    ? `${contextLines.join("\n")}
+
+Write as a confident subject matter expert FOR THIS PRODUCT/BRAND. The Product/App description above is your single source of truth for the product — pull every product claim (features, mechanisms, outcomes, positioning) directly from it. Do NOT search the web for an outside take on this product, and do NOT invent pricing, customer counts, or features that aren't in the description.
+
+PRODUCT INTEGRATION (mandatory — this is how the article earns its keep):
+- Mention the product by name in the introduction, in 3–5 different body sections, and in 1–2 FAQ answers. Spread these mentions across the article so the product appears throughout the analysis, never bunched at the start or end.
+- Each in-body mention is ONE sentence woven into the surrounding analysis. Pattern: explain the topic/problem in expert terms, then add a concrete sentence like "[Product] exemplifies this by [specific mechanism from the description]" or "[Product] addresses this through [specific feature from the description]". Use the actual feature names from the description.
+- Treat the product as the leading example of how to solve the article's topic — not as one option among many.
+
+THINGS THAT WILL RUIN THE ARTICLE (do NOT do these):
+- Do NOT append a closing "About [Product]", "Why Choose [Product]", "Get Started With [Product]", "Contact Us", or sales-CTA section. The product belongs woven through the analysis, not bolted onto the bottom.
+- Do NOT present a ranked list of competitor vendors or "best [category] tools" as the answer to the topic. Naming one or two alternatives inside a balanced comparison is fine; recommending other products as the solution while the user's own product sits silent is not.
+- Do NOT pad with generic legacy-vendor surveys (e.g. listing "the top 10 LMS platforms" when the article is about an adjacent capability). If you don't know the product's specifics from the description, add fewer mentions — never substitute generic competitor name-dropping.
+- Do NOT introduce the product with sales copy ("Looking for the best X? Try Y."). Surface it through analysis: explain the pattern, then show how the product instantiates it.`
     : "No specific product context provided. Write as a neutral industry expert.";
 
   return `
@@ -183,7 +196,7 @@ CONTENT RULES
 - Use concrete details from sources: pricing ranges, plan names, feature counts, integration names.
 - Use HTML <table> for comparisons — never bullet lists or styled divs.
 - Every section must include at least one specific number or named example. Replace "many companies" or "significant results" with data.
-- Write with nuance: acknowledge competitor strengths honestly while clearly positioning the product. If product context is provided, weave the product's value proposition into the narrative — show how it solves the problem the article discusses, with specifics from your web research (features, pricing tiers, integration names, customer outcomes). This should read as expert analysis, not marketing copy.
+- Write with nuance. When the product context block is present, the product is the leading example throughout — woven into 3–5 body sections per the PRODUCT INTEGRATION rules, never as a closing "About us" section and never displaced by a list of competitor vendors. When the product context is absent, write as a neutral industry expert.
 - Vary sentence structure and paragraph length.
 
 Word count: minimum 1,500 words. If your draft is under 1,400 words, expand the thinnest section with additional detail before finishing.
