@@ -417,11 +417,41 @@ const NewArticle = () => {
       const INLINE_IMG = (url: string, alt: string) =>
         `<p><img src="${url}" alt="${alt.replace(/"/g, "&quot;")}" /></p>`;
 
+      // Placeholder-substitute OR fall back to a sensible default position.
+      // Perplexity sometimes forgets to emit the *_HERE comment in the body
+      // even when it emits the *_PROMPT in the metadata. Rather than silently
+      // dropping the generated image (and still charging credits), we insert
+      // at a fallback position so the user always sees the asset.
+      const insertAtFallback = (html: string, imgTag: string, kind: "inline" | "info"): string => {
+        // 1) After the first </h2> block's next </p> — inline image sits
+        //    after the first real content section.
+        // 2) Before the FAQ section (detected by <h2 id="faqs"> or
+        //    "Frequently Asked") — infographic sits near end of main body.
+        // 3) Before the last </p> if nothing else matches.
+        if (kind === "info") {
+          const faqMatch = html.match(/<h2[^>]*id="faqs"[^>]*>|<h2[^>]*>[^<]*Frequently Asked/i);
+          if (faqMatch && faqMatch.index !== undefined) {
+            return html.slice(0, faqMatch.index) + imgTag + "\n" + html.slice(faqMatch.index);
+          }
+        }
+        // After the first </h2>...</p> sequence (i.e. end of the first content section).
+        const firstSection = html.match(/<\/h2>[\s\S]*?<\/p>/i);
+        if (firstSection && firstSection.index !== undefined) {
+          const insertAt = firstSection.index + firstSection[0].length;
+          return html.slice(0, insertAt) + "\n" + imgTag + html.slice(insertAt);
+        }
+        // Last resort: append at end of article body.
+        return html + "\n" + imgTag;
+      };
+
       if (inlineRes?.image_url) {
-        updated = updated.replace(
-          /<!--\s*INLINE_IMAGE_HERE\s*-->/i,
-          INLINE_IMG(inlineRes.image_url, inlinePromptMatch?.[1]?.trim() || "Article image"),
-        );
+        const imgTag = INLINE_IMG(inlineRes.image_url, inlinePromptMatch?.[1]?.trim() || "Article image");
+        if (/<!--\s*INLINE_IMAGE_HERE\s*-->/i.test(updated)) {
+          updated = updated.replace(/<!--\s*INLINE_IMAGE_HERE\s*-->/i, imgTag);
+        } else {
+          // Model forgot the placeholder — insert at fallback position.
+          updated = insertAtFallback(updated, imgTag, "inline");
+        }
         deductLocally("generate_cover_image");
       } else if (opts.wantInlineImage) {
         toast({
@@ -432,10 +462,13 @@ const NewArticle = () => {
       }
 
       if (infoRes?.image_url) {
-        updated = updated.replace(
-          /<!--\s*INFOGRAPHIC_HERE\s*-->/i,
-          INLINE_IMG(infoRes.image_url, infoPromptMatch?.[1]?.trim() || "Infographic"),
-        );
+        const imgTag = INLINE_IMG(infoRes.image_url, infoPromptMatch?.[1]?.trim() || "Infographic");
+        if (/<!--\s*INFOGRAPHIC_HERE\s*-->/i.test(updated)) {
+          updated = updated.replace(/<!--\s*INFOGRAPHIC_HERE\s*-->/i, imgTag);
+        } else {
+          // Model forgot the placeholder — insert before the FAQ section.
+          updated = insertAtFallback(updated, imgTag, "info");
+        }
         deductLocally("generate_infographic");
       } else if (opts.wantInfographic) {
         toast({
@@ -445,9 +478,8 @@ const NewArticle = () => {
         });
       }
 
-      // Clean up any placeholder that didn't get substituted (e.g. one
-      // asset succeeded, the other failed) so they don't show up in the
-      // rendered article as bare HTML comments.
+      // Clean up any placeholder that didn't get substituted (edge case:
+      // model emitted HERE but asset generation failed).
       updated = updated
         .replace(/<!--\s*INLINE_IMAGE_HERE\s*-->/gi, "")
         .replace(/<!--\s*INFOGRAPHIC_HERE\s*-->/gi, "");

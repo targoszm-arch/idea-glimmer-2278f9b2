@@ -136,32 +136,44 @@ function mediaPlacementInstructions(
   if (!includeInlineImage && !includeInfographic) return "";
   const lines: string[] = [
     `\n--------------------`,
-    `INLINE MEDIA PLACEMENT`,
+    `CRITICAL: INLINE MEDIA PLACEHOLDERS (READ CAREFULLY)`,
     `--------------------`,
     ``,
-    `The article will have visual assets inserted into the body. Place these HTML comment placeholders inline — the caller will substitute them with real <img> tags after generation. The placement you choose is final; put each placeholder at the exact point in the narrative where the visual will help the reader.`,
+    `This article MUST include one or more HTML comment placeholders INSIDE THE BODY of the article. These are NOT metadata — they are NOT in the metadata tail at the end. They go BETWEEN content paragraphs, in the visible article flow.`,
+    ``,
+    `After generation, these placeholders will be replaced with real <img> tags. If you forget to emit them, the reader sees an article without images. Do NOT skip this step.`,
   ];
   if (includeInlineImage) {
     lines.push(
       ``,
-      `- Insert exactly ONE <!-- INLINE_IMAGE_HERE --> comment in the body. Put it on its own line, between two <p> tags (NOT inside any tag). Best position: after the intro paragraph (before the first H2), or between two middle H2 sections where a visual break genuinely helps. Never inside the Table of Contents, Key Takeaways list, or FAQ block. Never before <h1> or after the final metadata.`,
+      `INLINE IMAGE PLACEHOLDER`,
+      `- You MUST emit exactly ONE line containing only: <!-- INLINE_IMAGE_HERE -->`,
+      `- Put it on its own line, between two <p> tags or between an </h2> and a <p>. NOT inside any tag.`,
+      `- Best position: after the intro paragraph (before the first <h2>), or between two middle <h2> sections where a visual break genuinely helps.`,
+      `- Do NOT put this placeholder inside the <nav> Table of Contents, Key Takeaways <ul>, or FAQ <div>. Do NOT put it before <h1> or in the metadata tail.`,
+      `- ALSO emit <!-- INLINE_IMAGE_PROMPT: ... --> in the metadata tail (separate instruction below).`,
     );
   }
   if (includeInfographic) {
     lines.push(
       ``,
-      `- Insert exactly ONE <!-- INFOGRAPHIC_HERE --> comment in the body. Put it on its own line, between two top-level elements. Best position: immediately after a section that contains comparisons, named data points, or an enumerated process — somewhere a data visual actually earns its place. If the article has a comparison <table>, place the infographic directly after that section's closing </p>. Never inside the Table of Contents or the FAQ block.`,
+      `INFOGRAPHIC PLACEHOLDER`,
+      `- You MUST emit exactly ONE line containing only: <!-- INFOGRAPHIC_HERE -->`,
+      `- Put it on its own line between two top-level elements in the body.`,
+      `- Best position: immediately after a section that contains comparisons, named data points, or an enumerated process — somewhere a data visual earns its place. If the article has a comparison <table>, place the infographic directly after that section's closing </p>.`,
+      `- Do NOT put this placeholder inside the <nav> Table of Contents or the FAQ <div>. Do NOT put it in the metadata tail.`,
+      `- ALSO emit <!-- INFOGRAPHIC_PROMPT: ... --> AND <!-- INFOGRAPHIC_STYLE: ... --> in the metadata tail.`,
     );
   }
   if (includeInlineImage && includeInfographic) {
     lines.push(
       ``,
-      `- The inline image and the infographic must be placed at DIFFERENT sections — not adjacent, not in the same H2 block. Spread them through the article so the reader gets visual breaks in at least two distinct places.`,
+      `- The inline image and the infographic must be placed at DIFFERENT sections — not adjacent, not in the same H2 block. Spread them so the reader gets visual breaks in two distinct places.`,
     );
   }
   lines.push(
     ``,
-    `- The INLINE_IMAGE_PROMPT and INFOGRAPHIC_PROMPT (in the metadata tail) must reference the SPECIFIC content you're illustrating at the placement point. The prompt for each visual must be derived from the section it's adjacent to, not from the overall topic.`,
+    `REMINDER: The *_HERE comments go in the BODY. The *_PROMPT / *_STYLE comments go in the metadata tail. Both are required when this feature is enabled. Missing either breaks the feature.`,
   );
   return lines.join("\n");
 }
@@ -172,6 +184,7 @@ function buildBlogPrompt(v: PromptVars): string {
   return `You are an expert AI content writer generating an SEO-ready article grounded in current web data.
 
 ${sharedPreamble(v)}
+${mediaPlacementInstructions(includeInlineImage, includeInfographic)}
 
 --------------------
 CONTENT RULES
@@ -223,7 +236,6 @@ Follow this exact output order:
    </div>
 
 8. Closing metadata (see METADATA section below).
-${mediaPlacementInstructions(includeInlineImage, includeInfographic)}
 
 ${metadataTail(true, includeInlineImage, includeInfographic)}`;
 }
