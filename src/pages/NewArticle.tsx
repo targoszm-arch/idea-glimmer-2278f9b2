@@ -980,6 +980,11 @@ const NewArticle = () => {
                     Infographic <span className="text-xs text-muted-foreground">(+5 credits)</span>
                   </label>
                 </div>
+                {(includeInlineImage || includeInfographic) && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    The image and infographic can take up to 2 minutes to generate. Please do not refresh. You will be notified via a toast when the images are added to the article.
+                  </p>
+                )}
               </div>
             )}
 
