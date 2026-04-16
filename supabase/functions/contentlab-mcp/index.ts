@@ -1254,14 +1254,80 @@ async function logInvocation(
 // HTTP entrypoint
 // ---------------------------------------------------------------------------
 
+// OAuth discovery constants. Claude looks for these on the MCP endpoint
+// itself — either via WWW-Authenticate header on 401, or via a GET to
+// /.well-known/oauth-protected-resource relative to the MCP URL.
+const SUPABASE_URL_CONST = "https://rnshobvpqegttrpaowxe.supabase.co";
+const MCP_URL_CONST = `${SUPABASE_URL_CONST}/functions/v1/contentlab-mcp`;
+const METADATA_URL = `${SUPABASE_URL_CONST}/functions/v1/mcp-oauth-metadata`;
+const RESOURCE_METADATA_URL = `${METADATA_URL}/.well-known/oauth-protected-resource`;
+
+// Protected resource metadata (RFC 9728) — served directly from this
+// endpoint so Claude can discover the auth server without hitting a
+// separate function. Duplicates what mcp-oauth-metadata serves, but
+// Claude needs it HERE on the MCP URL.
+const PROTECTED_RESOURCE_META = {
+  resource: MCP_URL_CONST,
+  authorization_servers: [SUPABASE_URL_CONST],
+  scopes_supported: ["mcp"],
+  bearer_methods_supported: ["header"],
+  resource_documentation: "https://www.app.content-lab.ie/connect/claude",
+};
+
+// WWW-Authenticate header for 401 responses. Tells Claude where to find
+// the resource metadata so it can bootstrap the OAuth flow.
+const WWW_AUTH_HEADER = `Bearer resource_metadata="${RESOURCE_METADATA_URL}"`;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const url = new URL(req.url);
+  const path = url.pathname;
+
+  // GET /.well-known/oauth-protected-resource — RFC 9728 discovery.
+  // Claude fetches this to find which authorization server to use.
+  if (req.method === "GET" && path.endsWith("/.well-known/oauth-protected-resource")) {
+    return new Response(JSON.stringify(PROTECTED_RESOURCE_META), {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=300",
+      },
+    });
+  }
+
+  // GET with no specific path — return 401 with WWW-Authenticate so Claude
+  // can discover the OAuth flow. This is the standard MCP auth handshake:
+  // client pings the server → gets 401 + resource_metadata link → follows it.
+  if (req.method === "GET") {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+        "WWW-Authenticate": WWW_AUTH_HEADER,
+      },
+    });
+  }
+
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method Not Allowed" }, 405);
   }
 
   const auth = await authenticate(req);
-  if (auth instanceof Response) return auth;
+  if (auth instanceof Response) {
+    // Add WWW-Authenticate to auth failures so Claude retries with OAuth
+    // even if it sent a bad/expired token.
+    const body = await auth.text();
+    return new Response(body, {
+      status: auth.status,
+      headers: {
+        ...Object.fromEntries(auth.headers.entries()),
+        "WWW-Authenticate": WWW_AUTH_HEADER,
+      },
+    });
+  }
 
   let body: any;
   try {
