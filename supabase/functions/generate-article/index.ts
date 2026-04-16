@@ -44,7 +44,7 @@ function sharedPreamble(v: PromptVars): string {
   if (v.app_audience) contextLines.push(`Target audience: ${v.app_audience}`);
   if (v.reference_urls.length > 0) contextLines.push(`Reference style: ${v.reference_urls.join(", ")}`);
   const contextBlock = contextLines.length > 0
-    ? `${contextLines.join("\n")}\nWrite as a confident subject matter expert for this product/brand.`
+    ? `${contextLines.join("\n")}\nWrite as a confident subject matter expert for this product/brand.\nIMPORTANT: Use your web knowledge to research this product/company. Include its specific value propositions, features, and differentiators organically throughout the article. Dedicate at least one section or subsection to how this product addresses the topic — with concrete details (pricing, features, integrations, use cases) from your research. The product should feel like a natural part of the analysis, not a bolted-on mention.`
     : "No specific product context provided. Write as a neutral industry expert.";
 
   return `
@@ -183,7 +183,7 @@ CONTENT RULES
 - Use concrete details from sources: pricing ranges, plan names, feature counts, integration names.
 - Use HTML <table> for comparisons — never bullet lists or styled divs.
 - Every section must include at least one specific number or named example. Replace "many companies" or "significant results" with data.
-- Write with nuance: acknowledge competitor strengths honestly while clearly positioning the product.
+- Write with nuance: acknowledge competitor strengths honestly while clearly positioning the product. If product context is provided, weave the product's value proposition into the narrative — show how it solves the problem the article discusses, with specifics from your web research (features, pricing tiers, integration names, customer outcomes). This should read as expert analysis, not marketing copy.
 - Vary sentence structure and paragraph length.
 
 Word count: minimum 1,500 words. If your draft is under 1,400 words, expand the thinnest section with additional detail before finishing.
