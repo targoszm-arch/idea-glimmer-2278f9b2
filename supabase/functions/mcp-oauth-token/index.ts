@@ -26,6 +26,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Expose-Headers": "WWW-Authenticate",
 };
 
 const SUPABASE_URL = "https://rnshobvpqegttrpaowxe.supabase.co";

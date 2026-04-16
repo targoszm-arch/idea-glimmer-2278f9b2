@@ -19,6 +19,9 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "content-type",
+  // Expose standard OAuth/MCP response headers so browser-based clients
+  // (Claude's connector UI) can read them from JS.
+  "Access-Control-Expose-Headers": "WWW-Authenticate",
 };
 
 // Public endpoints — these match the Supabase project ref. They're

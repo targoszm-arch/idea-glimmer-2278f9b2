@@ -18,8 +18,13 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key, mcp-protocol-version",
+  // MCP clients (Claude) read `WWW-Authenticate` on 401 responses to learn
+  // where to fetch the protected-resource and authorization-server metadata.
+  // Without this expose header, browser-based clients silently can't see it
+  // and surface a generic "Couldn't reach the MCP server" error.
+  "Access-Control-Expose-Headers": "WWW-Authenticate, mcp-session-id, mcp-protocol-version",
 };
 
 // JSON-RPC 2.0 error codes
