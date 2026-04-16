@@ -414,8 +414,14 @@ const NewArticle = () => {
       ]);
 
       let updated = contentWithJsonLd;
+      // Standalone <img>, NOT wrapped in <p>. The TipTap editor configures
+      // Image with inline: false, making it a block-level node. Block nodes
+      // can't be children of <p> (which only accepts inline content), so
+      // TipTap would silently drop <p><img></p> when setContent parses the
+      // HTML. Using a bare <img> keeps it at block level and survives the
+      // schema validation.
       const INLINE_IMG = (url: string, alt: string) =>
-        `<p><img src="${url}" alt="${alt.replace(/"/g, "&quot;")}" /></p>`;
+        `<img src="${url}" alt="${alt.replace(/"/g, "&quot;")}" />`;
 
       // Placeholder-substitute OR fall back to a sensible default position.
       // Perplexity sometimes forgets to emit the *_HERE comment in the body
