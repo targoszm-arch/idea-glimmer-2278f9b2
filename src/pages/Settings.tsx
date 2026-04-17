@@ -7,11 +7,13 @@ import { Loader2 } from "lucide-react";
 const AISettings    = lazy(() => import("./AISettings"));
 const BrandAssets   = lazy(() => import("./BrandAssets"));
 const Integrations  = lazy(() => import("./Integrations"));
+const TeamSettings  = lazy(() => import("./TeamSettings"));
 
 const TABS = [
   { key: "ai",           label: "AI Settings",  path: "/settings" },
   { key: "brand",        label: "Brand",         path: "/settings/brand" },
   { key: "integrations", label: "Integrations",  path: "/settings/integrations" },
+  { key: "team",         label: "Team",          path: "/settings/team" },
 ];
 
 const Settings = () => {
@@ -20,7 +22,8 @@ const Settings = () => {
 
   const activeTab =
     location.pathname === "/settings/brand"        ? "brand" :
-    location.pathname === "/settings/integrations" ? "integrations" : "ai";
+    location.pathname === "/settings/integrations" ? "integrations" :
+    location.pathname === "/settings/team"         ? "team" : "ai";
 
   return (
     <PageLayout>
@@ -44,6 +47,7 @@ const Settings = () => {
         {activeTab === "ai"           && <AISettings embedded />}
         {activeTab === "brand"        && <BrandAssets embedded />}
         {activeTab === "integrations" && <Integrations embedded />}
+        {activeTab === "team"         && <TeamSettings embedded />}
       </Suspense>
     </PageLayout>
   );

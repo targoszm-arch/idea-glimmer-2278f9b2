@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,8 @@ import { toast } from "sonner";
 const STRIPE_CHECKOUT_URL = "https://buy.stripe.com/fZu8wOchogNB3VC08K1sQ00";
 
 const Signup = () => {
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get("invite");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -84,6 +86,11 @@ const Signup = () => {
           </h1>
           <p className="text-sm text-muted-foreground">Create your account — €49/mo includes 200 AI credits</p>
         </div>
+        {inviteToken && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-center text-sm text-primary">
+            You've been invited to join a team on Content Lab. Sign up with the email the invite was sent to.
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email address</Label>

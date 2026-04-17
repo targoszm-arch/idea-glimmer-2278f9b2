@@ -78,6 +78,7 @@ const App = () => (
             <Route path="/settings/api-key" element={<ProtectedRoute><APIKey /></ProtectedRoute>} />
             <Route path="/settings/brand" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/settings/integrations" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/settings/team" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/newsletter/analytics" element={<ProtectedRoute><NewsletterAnalytics /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><NewsletterAnalytics /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
