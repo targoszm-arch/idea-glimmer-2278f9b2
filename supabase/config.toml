@@ -66,6 +66,9 @@ verify_jwt = false
 [functions.contentlab-mcp]
 verify_jwt = false
 
+[functions.send-team-invite]
+verify_jwt = false
+
 # MCP OAuth 2.1 endpoints — all public (Claude calls them without a
 # Supabase session; auth is per-OAuth-protocol via the function bodies).
 [functions.mcp-oauth-metadata]
