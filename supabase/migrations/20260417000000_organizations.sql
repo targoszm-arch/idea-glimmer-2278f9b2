@@ -88,10 +88,7 @@ create policy "Owner can manage invites"
 insert into public.organizations (id, name, owner_id)
 select
   gen_random_uuid(),
-  coalesce(
-    (select ai.newsletter_from_name from public.ai_settings ai limit 1),
-    split_part(u.email, '@', 1)
-  ),
+  split_part(u.email, '@', 1),
   u.id
 from auth.users u
 where not exists (
