@@ -60,6 +60,11 @@ const EditArticle = () => {
   const [intercomCollections, setIntercomCollections] = useState<{ id: string; name: string }[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [isLoadingCollections, setIsLoadingCollections] = useState(false);
+  const [isSyncingConfluence, setIsSyncingConfluence] = useState(false);
+  const [confluenceSpaces, setConfluenceSpaces] = useState<{ id: string; key: string; name: string }[]>([]);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string>("");
+  const [isLoadingSpaces, setIsLoadingSpaces] = useState(false);
+  const [confluencePageId, setConfluencePageId] = useState<string | null>(null);
   const [isSyncingFramer, setIsSyncingFramer] = useState(false);
   const [isSyncingWordPress, setIsSyncingWordPress] = useState(false);
   const [wpPermalink, setWpPermalink] = useState<string | null>(null);
@@ -72,7 +77,7 @@ const EditArticle = () => {
   const [shopifyBlogs, setShopifyBlogs] = useState<{id: string; name: string}[]>([]);
   const [selectedNotionDb, setSelectedNotionDb] = useState("");
   const [selectedShopifyBlog, setSelectedShopifyBlog] = useState("");
-  const [showPlatformPicker, setShowPlatformPicker] = useState<"notion" | "shopify" | "intercom" | null>(null);
+  const [showPlatformPicker, setShowPlatformPicker] = useState<"notion" | "shopify" | "intercom" | "confluence" | null>(null);
   const [authorName, setAuthorName] = useState("");
   const [relatedArticleIds, setRelatedArticleIds] = useState<string[]>([]);
   const [contentType, setContentType] = useState<"blog" | "user_guide" | "how_to">("blog");
@@ -117,6 +122,7 @@ const EditArticle = () => {
       setCoverImageUrl(data.cover_image_url || null);
       setFramerItemId((data as any).framer_item_id || null);
       setIntercomArticleId((data as any).intercom_article_id || null);
+      setConfluencePageId((data as any).confluence_page_id || null);
       setNotionPageId((data as any).notion_page_id || null);
       setShopifyArticleId((data as any).shopify_article_id || null);
       setAuthorName((data as any).author_name || "");
@@ -487,6 +493,59 @@ const EditArticle = () => {
     setIsLoadingCollections(false);
   };
 
+  const fetchConfluenceSpaces = async () => {
+    if (confluenceSpaces.length > 0) return;
+    setIsLoadingSpaces(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-confluence`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ list_spaces: true }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Failed to fetch spaces");
+      setConfluenceSpaces(data.spaces || []);
+    } catch (e: any) {
+      toast({ title: "Failed to load Confluence spaces", description: e.message, variant: "destructive" });
+    }
+    setIsLoadingSpaces(false);
+  };
+
+  const handleSyncToConfluence = async () => {
+    if (!id) return;
+    if (!confluencePageId && !selectedSpaceId) {
+      await fetchConfluenceSpaces();
+      return;
+    }
+    await handleSave();
+    setIsSyncingConfluence(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const payload: any = { article_id: id };
+      if (!confluencePageId && selectedSpaceId) {
+        payload.space_id = selectedSpaceId;
+      }
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-confluence`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Confluence sync failed");
+      setConfluencePageId(String(data.confluence_page_id));
+      toast({
+        title: `Article ${data.action} in Confluence!`,
+        description: data.page_url,
+      });
+    } catch (e: any) {
+      toast({ title: "Confluence sync failed", description: e.message, variant: "destructive" });
+    }
+    setIsSyncingConfluence(false);
+  };
+
   const handleSyncToWordPress = async () => {
     if (!id) return;
     await handleSave();
@@ -636,6 +695,20 @@ const EditArticle = () => {
                 <button onClick={() => setShowPlatformPicker(null)} className="text-muted-foreground hover:text-foreground text-sm">Cancel</button>
               </div>
             )}
+            {showPlatformPicker === "confluence" && confluenceSpaces.length > 0 && (
+              <div className="flex items-center gap-2">
+                <select value={selectedSpaceId} onChange={(e) => setSelectedSpaceId(e.target.value)}
+                  className="appearance-none rounded-lg border border-border bg-secondary px-3 py-2 pr-8 text-sm font-medium text-foreground">
+                  <option value="">Select Confluence space…</option>
+                  {confluenceSpaces.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.key})</option>)}
+                </select>
+                <button onClick={() => handleSyncToConfluence()} disabled={!selectedSpaceId || isSyncingConfluence}
+                  className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">
+                  {isSyncingConfluence ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sync"}
+                </button>
+                <button onClick={() => setShowPlatformPicker(null)} className="text-muted-foreground hover:text-foreground text-sm">Cancel</button>
+              </div>
+            )}
             {/* Publish to dropdown */}
             {!showPlatformPicker && (
               <DropdownMenu>
@@ -687,6 +760,16 @@ const EditArticle = () => {
                   ) : (
                     <DropdownMenuItem disabled className="gap-2 opacity-40">
                       <PlatformLogo platform="intercom" /> Intercom <span className="ml-auto text-xs">Not connected</span>
+                    </DropdownMenuItem>
+                  )}
+                  {connectedPlatforms.includes("confluence") ? (
+                    <DropdownMenuItem onClick={() => { if (!confluencePageId) { fetchConfluenceSpaces().then(() => setShowPlatformPicker("confluence")); } else { handleSyncToConfluence(); } }} className="gap-2 cursor-pointer">
+                      <PlatformLogo platform="confluence" />
+                      {confluencePageId ? "Update in Confluence" : "Publish to Confluence"}
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem disabled className="gap-2 opacity-40">
+                      <PlatformLogo platform="confluence" /> Confluence <span className="ml-auto text-xs">Not connected</span>
                     </DropdownMenuItem>
                   )}
                   {connectedPlatforms.includes("wordpress") ? (

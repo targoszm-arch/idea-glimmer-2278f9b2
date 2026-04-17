@@ -82,6 +82,8 @@ const NewArticle = () => {
   const [isSyncingMedium, setIsSyncingMedium] = useState(false);
   const [mediumUrl, setMediumUrl] = useState<string | null>(null);
   const [intercomArticleId, setIntercomArticleId] = useState<string | null>(null);
+  const [confluencePageId, setConfluencePageId] = useState<string | null>(null);
+  const [isSyncingConfluence, setIsSyncingConfluence] = useState(false);
   const [notionPageId, setNotionPageId] = useState<string | null>(null);
   const [shopifyArticleId, setShopifyArticleId] = useState<string | null>(null);
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
@@ -131,6 +133,35 @@ const NewArticle = () => {
       toast({ title: "Intercom sync failed", description: e.message, variant: "destructive" });
     }
     setIsSyncingIntercom(false);
+  };
+
+  const handleSyncToConfluence = async () => {
+    if (!savedArticleId) return;
+    setIsSyncingConfluence(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-confluence`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ article_id: savedArticleId }),
+      });
+      const data = await resp.json();
+      if (data.code === "NEED_SPACE") {
+        toast({
+          title: "Pick a Confluence space",
+          description: "Open the article in the editor (Save first) to pick a space on the first publish.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!resp.ok) throw new Error(data.error || "Confluence sync failed");
+      setConfluencePageId(String(data.confluence_page_id));
+      toast({ title: `Article ${data.action} in Confluence!` });
+    } catch (e: any) {
+      toast({ title: "Confluence sync failed", description: e.message, variant: "destructive" });
+    }
+    setIsSyncingConfluence(false);
   };
 
   const handleSyncToNotion = async () => {
@@ -816,9 +847,9 @@ const NewArticle = () => {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
-                      disabled={isSyncingFramer || isSyncingWordPress || isSyncingIntercom || isSyncingNotion || isSyncingShopify}
+                      disabled={isSyncingFramer || isSyncingWordPress || isSyncingIntercom || isSyncingNotion || isSyncingShopify || isSyncingConfluence}
                       className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50">
-                      {(isSyncingFramer || isSyncingWordPress || isSyncingIntercom || isSyncingNotion || isSyncingShopify) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      {(isSyncingFramer || isSyncingWordPress || isSyncingIntercom || isSyncingNotion || isSyncingShopify || isSyncingConfluence) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       Publish to <ChevronDown className="h-3 w-3" />
                     </button>
                   </DropdownMenuTrigger>
@@ -859,6 +890,16 @@ const NewArticle = () => {
                     ) : (
                       <DropdownMenuItem disabled className="gap-2 opacity-40">
                         <PlatformLogo platform="intercom" /> Intercom <span className="ml-auto text-xs">Not connected</span>
+                      </DropdownMenuItem>
+                    )}
+                    {connectedPlatforms.includes("confluence") ? (
+                      <DropdownMenuItem onClick={handleSyncToConfluence} disabled={isSyncingConfluence} className="gap-2 cursor-pointer">
+                        <PlatformLogo platform="confluence" />
+                        {isSyncingConfluence ? "Syncing…" : confluencePageId ? "Update in Confluence" : "Sync to Confluence"}
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem disabled className="gap-2 opacity-40">
+                        <PlatformLogo platform="confluence" /> Confluence <span className="ml-auto text-xs">Not connected</span>
                       </DropdownMenuItem>
                     )}
                     {connectedPlatforms.includes("wordpress") ? (

@@ -124,7 +124,7 @@ function LinkedInConnect() {
   );
 }
 
-type Platform = "framer" | "notion" | "shopify" | "intercom" | "google" | "wordpress" | "canva";
+type Platform = "framer" | "notion" | "shopify" | "intercom" | "google" | "wordpress" | "canva" | "confluence";
 
 type Integration = {
   platform: Platform;
@@ -159,6 +159,11 @@ const PLATFORMS = [
     description: "Push articles to Intercom Help Center",
   },
   {
+    id: "confluence" as Platform,
+    name: "Confluence",
+    description: "Publish articles as Confluence pages (surfaces in Jira Service Management help center when linked)",
+  },
+  {
     id: "wordpress" as Platform,
     name: "WordPress",
     description: "Publish articles directly to your WordPress site",
@@ -180,7 +185,7 @@ const PLATFORMS = [
 export default function Integrations({ embedded = false }: { embedded?: boolean }) {
   const { toast } = useToast();
   const [connected, setConnected] = useState<Record<Platform, Integration | null>>({
-    framer: null, notion: null, shopify: null, intercom: null, google: null, wordpress: null, canva: null,
+    framer: null, notion: null, shopify: null, intercom: null, google: null, wordpress: null, canva: null, confluence: null,
   });
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<Platform | null>(null);
