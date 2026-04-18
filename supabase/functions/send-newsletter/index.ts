@@ -128,8 +128,37 @@ serve(async (req) => {
     let contacts: { email: string; first_name: string | null; last_name: string | null }[] = [];
 
     if (schedule.audience_type === "resend_list" && schedule.resend_audience_id) {
-      // Fetch contacts directly from Resend audience — personalise each email individually
-      // This ensures {{first_name}} is replaced correctly regardless of Resend's templating
+      // When a segment_id is present, use Resend's Broadcasts API to let
+      // Resend handle segment filtering server-side. Otherwise fall back
+      // to the manual audience-contacts → batch-email approach.
+      if ((schedule as any).resend_segment_id) {
+        const broadcastRes = await fetch("https://api.resend.com/broadcasts", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${resendKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            audience_id: schedule.resend_audience_id,
+            segment_id: (schedule as any).resend_segment_id,
+            from: `${schedule.from_name} <${schedule.from_email}>`,
+            reply_to: schedule.reply_to || schedule.from_email,
+            subject: schedule.subject_line,
+            html: schedule.html_content,
+          }),
+        });
+        const broadcastData = await broadcastRes.json();
+        if (!broadcastRes.ok) {
+          throw new Error(broadcastData.message || `Broadcast send failed: ${JSON.stringify(broadcastData)}`);
+        }
+        sentCount = broadcastData.sent_count ?? 0;
+        await supabaseAdmin.from("newsletter_schedules").update({
+          status: "sent", sent_at: new Date().toISOString(), recipient_count: sentCount, updated_at: new Date().toISOString()
+        }).eq("id", schedule_id);
+        return new Response(JSON.stringify({ ok: true, sent: sentCount, method: "broadcast" }), { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+
+      // No segment — fetch all contacts from the audience and send individually
       const audienceRes = await fetch(`https://api.resend.com/audiences/${schedule.resend_audience_id}/contacts`, {
         headers: { "Authorization": `Bearer ${resendKey}` }
       });
