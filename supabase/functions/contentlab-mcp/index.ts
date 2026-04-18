@@ -938,6 +938,93 @@ async function generateNewsletterDataHandler(args: any, ctx: AuthContext): Promi
   };
 }
 
+// update_newsletter_data — partial merge into articles.newsletter_data.
+// Accepts any subset of the newsletter fields; unspecified fields are
+// left untouched. Requires an existing newsletter_data row — call
+// generate_newsletter_data first if the article has never had one.
+async function updateNewsletterDataHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const articleId = args?.article_id;
+  if (typeof articleId !== "string" || articleId.length === 0) {
+    throw new Error("`article_id` is required");
+  }
+
+  const { data: article, error: loadErr } = await ctx.admin
+    .from("articles")
+    .select("id, newsletter_data")
+    .eq("user_id", ctx.userId)
+    .eq("id", articleId)
+    .single();
+
+  if (loadErr) throw new Error(`Failed to load article: ${loadErr.message}`);
+  if (!article) throw new Error("Article not found");
+
+  const existing = (article as any).newsletter_data;
+  if (!existing || typeof existing !== "object") {
+    throw new Error(
+      "This article has no newsletter_data yet. Call `generate_newsletter_data` first.",
+    );
+  }
+
+  // Surgical merge — only pull fields the caller explicitly passed. Using
+  // `in args` (not a truthy check) so Claude can legitimately pass an empty
+  // string to clear a field.
+  const editableFields = [
+    "subject_line",
+    "preview_text",
+    "greeting",
+    "opening_hook",
+    "sections",
+    "what_this_means",
+    "cta_text",
+    "cta_url",
+    "closing",
+    "signoff",
+  ] as const;
+
+  const patch: Record<string, unknown> = {};
+  for (const key of editableFields) {
+    if (key in args) patch[key] = args[key];
+  }
+
+  if (Object.keys(patch).length === 0) {
+    throw new Error(
+      "No editable fields provided. Pass at least one of: " +
+        editableFields.join(", "),
+    );
+  }
+
+  // Light validation on `sections` so a malformed array doesn't corrupt
+  // the stored JSON.
+  if ("sections" in patch) {
+    if (!Array.isArray(patch.sections)) {
+      throw new Error("`sections` must be an array");
+    }
+    for (const [i, s] of (patch.sections as any[]).entries()) {
+      if (!s || typeof s !== "object") {
+        throw new Error(`sections[${i}] must be an object`);
+      }
+      if (typeof s.heading !== "string" || typeof s.body !== "string") {
+        throw new Error(`sections[${i}] requires string heading + body`);
+      }
+    }
+  }
+
+  const merged = { ...existing, ...patch };
+
+  const { error: updErr } = await ctx.admin
+    .from("articles")
+    .update({ newsletter_data: merged })
+    .eq("id", articleId);
+
+  if (updErr) throw new Error(`Failed to update newsletter_data: ${updErr.message}`);
+
+  return {
+    article_id: articleId,
+    newsletter_data: merged,
+    updated_fields: Object.keys(patch),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Tool registry
 // ---------------------------------------------------------------------------
@@ -1237,6 +1324,48 @@ const TOOLS: ToolDef[] = [
       openWorldHint: true,
     },
     handler: generateNewsletterDataHandler,
+  },
+  {
+    name: "update_newsletter_data",
+    description:
+      "Edit one or more fields of an article's newsletter_data (subject_line, preview_text, sections, CTA, etc). Accepts a partial object — any fields you include replace the existing ones; anything you omit is left as-is. Requires the article to already have newsletter_data (call generate_newsletter_data first if not).",
+    inputSchema: {
+      type: "object",
+      required: ["article_id"],
+      properties: {
+        article_id: { type: "string", format: "uuid", description: "Article UUID." },
+        subject_line: { type: "string", description: "Email subject line." },
+        preview_text: { type: "string", description: "Inbox preview text (first ~90 chars visible under subject)." },
+        greeting: { type: "string", description: "Opening salutation, e.g. 'Hi there,'." },
+        opening_hook: { type: "string", description: "Lead paragraph / hook." },
+        sections: {
+          type: "array",
+          description: "Body sections. Each section must include heading + body; bullets is optional.",
+          items: {
+            type: "object",
+            required: ["heading", "body"],
+            properties: {
+              heading: { type: "string" },
+              body: { type: "string" },
+              bullets: { type: "array", items: { type: "string" } },
+            },
+          },
+        },
+        what_this_means: { type: "string", description: "Takeaway / implications paragraph." },
+        cta_text: { type: "string", description: "CTA button label." },
+        cta_url: { type: "string", format: "uri", description: "CTA destination URL." },
+        closing: { type: "string", description: "Closing line above the sign-off." },
+        signoff: { type: "string", description: "Sign-off line, e.g. 'Talk soon,\\nThe team'." },
+      },
+    },
+    annotations: {
+      title: "Edit newsletter content",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+    handler: updateNewsletterDataHandler,
   },
   {
     name: "cancel_newsletter_schedule",
