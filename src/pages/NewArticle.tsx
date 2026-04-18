@@ -42,7 +42,7 @@ const NewArticle = () => {
   const [tone, setTone] = useState("informative");
   const [articleMeta, setArticleMeta] = useState<any>(null);
   const [category, setCategory] = useState("");
-  const [contentType, setContentType] = useState<"blog" | "user_guide" | "how_to">("blog");
+  const [contentType, setContentType] = useState<"blog" | "user_guide" | "how_to" | "newsletter">("blog");
   const [isGenerating, setIsGenerating] = useState(false);
   // Blog-only media options. When checked, the article prompt asks the
   // model to emit placeholder HTML comments at chosen positions and
@@ -957,6 +957,7 @@ const NewArticle = () => {
                   { key: "blog", label: "Blog Post", icon: "✍️", desc: "SEO article with headings, FAQs, sources" },
                   { key: "user_guide", label: "User Guide", icon: "📋", desc: "Step-by-step numbered instructions with actions" },
                   { key: "how_to", label: "How-To Guide", icon: "🛠️", desc: "Task-focused procedural guide with tips" },
+                  { key: "newsletter", label: "Newsletter", icon: "📧", desc: "Short-form email newsletter with subject, sections, CTA" },
                 ] as const).map(t => (
                   <button
                     key={t.key}
@@ -977,6 +978,7 @@ const NewArticle = () => {
                 {contentType === "blog" && "SEO-optimised article with TL;DR, table of contents, FAQs and sources."}
                 {contentType === "user_guide" && "Step-by-step numbered guide with clear actions — like a product walkthrough or knowledge base article."}
                 {contentType === "how_to" && "Task-focused guide with prerequisites, numbered steps, tips and troubleshooting."}
+                {contentType === "newsletter" && "Short-form email newsletter — subject line, preview, 3-5 punchy sections, single CTA. Under 400 words."}
               </p>
             </div>
 
@@ -1084,7 +1086,9 @@ const NewArticle = () => {
               disabled={isGenerating}
               className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50">
               {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {isGenerating ? "Generating..." : "Generate Article"}
+              {isGenerating
+                ? (contentType === "newsletter" ? "Generating newsletter..." : "Generating...")
+                : (contentType === "newsletter" ? "Generate Newsletter" : "Generate Article")}
             </button>
           </div>
 

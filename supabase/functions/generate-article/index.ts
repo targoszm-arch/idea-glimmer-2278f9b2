@@ -346,10 +346,67 @@ FORMATTING RULES
 ${metadataTail(false)}`;
 }
 
+// Short-form email newsletter — a standalone piece of content, not a
+// long-form article. The output is meant to be sent directly as an
+// email (or converted by the NewsletterEditor dialog). Target 250-400
+// words total.
+function buildNewsletterPrompt(v: PromptVars): string {
+  return `You are an expert marketing writer producing a short-form email newsletter. The output will be sent directly to subscribers — not a blog article, not a knowledge-base entry.
+
+${sharedPreamble(v)}
+
+--------------------
+NEWSLETTER STRUCTURE
+--------------------
+
+Follow this exact output order. Target 250-400 words total.
+
+<h1>[Subject line — under 60 characters, specific and punchy. NOT generic like "Our latest update". Hook the reader.]</h1>
+
+<p class="preview">[One-sentence preview text that previews in the inbox under the subject. Under 90 characters.]</p>
+
+<p>[Greeting — one short line, e.g. "Hi there,"]</p>
+
+<p>[Opening hook — 2-3 sentences. Start with a specific observation, number, or question that makes the reader want to keep reading. No throat-clearing, no "I hope this finds you well".]</p>
+
+<h2>[Section 1 heading — 3-6 words, concrete]</h2>
+<p>[2-4 sentences. One idea per section. Use concrete numbers and named examples, not vague generalities.]</p>
+
+<h2>[Section 2 heading]</h2>
+<p>[Same.]</p>
+
+<h2>[Section 3 heading (optional — include only if it earns its place)]</h2>
+<p>[Same.]</p>
+
+<h2>What this means for you</h2>
+<p>[1-2 sentences connecting the above to the reader's situation. Practical, not abstract.]</p>
+
+<p><strong><a href="[CTA_URL]">[CTA text — 2-5 words, imperative: "Start your trial", "See the live demo", not "Click here"]</a></strong></p>
+
+<p>[Closing — one short line, e.g. "See you next week,"]</p>
+
+<p>[Sign-off — name or team signature, e.g. "The Content Lab team"]</p>
+
+--------------------
+CONTENT RULES
+--------------------
+
+- Every section earns its place. If section 3 would repeat section 2, drop it.
+- One clear CTA. Do NOT add a second link dressed up as a PS.
+- No marketing fluff ("game-changing", "revolutionary", "unlock the power of"). Write like a person.
+- Use <strong> for emphasis (sparingly, 1-2 times max in the whole email).
+- If product context is provided, name it naturally once or twice in context — do NOT append a "Why choose us" section.
+- No disclaimers, no footers ("unsubscribe below" — the email platform adds that), no <hr> dividers.
+- No images — text only. The sender's email platform handles imagery.
+
+${metadataTail(true)}`;
+}
+
 function getSystemPrompt(contentType: string, vars: PromptVars): string {
   switch (contentType) {
     case "user_guide": return buildUserGuidePrompt(vars);
     case "how_to":     return buildHowToPrompt(vars);
+    case "newsletter": return buildNewsletterPrompt(vars);
     default:           return buildBlogPrompt(vars);
   }
 }
@@ -361,6 +418,9 @@ function getUserMessage(contentType: string, topic: string): string {
   }
   if (contentType === "user_guide") {
     return `Write a user guide about: ${topic}\n\n${base} ALL section titles must be <h2>. Step numbers must ONLY appear inside <h2> tags. Do NOT output bare numbers as standalone text.`;
+  }
+  if (contentType === "newsletter") {
+    return `Write a short email newsletter on the topic: ${topic}\n\n${base} This is an EMAIL, not an article — keep it under 400 words. The first <h1> is the subject line (under 60 chars). Include an inbox preview <p class="preview">, a short greeting, a hook, 2-3 concise <h2> sections, a "What this means for you" section, ONE clear CTA link wrapped in <strong>, a closing line, and a sign-off.`;
   }
   return `Write an article about: ${topic}\n\n${base}`;
 }
