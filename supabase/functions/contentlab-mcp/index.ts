@@ -221,6 +221,33 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
 
   const body = { ...args, user_id_override: ctx.userId };
 
+  // Insert a placeholder row BEFORE detaching so the caller gets an
+  // article_id immediately and can poll with get_article. If the
+  // background generation fails, the row is updated with
+  // generation_status='failed' + generation_error instead of vanishing.
+  const admin = createClient(supabaseUrl, serviceKey);
+  const { data: placeholder, error: placeholderErr } = await admin
+    .from("articles")
+    .insert({
+      user_id: ctx.userId,
+      title: args.topic.slice(0, 200),
+      slug: `generating-${Date.now()}`,
+      content: "",
+      excerpt: "",
+      category: args.category ?? "",
+      content_type: args.content_type ?? "blog",
+      status: "draft",
+      generation_status: "generating",
+    })
+    .select("id")
+    .single();
+
+  if (placeholderErr || !placeholder) {
+    throw new Error(`Failed to create placeholder article: ${placeholderErr?.message ?? "unknown"}`);
+  }
+
+  const articleId = placeholder.id;
+
   const generation = (async () => {
     try {
       const res = await fetch(`${supabaseUrl}/functions/v1/generate-article`, {
@@ -234,11 +261,11 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
 
       if (!res.ok) {
         const errText = await res.text();
-        console.error(`[create_article] generate-article returned ${res.status} for user ${ctx.userId}: ${errText}`);
+        await markGenerationFailed(admin, articleId, `generate-article returned ${res.status}: ${errText.slice(0, 200)}`);
         return;
       }
       if (!res.body) {
-        console.error(`[create_article] no response body from generate-article for user ${ctx.userId}`);
+        await markGenerationFailed(admin, articleId, "No response body from generate-article");
         return;
       }
 
@@ -271,7 +298,7 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
       }
 
       if (html.trim().length === 0) {
-        console.error(`[create_article] empty generation for user ${ctx.userId}`);
+        await markGenerationFailed(admin, articleId, "AI returned empty content");
         return;
       }
 
@@ -379,7 +406,6 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
         .slice(0, 64) || `article-${Date.now()}`;
 
       const payload: Record<string, unknown> = {
-        user_id: ctx.userId,
         title,
         slug,
         content: cleanContent,
@@ -389,15 +415,17 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
         content_type: args.content_type ?? "blog",
         status: "draft",
         reading_time_minutes: readingTime,
+        generation_status: "complete",
+        generation_error: null,
       };
       if (articleMeta) payload.article_meta = articleMeta;
 
-      const admin = createClient(supabaseUrl, serviceKey);
-      const { data, error } = await admin.from("articles").insert(payload).select().single();
+      const { error } = await admin.from("articles").update(payload).eq("id", articleId);
       if (error) {
-        console.error(`[create_article] DB insert failed for user ${ctx.userId}: ${error.message}`);
+        await markGenerationFailed(admin, articleId, `DB update failed: ${error.message}`);
         return;
       }
+      const data = { id: articleId };
       console.log(`[create_article] saved article ${data.id} (${title}) for user ${ctx.userId}`);
 
       // Cover image is opt-in via `generate_cover_image: true`. Anthropic's
@@ -446,6 +474,7 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
       }
     } catch (e) {
       console.error(`[create_article] background generation threw for user ${ctx.userId}:`, e);
+      await markGenerationFailed(admin, articleId, e instanceof Error ? e.message : "Unknown error");
     }
   })();
 
@@ -456,10 +485,19 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
 
   return {
     status: "started",
+    article_id: articleId,
     topic: args.topic,
     message:
-      "Article generation started. A DALL-E 3 cover image is generated automatically after the article finishes. Typical total runtime is 90–150 seconds. Call `list_articles` in about 2 minutes to see your new article with its cover image (status='draft'). Costs 5 credits for the article + 5 credits for the cover image = 10 credits. The article is saved even if cover-image generation fails; you can regenerate the cover from the article editor.",
+      "Article generation started. Call `get_article` with the article_id to check progress — `generation_status` will be 'generating', 'complete', or 'failed'. Typical runtime is 90–150 seconds. If `generate_cover_image: true` was passed, the cover is attached after the article finishes.",
   };
+}
+
+async function markGenerationFailed(admin: any, articleId: string, error: string): Promise<void> {
+  console.error(`[create_article] generation failed for ${articleId}: ${error}`);
+  await admin
+    .from("articles")
+    .update({ generation_status: "failed", generation_error: error.slice(0, 500) })
+    .eq("id", articleId);
 }
 
 async function listArticlesHandler(args: any, ctx: AuthContext): Promise<unknown> {
@@ -467,7 +505,7 @@ async function listArticlesHandler(args: any, ctx: AuthContext): Promise<unknown
 
   let query = ctx.admin
     .from("articles")
-    .select("id, title, slug, status, content_type, category, created_at, updated_at")
+    .select("id, title, slug, status, content_type, category, generation_status, generation_error, created_at, updated_at")
     .eq("user_id", ctx.userId)
     .order("updated_at", { ascending: false })
     .limit(limit);
@@ -490,7 +528,7 @@ async function getArticleHandler(args: any, ctx: AuthContext): Promise<unknown> 
   const { data, error } = await ctx.admin
     .from("articles")
     .select(
-      "id, title, slug, content, excerpt, meta_description, category, content_type, status, cover_image_url, reading_time_minutes, article_meta, url_path, created_at, updated_at",
+      "id, title, slug, content, excerpt, meta_description, category, content_type, status, cover_image_url, reading_time_minutes, article_meta, url_path, generation_status, generation_error, created_at, updated_at",
     )
     .eq("user_id", ctx.userId)
     .eq("id", id)
@@ -717,6 +755,7 @@ async function scheduleNewsletterHandler(args: any, ctx: AuthContext): Promise<u
   const scheduledAt = args?.scheduled_at;
   const audienceType = args?.audience_type ?? "contacts";
   const resendAudienceId = args?.resend_audience_id ?? null;
+  const resendSegmentId = args?.resend_segment_id ?? null;
   const force = args?.force === true;
 
   if (typeof articleId !== "string" || articleId.length === 0) {
@@ -801,6 +840,7 @@ async function scheduleNewsletterHandler(args: any, ctx: AuthContext): Promise<u
       reply_to: replyTo,
       audience_type: audienceType,
       resend_audience_id: resendAudienceId,
+      resend_segment_id: resendSegmentId,
       scheduled_at: when.toISOString(),
       status: "scheduled",
     })
@@ -831,6 +871,71 @@ async function cancelNewsletterScheduleHandler(args: any, ctx: AuthContext): Pro
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Schedule not found, not yours, or no longer in 'scheduled' state.");
   return { ...data, review_url: CALENDAR_URL };
+}
+
+// generate_newsletter_data — calls the existing generate-newsletter edge
+// function and saves the result to articles.newsletter_data. After this,
+// schedule_newsletter can send it without the user touching the UI.
+async function generateNewsletterDataHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const articleId = args?.article_id;
+  if (typeof articleId !== "string" || articleId.length === 0) {
+    throw new Error("`article_id` is required");
+  }
+
+  const { data: article, error: artErr } = await ctx.admin
+    .from("articles")
+    .select("id, title, content, excerpt, category, cover_image_url, newsletter_data, url_path, slug")
+    .eq("user_id", ctx.userId)
+    .eq("id", articleId)
+    .single();
+
+  if (artErr) throw new Error(`Failed to load article: ${artErr.message}`);
+  if (!article) throw new Error("Article not found");
+
+  if ((article as any).newsletter_data && args?.force !== true) {
+    return {
+      article_id: articleId,
+      newsletter_data: (article as any).newsletter_data,
+      note: "Newsletter data already exists. Pass `force: true` to regenerate.",
+    };
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  const res = await fetch(`${supabaseUrl}/functions/v1/generate-newsletter`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${serviceKey}`,
+    },
+    body: JSON.stringify({
+      title: article.title,
+      content: article.content,
+      excerpt: article.excerpt,
+      category: article.category,
+      cover_image_url: article.cover_image_url,
+      cta_text: args?.cta_text || "Read the full article",
+      cta_url: args?.cta_url || `${APP_URL}${(article as any).url_path || `/${article.slug}`}`,
+      brand_name: args?.brand_name || "Content Lab",
+    }),
+  });
+
+  const data = await res.json();
+  if (!data.ok || !data.newsletter) {
+    throw new Error(data.error || "generate-newsletter returned an error");
+  }
+
+  await ctx.admin
+    .from("articles")
+    .update({ newsletter_data: data.newsletter })
+    .eq("id", articleId);
+
+  return {
+    article_id: articleId,
+    newsletter_data: data.newsletter,
+    note: "Newsletter data generated and saved. You can now call `schedule_newsletter` to send it.",
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1080,6 +1185,10 @@ const TOOLS: ToolDef[] = [
           type: "string",
           description: "Required when audience_type='resend_list'. The Resend audience UUID.",
         },
+        resend_segment_id: {
+          type: "string",
+          description: "Optional Resend segment UUID. When provided alongside resend_audience_id, the send targets only contacts in that segment (e.g. 'Stripe Trials'). Requires audience_type='resend_list'.",
+        },
         subject_line: { type: "string", description: "Override the article's default subject." },
         preview_text: { type: "string", description: "Inbox preview text shown next to the subject." },
         from_name: { type: "string" },
@@ -1100,6 +1209,34 @@ const TOOLS: ToolDef[] = [
       openWorldHint: true,
     },
     handler: scheduleNewsletterHandler,
+  },
+  {
+    name: "generate_newsletter_data",
+    description:
+      "Generate email-ready newsletter data from an existing article. Calls the AI to produce a structured newsletter (subject_line, preview_text, greeting, sections, CTA) and saves it to the article. After this, call `schedule_newsletter` to send it. If the article already has newsletter_data, returns it immediately — pass `force: true` to regenerate.",
+    inputSchema: {
+      type: "object",
+      required: ["article_id"],
+      properties: {
+        article_id: { type: "string", format: "uuid", description: "Article UUID." },
+        cta_text: { type: "string", description: "CTA button text (default: 'Read the full article')." },
+        cta_url: { type: "string", format: "uri", description: "CTA link URL (defaults to article's public URL)." },
+        brand_name: { type: "string", description: "Brand name shown in the email (defaults to 'Content Lab')." },
+        force: {
+          type: "boolean",
+          default: false,
+          description: "Set to true to regenerate even if newsletter_data already exists.",
+        },
+      },
+    },
+    annotations: {
+      title: "Generate newsletter data",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    handler: generateNewsletterDataHandler,
   },
   {
     name: "cancel_newsletter_schedule",

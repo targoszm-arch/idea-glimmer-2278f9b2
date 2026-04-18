@@ -401,7 +401,7 @@ const NewArticle = () => {
   // a toast, but never block the user from editing.
   const generateInlineMedia = async (
     rawAccumulated: string,
-    contentWithJsonLd: string,
+    _contentWithJsonLd: string,
     opts: { wantInlineImage: boolean; wantInfographic: boolean },
   ) => {
     setIsGeneratingMedia(true);
@@ -444,7 +444,18 @@ const NewArticle = () => {
         infoReq ? infoReq.then((r) => r.json()).catch((e) => ({ error: String(e) })) : null,
       ]);
 
-      let updated = contentWithJsonLd;
+      // Read the CURRENT editor content, not the stale snapshot captured
+      // 1-2 minutes ago when generation started. The old approach passed
+      // contentWithJsonLd by closure, but by the time images arrive the
+      // user may have edited the article — or the captured value could be
+      // empty if a race occurred. Reading live ensures we insert into
+      // whatever is actually in the editor right now.
+      let updated = editor?.getHTML() || "";
+      if (updated.length < 50) {
+        toast({ title: "Skipped image insertion", description: "Editor content is too short — images were generated but not inserted.", variant: "destructive" });
+        setIsGeneratingMedia(false);
+        return;
+      }
       // Standalone <img>, NOT wrapped in <p>. The TipTap editor configures
       // Image with inline: false, making it a block-level node. Block nodes
       // can't be children of <p> (which only accepts inline content), so
@@ -521,7 +532,8 @@ const NewArticle = () => {
         .replace(/<!--\s*INLINE_IMAGE_HERE\s*-->/gi, "")
         .replace(/<!--\s*INFOGRAPHIC_HERE\s*-->/gi, "");
 
-      if (updated !== contentWithJsonLd) {
+      const currentHtml = editor?.getHTML() || "";
+      if (updated !== currentHtml) {
         editor?.commands.setContent(updated);
         toast({ title: "Images added to article" });
       }

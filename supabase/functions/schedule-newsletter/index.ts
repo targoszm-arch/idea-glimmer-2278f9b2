@@ -51,7 +51,7 @@ serve(async (req) => {
 
     // CREATE
     if (action === "create") {
-      const { article_id, subject_line, preview_text, html_content, from_name, from_email, reply_to, audience_type, resend_audience_id, scheduled_at } = body;
+      const { article_id, subject_line, preview_text, html_content, from_name, from_email, reply_to, audience_type, resend_audience_id, resend_segment_id, scheduled_at } = body;
       if (!subject_line || !html_content || !from_email || !scheduled_at) {
         return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
       }
@@ -63,7 +63,7 @@ serve(async (req) => {
       const { data, error } = await supabase.from("newsletter_schedules").insert({
         user_id: user.id, article_id, subject_line, preview_text, html_content,
         from_name: from_name || "ContentLab", from_email, reply_to,
-        audience_type: audience_type || "contacts", resend_audience_id,
+        audience_type: audience_type || "contacts", resend_audience_id, resend_segment_id,
         scheduled_at, status: "scheduled", recipient_count
       }).select().single();
       if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
