@@ -44,6 +44,22 @@ export function NewsletterEditor({ open, onClose, article, brandName, brandLogoU
   const [activeTab, setActiveTab] = useState<"preview" | "edit" | "html">("preview");
   const [showScheduler, setShowScheduler] = useState(false);
   const [articleSlug, setArticleSlug] = useState<string>(article.slug || "");
+
+  // Persist the current newsletter state to the DB before dismissing the
+  // editor. Without this, any edits the user made to subject_line, sections,
+  // CTA, etc. were stuck in component state only and disappeared on Close —
+  // Schedule & Send was the only way to save them, which is confusing.
+  const persistAndClose = () => {
+    if (newsletter && article.id) {
+      supabase
+        .from("articles")
+        .update({ newsletter_data: newsletter } as any)
+        .eq("id", article.id)
+        .then(() => {});
+    }
+    setNewsletter(null);
+    onClose();
+  };
   // url_path encodes the article's actual category + slug in the shape the
   // live site serves it (e.g. "getting-started/<slug>",
   // "instructional-design/<slug>"). Previously the newsletter CTA was
@@ -271,7 +287,7 @@ ${articleLink ? `<tr><td style="padding:0 24px 16px 24px;text-align:center;">
 
   return (
     <>
-    <Dialog open={open} onOpenChange={(v) => { if (!v) { setNewsletter(null); onClose(); } }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) persistAndClose(); }}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0 sticky top-0 z-10 bg-background">
           <DialogTitle className="flex items-center gap-2">
@@ -624,7 +640,7 @@ ${articleLink ? `<tr><td style="padding:0 24px 16px 24px;text-align:center;">
             Regenerate
           </Button>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+            <Button variant="outline" size="sm" onClick={persistAndClose}>Close</Button>
             <Button variant="outline" size="sm" onClick={handleCopyHtml} disabled={!newsletter}>
               {copied ? <Check className="h-4 w-4 mr-1.5" /> : <Copy className="h-4 w-4 mr-1.5" />}
               Copy HTML
