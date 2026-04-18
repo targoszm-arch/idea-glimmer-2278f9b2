@@ -10,8 +10,9 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
-import { Save, Sparkles, Loader2, ArrowLeft, Settings, ImagePlus, X, Upload, MessageSquare, ChevronDown, Send, Share2, BookmarkPlus, Check } from "lucide-react";
+import { Save, Sparkles, Loader2, ArrowLeft, Settings, ImagePlus, X, Upload, MessageSquare, ChevronDown, Send, Share2, BookmarkPlus, Check, Mail } from "lucide-react";
 import { ArticleSocialPanel } from "@/components/ArticleSocialPanel";
+import { NewsletterEditor } from "@/components/NewsletterEditor";
 import CategoryPicker from "@/components/CategoryPicker";
 import PlatformLogo from "@/components/PlatformLogo";
 import { motion } from "framer-motion";
@@ -72,6 +73,7 @@ const NewArticle = () => {
   const [isSavingCoverToLibrary, setIsSavingCoverToLibrary] = useState(false);
   const [savedArticleId, setSavedArticleId] = useState<string | null>(null);
   const [showSocial, setShowSocial] = useState(false);
+  const [showNewsletter, setShowNewsletter] = useState(false);
   const [framerItemId, setFramerItemId] = useState<string | null>(null);
   const [wpPermalink, setWpPermalink] = useState<string | null>(null);
   const [isSyncingFramer, setIsSyncingFramer] = useState(false);
@@ -848,6 +850,14 @@ const NewArticle = () => {
                   Social
                 </button>
               )}
+              {savedArticleId && (
+                <button
+                  onClick={() => setShowNewsletter(true)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80">
+                  <Mail className="h-4 w-4" />
+                  Newsletter
+                </button>
+              )}
               <button
                 onClick={() => handleSave("published")}
                 disabled={isSaving}
@@ -1227,6 +1237,18 @@ const NewArticle = () => {
       open={showCanvaPicker}
       onClose={() => setShowCanvaPicker(false)}
       onSelect={(url) => { setCoverImageUrl(url); setCoverSavedToLibrary(true); setShowCanvaPicker(false); }}
+    />
+    <NewsletterEditor
+      open={showNewsletter}
+      onClose={() => setShowNewsletter(false)}
+      article={{
+        title,
+        content: editor?.getHTML() || "",
+        excerpt: (editor?.getText() || "").slice(0, 200),
+        category,
+        cover_image_url: coverImageUrl,
+        id: savedArticleId || undefined,
+      }}
     />
     </>
   );
