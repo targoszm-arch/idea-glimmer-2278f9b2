@@ -78,6 +78,14 @@ verify_jwt = false
 [functions.sync-to-confluence]
 verify_jwt = false
 
+# schedule-newsletter does its own auth via `getUser()` with the caller's
+# Authorization header (see supabase/functions/schedule-newsletter/index.ts
+# line 32-33). Without verify_jwt = false here, Supabase's gateway rejects
+# valid user sessions with a 401 before the function can handle them —
+# same pattern as every other user-facing function in this project.
+[functions.schedule-newsletter]
+verify_jwt = false
+
 # MCP OAuth 2.1 endpoints — all public (Claude calls them without a
 # Supabase session; auth is per-OAuth-protocol via the function bodies).
 [functions.mcp-oauth-metadata]
