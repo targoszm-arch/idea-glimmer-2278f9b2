@@ -1,7 +1,7 @@
 // Shared slug + URL path builder. Use this anywhere an article slug or
 // url_path is generated so the rules stay in one place.
 
-export type ContentType = "blog" | "user_guide" | "how_to";
+export type ContentType = "blog" | "user_guide" | "how_to" | "newsletter";
 
 /** Convert any string into a URL-safe kebab-case slug. */
 export function toSlug(input: string, maxLen = 80): string {
@@ -25,6 +25,11 @@ export function toSlug(input: string, maxLen = 80): string {
  *   user_guide, how_to  -> "help/knowledge-base/{slug}/documentation-articles"
  *   blog (with category)-> "{category-slug}/{slug}"
  *   blog (no category)  -> "{slug}"
+ *
+ * When the article title starts with the category name (e.g. title
+ * "Features & Updates: Course Upgrade" with category "Features and Updates"),
+ * the category prefix is stripped from the slug to avoid duplication like
+ * "features-and-updates/features-updates-course-upgrade".
  */
 export function buildUrlPath(opts: {
   title: string;
@@ -37,7 +42,25 @@ export function buildUrlPath(opts: {
     return `help/knowledge-base/${base}/documentation-articles`;
   }
   if (opts.category && opts.category.trim()) {
-    return `${toSlug(opts.category)}/${base}`;
+    const catSlug = toSlug(opts.category);
+    let articleSlug = base;
+
+    // Strip duplicated category prefix from the article slug. Handles
+    // both exact match ("features-and-updates-...") and slight variants
+    // where joining words like "and" are dropped ("features-updates-...").
+    if (articleSlug.startsWith(catSlug + "-")) {
+      articleSlug = articleSlug.slice(catSlug.length + 1);
+    } else {
+      // Also check without common stop words (and, the, of, for, in, a)
+      // to catch "features-updates-..." matching "features-and-updates"
+      const catWords = catSlug.split("-").filter(w => !["and", "the", "of", "for", "in", "a"].includes(w));
+      const catCoreStem = catWords.join("-");
+      if (catCoreStem && articleSlug.startsWith(catCoreStem + "-")) {
+        articleSlug = articleSlug.slice(catCoreStem.length + 1);
+      }
+    }
+
+    return `${catSlug}/${articleSlug}`;
   }
   return base;
 }
