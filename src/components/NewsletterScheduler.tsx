@@ -26,15 +26,15 @@ interface Props {
 }
 
 async function authHeaders() {
-  let { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) {
-    const { data } = await supabase.auth.refreshSession();
-    session = data.session;
+  // Always force-refresh to guarantee a non-expired JWT is sent.
+  // getSession() can return a stale token if autoRefresh hasn't fired yet.
+  const { data, error } = await supabase.auth.refreshSession();
+  if (error || !data.session?.access_token) {
+    throw new Error("Session expired — please log in again.");
   }
-  if (!session?.access_token) throw new Error("Session expired — please log in again.");
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${session.access_token}`,
+    Authorization: `Bearer ${data.session.access_token}`,
     apikey: SUPABASE_ANON_KEY,
   };
 }
