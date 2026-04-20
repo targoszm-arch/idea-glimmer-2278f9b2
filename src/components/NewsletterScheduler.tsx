@@ -26,10 +26,15 @@ interface Props {
 }
 
 async function authHeaders() {
-  const { data: { session } } = await supabase.auth.getSession();
+  let { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    const { data } = await supabase.auth.refreshSession();
+    session = data.session;
+  }
+  if (!session?.access_token) throw new Error("Session expired — please log in again.");
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${session?.access_token}`,
+    Authorization: `Bearer ${session.access_token}`,
     apikey: SUPABASE_ANON_KEY,
   };
 }
