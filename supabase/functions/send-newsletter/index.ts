@@ -93,10 +93,19 @@ serve(async (req) => {
 
   const supabaseAdmin = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-  const jwt = (req.headers.get("Authorization") ?? "").replace("Bearer ", "").trim();
-  if (!jwt) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
-  const { data: { user } } = await supabaseAdmin.auth.getUser(jwt);
-  if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+  // Bypass supabase-js auth (unreliable in Deno edge runtime) — call REST directly.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  if (!authHeader) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+  const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: {
+      "Authorization": authHeader,
+      "apikey": Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    },
+  });
+  if (!authResponse.ok) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+  const { id: userId } = await authResponse.json();
+  if (!userId) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+  const user = { id: userId };
 
   const { schedule_id, force } = await req.json();
 
