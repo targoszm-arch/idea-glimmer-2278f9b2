@@ -93,6 +93,29 @@ export async function performSync(collection: ManagedCollection, category = "all
     if (existingIds.size > 0) await collection.removeItems(Array.from(existingIds))
     await collection.addItems(items)
 
+    // Write actual Framer-assigned slugs back to ContentLab so url_path stays
+    // in sync. Framer auto-prepends the Category field slug to each item slug.
+    try {
+        const syncedItems: Array<{ id: string; slug: string }> = await collection.getItems()
+        const idToFramerSlug = new Map(syncedItems.map((item) => [item.id, item.slug]))
+        const urlPathUpdates = articles
+            .filter((a) => idToFramerSlug.has(a.id))
+            .map((a) => ({ id: a.id, framer_slug: idToFramerSlug.get(a.id) as string }))
+        if (urlPathUpdates.length > 0) {
+            await fetch(SYNC_ENDPOINT, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                    apikey: SUPABASE_ANON_KEY,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ url_path_updates: urlPathUpdates }),
+            })
+        }
+    } catch (e) {
+        console.warn("url_path write-back failed (non-blocking):", e)
+    }
+
     return items.length
 }
 

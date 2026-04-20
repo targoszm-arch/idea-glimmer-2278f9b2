@@ -9,6 +9,91 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // POST — write back actual Framer slugs so url_path stays in sync.
+  // Body: { url_path_updates: [{id: string, framer_slug: string}] }
+  // Framer auto-prepends the Category field slug to each item slug, so the
+  // actual slug isn't known until after addItems. The plugin calls this right
+  // after every sync to correct url_path for all affected articles.
+  if (req.method === "POST") {
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const xApiKey = req.headers.get("x-api-key") ?? "";
+    const token = authHeader.replace("Bearer ", "").trim() || xApiKey.trim();
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    let userId: string | null = null;
+    if (token.startsWith("cl_")) {
+      const { data: keyData } = await adminSupabase
+        .from("api_keys").select("user_id").eq("key", token).single();
+      if (!keyData) {
+        return new Response(JSON.stringify({ error: "Invalid API key" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      userId = keyData.user_id;
+    } else {
+      const anonSupabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await anonSupabase.auth.getUser();
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      userId = user.id;
+    }
+
+    try {
+      const body = await req.json();
+      const updates: Array<{ id: string; framer_slug: string }> = body.url_path_updates ?? [];
+      if (!updates.length) {
+        return new Response(JSON.stringify({ ok: true, updated: 0 }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Resolve the CMS detail-page path from the user's integration metadata.
+      // Falls back to "features-updates" which is the default for skillstudio.ai.
+      const { data: integration } = await adminSupabase
+        .from("user_integrations")
+        .select("metadata")
+        .eq("user_id", userId)
+        .eq("platform", "framer")
+        .maybeSingle();
+      const collectionPage: string =
+        (integration?.metadata as any)?.collection_page ?? "features-updates";
+
+      let updatedCount = 0;
+      for (const { id, framer_slug } of updates) {
+        if (!id || !framer_slug) continue;
+        const url_path = `${collectionPage}/${framer_slug}`;
+        const { error } = await adminSupabase
+          .from("articles")
+          .update({ url_path })
+          .eq("id", id)
+          .eq("user_id", userId);
+        if (!error) updatedCount++;
+      }
+
+      return new Response(JSON.stringify({ ok: true, updated: updatedCount }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+  }
+
   const authHeader = req.headers.get("Authorization") ?? "";
   const xApiKey = req.headers.get("x-api-key") ?? "";
   const token = (authHeader.replace("Bearer ", "").trim()) || xApiKey.trim();
