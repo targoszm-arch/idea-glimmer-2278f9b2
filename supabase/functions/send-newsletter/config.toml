@@ -1,0 +1,2 @@
+[functions.send-newsletter]
+verify_jwt = false
