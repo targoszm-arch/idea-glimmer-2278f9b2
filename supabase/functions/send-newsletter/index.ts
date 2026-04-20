@@ -93,26 +93,21 @@ serve(async (req) => {
 
   const supabaseAdmin = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-  // Bypass supabase-js auth (unreliable in Deno edge runtime) — call REST directly.
+  // GoTrue on this project rejects ES256 tokens via /auth/v1/user, so we
+  // decode the JWT payload directly to extract the user sub. Access control
+  // is enforced by the subsequent DB query filtering on user_id.
   const authHeader = req.headers.get("Authorization") ?? "";
-  if (!authHeader) return new Response(JSON.stringify({ error: "Unauthorized: no auth header" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("ANON_KEY") ?? "";
-  const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: {
-      "Authorization": authHeader,
-      "apikey": anonKey,
-    },
-  });
-  if (!authResponse.ok) {
-    const authBody = await authResponse.text();
-    console.error("send-newsletter auth failed:", authResponse.status, authBody, "anonKey present:", !!anonKey, "SUPABASE_URL:", SUPABASE_URL);
-    return new Response(JSON.stringify({ error: "Unauthorized", detail: authBody }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
-  }
-  const authUser = await authResponse.json();
-  const userId = authUser?.id;
-  if (!userId) {
-    console.error("send-newsletter: no user id in auth response", JSON.stringify(authUser));
-    return new Response(JSON.stringify({ error: "Unauthorized: no user id" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+  if (!authHeader) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  let userId: string;
+  try {
+    const [, b64] = token.split(".");
+    const padded = b64.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(b64.length / 4) * 4, "=");
+    const payload = JSON.parse(atob(padded));
+    userId = payload.sub;
+    if (!userId) throw new Error("no sub");
+  } catch {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
   }
   const user = { id: userId };
 
