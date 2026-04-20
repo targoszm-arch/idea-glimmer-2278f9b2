@@ -95,16 +95,25 @@ serve(async (req) => {
 
   // Bypass supabase-js auth (unreliable in Deno edge runtime) — call REST directly.
   const authHeader = req.headers.get("Authorization") ?? "";
-  if (!authHeader) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+  if (!authHeader) return new Response(JSON.stringify({ error: "Unauthorized: no auth header" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("ANON_KEY") ?? "";
   const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: {
       "Authorization": authHeader,
-      "apikey": Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      "apikey": anonKey,
     },
   });
-  if (!authResponse.ok) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
-  const { id: userId } = await authResponse.json();
-  if (!userId) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+  if (!authResponse.ok) {
+    const authBody = await authResponse.text();
+    console.error("send-newsletter auth failed:", authResponse.status, authBody, "anonKey present:", !!anonKey, "SUPABASE_URL:", SUPABASE_URL);
+    return new Response(JSON.stringify({ error: "Unauthorized", detail: authBody }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+  }
+  const authUser = await authResponse.json();
+  const userId = authUser?.id;
+  if (!userId) {
+    console.error("send-newsletter: no user id in auth response", JSON.stringify(authUser));
+    return new Response(JSON.stringify({ error: "Unauthorized: no user id" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+  }
   const user = { id: userId };
 
   const { schedule_id, force } = await req.json();
