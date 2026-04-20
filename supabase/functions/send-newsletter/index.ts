@@ -92,11 +92,10 @@ serve(async (req) => {
   if (!resendKey) return new Response(JSON.stringify({ error: "Resend API key not configured" }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
 
   const supabaseAdmin = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const supabase = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } }
-  });
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const jwt = (req.headers.get("Authorization") ?? "").replace("Bearer ", "").trim();
+  if (!jwt) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+  const { data: { user } } = await supabaseAdmin.auth.getUser(jwt);
   if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
 
   const { schedule_id, force } = await req.json();
