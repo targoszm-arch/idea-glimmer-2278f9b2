@@ -118,7 +118,10 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
       id: a.id,
       // Prefer url_path (e.g. "instructional-design/3-ways-to-elevate-online-courses")
       // so Framer routes land on the correct URL structure.
-      slug: toSlug(a.url_path || a.slug || a.title || a.id),
+      // Use bare article slug — Framer auto-prepends the Category field value to
+      // form the actual item slug (e.g. "features-updates-my-article"). Passing
+      // url_path here caused the category to be doubled in the Framer slug.
+      slug: a.slug || a.id,
       fieldData: {
         [F.title]:       { type: "string" as const,        value: a.title ?? "" },
         [F.body]:        { type: "formattedText" as const, value: a.content ?? "" },
@@ -141,6 +144,32 @@ export async function syncArticles(collection: any, category: string, apiKey?: s
 
   framer.isAllowedTo("ManagedCollection.addItems")
   await collection.addItems(items)
+
+  // Write actual Framer-assigned slugs back to ContentLab so url_path stays in
+  // sync. Framer auto-prepends the Category slug to each item slug, so the
+  // actual slug differs from what was pushed. Fire-and-forget — sync succeeds
+  // even if this write-back fails.
+  try {
+    const syncedItems: Array<{ id: string; slug: string }> = await collection.getItems()
+    const idToFramerSlug = new Map(syncedItems.map((item) => [item.id, item.slug]))
+    const urlPathUpdates = articles
+      .filter((a) => idToFramerSlug.has(a.id))
+      .map((a) => ({ id: a.id, framer_slug: idToFramerSlug.get(a.id) as string }))
+    if (urlPathUpdates.length > 0) {
+      await fetch(SYNC_ENDPOINT, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          apikey: SUPABASE_ANON_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url_path_updates: urlPathUpdates }),
+      })
+    }
+  } catch (e) {
+    console.warn("url_path write-back failed (non-blocking):", e)
+  }
+
   return items.length
 }
 
