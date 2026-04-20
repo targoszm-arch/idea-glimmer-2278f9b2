@@ -145,12 +145,16 @@ export function NewsletterEditor({ open, onClose, article, brandName, brandLogoU
   const generate = async () => {
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-newsletter`, {
+      let { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        const { data } = await supabase.auth.refreshSession();
+        session = data.session;
+      }
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL || "https://rnshobvpqegttrpaowxe.supabase.co"}/functions/v1/generate-newsletter`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
+          Authorization: `Bearer ${session?.access_token ?? ""}`,
           apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo",
         },
         body: JSON.stringify({
