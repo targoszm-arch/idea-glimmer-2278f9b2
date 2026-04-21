@@ -141,6 +141,13 @@ serve(async (req) => {
   // ── Collection-slot enforcement ──────────────────────────────────────────
   const collectionId = req.headers.get("x-framer-collection-id") ?? null;
 
+  // Admin emails bypass all collection limits (comma-separated in env var)
+  const adminEmails = new Set(
+    (Deno.env.get("ADMIN_EMAILS") ?? "").split(",").map((e: string) => e.trim().toLowerCase()).filter(Boolean)
+  );
+  const { data: authUser } = await adminSupabase.auth.admin.getUserById(userId!);
+  const isAdmin = adminEmails.has((authUser?.user?.email ?? "").toLowerCase());
+
   const PLAN_MAX_COLLECTIONS: Record<string, number> = { free: 0, starter: 1, pro: 5 };
 
   const { data: credits } = await adminSupabase
@@ -153,7 +160,7 @@ serve(async (req) => {
   const isActive =
     credits?.stripe_payment_status === "active" ||
     (plan !== "free" && credits?.stripe_payment_status !== "cancelled");
-  const maxCollections = isActive ? (PLAN_MAX_COLLECTIONS[plan] ?? 1) : 0;
+  const maxCollections = isAdmin ? Infinity : (isActive ? (PLAN_MAX_COLLECTIONS[plan] ?? 1) : 0);
 
   if (maxCollections === 0) {
     return new Response(
