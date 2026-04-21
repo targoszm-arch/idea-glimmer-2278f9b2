@@ -143,7 +143,9 @@ const PLUGIN_HTML = `<!DOCTYPE html>
 
           if (res.status === 403) {
             const err = await res.json().catch(() => ({}));
-            setStatus(err.error || "Upgrade required to sync more collections.", "error");
+            const msg = (err.error || "Upgrade required to sync more collections.") +
+              " Upgrade at: https://buy.stripe.com/8x28wOdlsdBpak09Jk1sQ06";
+            setStatus(msg, "error");
             setLoading(false); return;
           }
           if (!res.ok) { setStatus("Fetch failed: " + await res.text(), "error"); setLoading(false); return; }
