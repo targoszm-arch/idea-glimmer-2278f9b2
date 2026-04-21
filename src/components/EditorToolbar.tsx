@@ -100,11 +100,17 @@ const EditorToolbar = ({ editor, onUnsplash }: EditorToolbarProps) => {
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum video size is 50 MB.", variant: "destructive" });
+      if (videoInputRef.current) videoInputRef.current.value = "";
+      return;
+    }
     setIsUploadingVideo(true);
-    toast({ title: "Uploading video…", description: "This may take a moment for large files." });
+    toast({ title: "Uploading video…", description: `${(file.size / 1024 / 1024).toFixed(1)} MB — please wait.` });
     const url = await uploadFile(file);
     if (url) {
       editor.chain().focus().insertContent({ type: "video", attrs: { src: url } }).run();
+      toast({ title: "Video added to article" });
     }
     setIsUploadingVideo(false);
     if (videoInputRef.current) videoInputRef.current.value = "";
@@ -182,22 +188,21 @@ const EditorToolbar = ({ editor, onUnsplash }: EditorToolbarProps) => {
         </button>
       )}
 
-      {/* Video upload */}
-      <input
-        ref={videoInputRef}
-        type="file"
-        accept="video/*"
-        className="hidden"
-        onChange={handleVideoUpload}
-      />
-      <button
-        onClick={() => videoInputRef.current?.click()}
-        className={btnClass(false, isUploadingVideo)}
-        disabled={isUploadingVideo}
-        title="Upload Video"
+      {/* Video upload — label wraps the input so the click always fires onChange */}
+      <label
+        className={btnClass(false, isUploadingVideo) + " cursor-pointer"}
+        title="Upload Video (MP4, max 50 MB)"
       >
+        <input
+          ref={videoInputRef}
+          type="file"
+          accept="video/mp4,video/webm,video/ogg,video/*"
+          className="hidden"
+          onChange={handleVideoUpload}
+          disabled={isUploadingVideo}
+        />
         {isUploadingVideo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-      </button>
+      </label>
 
       {/* Infographic */}
       <button
