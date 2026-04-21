@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, XCircle, Loader2, ExternalLink, Linkedin } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ExternalLink, Linkedin, Trash2 } from "lucide-react";
 
 const SUPABASE_URL = "https://rnshobvpqegttrpaowxe.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo";
@@ -119,6 +119,106 @@ function LinkedInConnect() {
             </div>
           </div>
         </CardHeader>
+      </Card>
+    </div>
+  );
+}
+
+const PLAN_MAX_COLLECTIONS: Record<string, number> = { free: 0, starter: 1, pro: 5 };
+const UPGRADE_URL = "https://buy.stripe.com/8x28wOdlsdBpak09Jk1sQ06";
+
+function FramerCollections() {
+  const [collections, setCollections] = useState<{ id: string; collection_id: string }[]>([]);
+  const [maxCollections, setMaxCollections] = useState<number>(1);
+  const [plan, setPlan] = useState<string>("starter");
+  const [loading, setLoading] = useState(true);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    setLoading(true);
+    const [{ data: rows }, { data: credits }] = await Promise.all([
+      supabase.from("user_integrations" as any)
+        .select("id, collection_id")
+        .eq("platform", "framer")
+        .not("collection_id", "is", null),
+      supabase.from("user_credits" as any).select("plan, stripe_payment_status").single(),
+    ]);
+    if (rows) setCollections(rows as any);
+    if (credits) {
+      const p = (credits as any).plan ?? "free";
+      const isActive =
+        (credits as any).stripe_payment_status === "active" ||
+        (p !== "free" && (credits as any).stripe_payment_status !== "cancelled");
+      setPlan(p);
+      setMaxCollections(isActive ? (PLAN_MAX_COLLECTIONS[p] ?? 1) : 0);
+    }
+    setLoading(false);
+  }
+
+  async function removeCollection(id: string) {
+    setRemovingId(id);
+    const { error } = await supabase.from("user_integrations" as any).delete().eq("id", id);
+    if (error) {
+      toast({ title: "Failed to remove collection", description: error.message, variant: "destructive" });
+    } else {
+      setCollections(prev => prev.filter(c => c.id !== id));
+      toast({ title: "Collection removed" });
+    }
+    setRemovingId(null);
+  }
+
+  if (loading) return null;
+  if (collections.length === 0 && maxCollections === 0) return null;
+
+  const used = collections.length;
+  const atLimit = used >= maxCollections;
+
+  return (
+    <div className="mt-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-sm font-medium">Framer Collections</CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                {used} of {maxCollections === Infinity ? "unlimited" : maxCollections} slot{maxCollections === 1 ? "" : "s"} used
+                {" · "}plan: <span className="capitalize">{plan}</span>
+              </CardDescription>
+            </div>
+            {atLimit && (
+              <Button size="sm" variant="outline" asChild>
+                <a href={UPGRADE_URL} target="_blank" rel="noreferrer">Upgrade plan</a>
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        {collections.length > 0 && (
+          <CardContent className="pt-0 pb-4">
+            <div className="space-y-2">
+              {collections.map(c => (
+                <div key={c.id} className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2">
+                  <span className="text-xs font-mono text-muted-foreground truncate max-w-[260px]" title={c.collection_id}>
+                    {c.collection_id}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                    disabled={removingId === c.id}
+                    onClick={() => removeCollection(c.id)}
+                  >
+                    {removingId === c.id
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Trash2 className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        )}
       </Card>
     </div>
   );
@@ -532,6 +632,9 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
             );
           })}
         </div>
+
+        {/* Framer collection slots */}
+        <FramerCollections />
 
         {/* LinkedIn Section */}
         <LinkedInConnect />
