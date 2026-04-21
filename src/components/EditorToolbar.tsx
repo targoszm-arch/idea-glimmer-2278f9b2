@@ -64,23 +64,31 @@ const EditorToolbar = ({ editor, onUnsplash }: EditorToolbarProps) => {
 
   const uploadFile = async (file: File): Promise<string | null> => {
     try {
+      console.log("[video-upload] starting storage upload", file.name, file.size, file.type);
       const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
       const uniqueName = `content/media-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from("article-covers")
         .upload(uniqueName, file, { contentType: file.type, upsert: false });
 
-      if (uploadError) throw uploadError;
+      console.log("[video-upload] storage result", { uploadData, uploadError });
+
+      if (uploadError) {
+        const msg = (uploadError as any).message || JSON.stringify(uploadError);
+        toast({ title: "Upload failed", description: msg, variant: "destructive" });
+        return null;
+      }
 
       const { data: urlData } = supabase.storage
         .from("article-covers")
         .getPublicUrl(uniqueName);
 
+      console.log("[video-upload] public URL", urlData.publicUrl);
       return urlData.publicUrl;
     } catch (e) {
-      console.error("Upload failed:", e);
-      toast({ title: "Upload failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+      console.error("[video-upload] caught exception:", e);
+      toast({ title: "Upload failed", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
       return null;
     }
   };
@@ -98,6 +106,7 @@ const EditorToolbar = ({ editor, onUnsplash }: EditorToolbarProps) => {
   };
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("[video-upload] handleVideoUpload called", e.target.files);
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 50 * 1024 * 1024) {
@@ -111,6 +120,8 @@ const EditorToolbar = ({ editor, onUnsplash }: EditorToolbarProps) => {
     if (url) {
       editor.chain().focus().insertContent({ type: "video", attrs: { src: url } }).run();
       toast({ title: "Video added to article" });
+    } else {
+      toast({ title: "Upload failed", description: "No URL returned from storage.", variant: "destructive" });
     }
     setIsUploadingVideo(false);
     if (videoInputRef.current) videoInputRef.current.value = "";
