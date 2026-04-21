@@ -37,7 +37,7 @@ serve(async (req) => {
   // Look up the user by their rss_token
   const { data: settings, error: settingsErr } = await db
     .from("ai_settings")
-    .select("user_id, newsletter_website_url, brand_name")
+    .select("user_id, newsletter_website_url")
     .eq("rss_token", token)
     .single();
 
@@ -46,7 +46,7 @@ serve(async (req) => {
   }
 
   const baseUrl = (settings.newsletter_website_url || "https://www.skillstudio.ai").replace(/\/$/, "");
-  const siteTitle = escapeXml(settings.brand_name || "Content Lab");
+  const siteTitle = escapeXml("Content Lab");
 
   // Fetch RSS-enabled articles for this user, most recent first
   const { data: articles, error: articlesErr } = await db
