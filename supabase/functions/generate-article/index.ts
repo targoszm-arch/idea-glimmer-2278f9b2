@@ -73,7 +73,7 @@ Your output MUST be pure, semantic HTML. No Markdown anywhere.
 - No citation brackets like [1], [2], [3].
 - No disclaimers or caveats after the closing metadata comments.
 - Use <strong> for emphasis, never markdown bold (**text**).
-- <h1> title must be under 60 characters.
+- Do NOT include an <h1> title — the title is shown separately by the app above the article body.
 
 Hyperlinks: wrap key terms or cited sources in <a href="URL">anchor text</a>.
 If you cannot confirm a URL from your search results, omit the hyperlink entirely rather than guessing. Broken links damage credibility more than missing links.
@@ -220,9 +220,7 @@ ARTICLE STRUCTURE
 
 Follow this exact output order:
 
-1. <h1>[Title — under 60 characters]</h1>
-
-2. <p class="subtitle">[1-2 sentence summary of the article's core finding or recommendation]</p>
+1. <p class="subtitle">[1-2 sentence summary of the article's core finding or recommendation]</p>
 
 3. <nav>
      <h2>Contents</h2>
@@ -264,8 +262,6 @@ USER GUIDE STRUCTURE
 
 Follow this exact output order:
 
-<h1>[Title — under 60 characters, e.g. "How to Set Up Your First Project"]</h1>
-
 <h2>What You'll Accomplish</h2>
 <p>[2-3 sentences: what the reader will learn and the end result they'll have.]</p>
 
@@ -302,8 +298,6 @@ HOW-TO GUIDE STRUCTURE
 --------------------
 
 Follow this exact output order:
-
-<h1>[Title — under 60 characters, starting with "How to..."]</h1>
 
 <p>[2-3 sentences: what this guide helps the reader accomplish and why it matters.]</p>
 
@@ -412,17 +406,17 @@ function getSystemPrompt(contentType: string, vars: PromptVars): string {
 }
 
 function getUserMessage(contentType: string, topic: string): string {
-  const base = `REMINDER: Output ONLY valid HTML. Start immediately with <h1>. No markdown, no plain text, no code fences. Every paragraph must be wrapped in <p> tags.`;
+  const base = `REMINDER: Output ONLY valid HTML. No markdown, no plain text, no code fences. Every paragraph must be wrapped in <p> tags. Do NOT include an <h1> title — the title is displayed separately by the app.`;
   if (contentType === "how_to") {
-    return `Write a how-to guide about: ${topic}\n\n${base} ALL section titles must be <h2>. The Troubleshooting section is CRITICAL — each problem MUST use <h3> for the problem title, then <p><strong>Cause:</strong> ...</p> and <p><strong>Fix:</strong> ...</p> with detailed, actionable multi-sentence fixes.`;
+    return `Write a how-to guide about: ${topic}\n\n${base} Start immediately with a <p> intro paragraph. ALL section titles must be <h2>. The Troubleshooting section is CRITICAL — each problem MUST use <h3> for the problem title, then <p><strong>Cause:</strong> ...</p> and <p><strong>Fix:</strong> ...</p> with detailed, actionable multi-sentence fixes.`;
   }
   if (contentType === "user_guide") {
-    return `Write a user guide about: ${topic}\n\n${base} ALL section titles must be <h2>. Step numbers must ONLY appear inside <h2> tags. Do NOT output bare numbers as standalone text.`;
+    return `Write a user guide about: ${topic}\n\n${base} Start immediately with <h2>What You'll Accomplish</h2>. ALL section titles must be <h2>. Step numbers must ONLY appear inside <h2> tags. Do NOT output bare numbers as standalone text.`;
   }
   if (contentType === "newsletter") {
-    return `Write a short email newsletter on the topic: ${topic}\n\n${base} This is an EMAIL, not an article — keep it under 400 words. The first <h1> is the subject line (under 60 chars). Include an inbox preview <p class="preview">, a short greeting, a hook, 2-3 concise <h2> sections, a "What this means for you" section, ONE clear CTA link wrapped in <strong>, a closing line, and a sign-off.`;
+    return `Write a short email newsletter on the topic: ${topic}\n\nREMINDER: Output ONLY valid HTML. Start immediately with <h1>. No markdown, no plain text, no code fences. Every paragraph must be wrapped in <p> tags. This is an EMAIL, not an article — keep it under 400 words. The first <h1> is the subject line (under 60 chars). Include an inbox preview <p class="preview">, a short greeting, a hook, 2-3 concise <h2> sections, a "What this means for you" section, ONE clear CTA link wrapped in <strong>, a closing line, and a sign-off.`;
   }
-  return `Write an article about: ${topic}\n\n${base}`;
+  return `Write an article about: ${topic}\n\n${base} Start immediately with <p class="subtitle">.`;
 }
 
 serve(async (req) => {
