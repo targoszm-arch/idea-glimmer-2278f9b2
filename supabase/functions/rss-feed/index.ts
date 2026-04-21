@@ -81,22 +81,20 @@ serve(async (req) => {
     </item>`;
   }).join("\n");
 
-  const feedUrl = escapeXml(`${SUPABASE_URL}/functions/v1/rss-feed?token=${token}`);
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<rss version="2.0">
   <channel>
     <title>${siteTitle}</title>
     <link>${escapeXml(baseUrl)}</link>
     <description>Latest articles from ${siteTitle}</description>
     <language>en-us</language>
-    <atom:link href="${feedUrl}" rel="self" type="application/rss+xml" />
     ${items}
   </channel>
 </rss>`;
 
   return new Response(xml, {
     headers: {
-      "Content-Type": "application/rss+xml; charset=utf-8",
+      "Content-Type": "text/xml; charset=utf-8",
       "Cache-Control": "public, max-age=3600",
       "Access-Control-Allow-Origin": "*",
     },
