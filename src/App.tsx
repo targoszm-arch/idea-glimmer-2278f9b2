@@ -38,6 +38,7 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Support from "./pages/Support";
 import ClaudeConnector from "./pages/ClaudeConnector";
+import IntercomConnector from "./pages/IntercomConnector";
 import LinkedInRSS from "./pages/LinkedInRSS";
 
 const queryClient = new QueryClient();
@@ -76,6 +77,7 @@ const App = () => (
             <Route path="/terms" element={<Terms />} />
             <Route path="/support" element={<Support />} />
             <Route path="/connect/claude" element={<ClaudeConnector />} />
+            <Route path="/connect/intercom" element={<IntercomConnector />} />
             <Route path="/settings/api-key" element={<ProtectedRoute><APIKey /></ProtectedRoute>} />
             <Route path="/settings/brand" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/settings/integrations" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
