@@ -110,10 +110,7 @@ const EditorToolbar = ({ editor, onUnsplash }: EditorToolbarProps) => {
     setIsUploadingVideo(true);
     const url = await uploadFile(file);
     if (url) {
-      // Insert as HTML5 video tag so it renders in Intercom/Framer as standard HTML
-      editor.chain().focus().insertContent(
-        `<p><video controls src="${url}" style="max-width:100%;height:auto;"></video></p>`
-      ).run();
+      editor.chain().focus().insertContent({ type: "video", attrs: { src: url } }).run();
     }
     setIsUploadingVideo(false);
     if (videoInputRef.current) videoInputRef.current.value = "";
