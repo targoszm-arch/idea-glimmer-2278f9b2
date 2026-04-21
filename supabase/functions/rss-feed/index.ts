@@ -42,7 +42,7 @@ serve(async (req) => {
     .single();
 
   if (settingsErr || !settings) {
-    return new Response("Not found", { status: 404 });
+    return new Response(JSON.stringify({ error: "Not found", token_prefix: token.slice(0, 8), settingsErr: settingsErr?.message }), { status: 404, headers: { "Content-Type": "application/json" } });
   }
 
   const baseUrl = (settings.newsletter_website_url || "https://www.skillstudio.ai").replace(/\/$/, "");
