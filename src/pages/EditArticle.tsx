@@ -6,6 +6,7 @@ import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import Youtube from "@tiptap/extension-youtube";
+import { VideoExtension } from "@/lib/tiptap-video";
 import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
@@ -94,6 +95,7 @@ const EditArticle = () => {
     Placeholder.configure({ placeholder: "Start writing..." }),
     Image.configure({ inline: false, allowBase64: false }),
     Youtube.configure({ width: 840, height: 480 }),
+    VideoExtension,
     Table.configure({ resizable: false }),
     TableRow,
     TableCell,

@@ -62,29 +62,22 @@ const EditorToolbar = ({ editor, onUnsplash }: EditorToolbarProps) => {
         : "text-muted-foreground hover:bg-secondary hover:text-foreground"
     }`;
 
-  const fileToBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result.split(",")[1]);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
   const uploadFile = async (file: File): Promise<string | null> => {
     try {
-      const base64 = await fileToBase64(file);
-      const { data, error } = await supabase.functions.invoke("upload-article-media", {
-        body: {
-          file_base64: base64,
-          file_name: file.name,
-          content_type: file.type,
-        },
-      });
-      if (error) throw error;
-      return data.url;
+      const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+      const uniqueName = `content/media-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("article-covers")
+        .upload(uniqueName, file, { contentType: file.type, upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("article-covers")
+        .getPublicUrl(uniqueName);
+
+      return urlData.publicUrl;
     } catch (e) {
       console.error("Upload failed:", e);
       toast({ title: "Upload failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
@@ -107,13 +100,17 @@ const EditorToolbar = ({ editor, onUnsplash }: EditorToolbarProps) => {
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum video size is 50 MB.", variant: "destructive" });
+      if (videoInputRef.current) videoInputRef.current.value = "";
+      return;
+    }
     setIsUploadingVideo(true);
+    toast({ title: "Uploading video…", description: `${(file.size / 1024 / 1024).toFixed(1)} MB — please wait.` });
     const url = await uploadFile(file);
     if (url) {
-      // Insert as HTML5 video tag so it renders in Intercom/Framer as standard HTML
-      editor.chain().focus().insertContent(
-        `<p><video controls src="${url}" style="max-width:100%;height:auto;"></video></p>`
-      ).run();
+      editor.chain().focus().insertContent({ type: "video", attrs: { src: url } }).run();
+      toast({ title: "Video added to article" });
     }
     setIsUploadingVideo(false);
     if (videoInputRef.current) videoInputRef.current.value = "";
@@ -191,22 +188,21 @@ const EditorToolbar = ({ editor, onUnsplash }: EditorToolbarProps) => {
         </button>
       )}
 
-      {/* Video upload */}
-      <input
-        ref={videoInputRef}
-        type="file"
-        accept="video/*"
-        className="hidden"
-        onChange={handleVideoUpload}
-      />
-      <button
-        onClick={() => videoInputRef.current?.click()}
-        className={btnClass(false, isUploadingVideo)}
-        disabled={isUploadingVideo}
-        title="Upload Video"
+      {/* Video upload — label wraps the input so the click always fires onChange */}
+      <label
+        className={btnClass(false, isUploadingVideo) + " cursor-pointer"}
+        title="Upload Video (MP4, max 50 MB)"
       >
+        <input
+          ref={videoInputRef}
+          type="file"
+          accept="video/mp4,video/webm,video/ogg,video/*"
+          className="hidden"
+          onChange={handleVideoUpload}
+          disabled={isUploadingVideo}
+        />
         {isUploadingVideo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-      </button>
+      </label>
 
       {/* Infographic */}
       <button

@@ -6,6 +6,7 @@ import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import Youtube from "@tiptap/extension-youtube";
+import { VideoExtension } from "@/lib/tiptap-video";
 import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
@@ -57,6 +58,7 @@ const NewArticle = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [showAssistant, setShowAssistant] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const [coverImageAlt, setCoverImageAlt] = useState("Cover image");
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [generatedMetaDescription, setGeneratedMetaDescription] = useState("");
@@ -216,6 +218,7 @@ const NewArticle = () => {
     Placeholder.configure({ placeholder: "Start writing or generate with AI..." }),
     Image.configure({ inline: false, allowBase64: false }),
     Youtube.configure({ width: 840, height: 480 }),
+    VideoExtension,
       Table.configure({ resizable: false }),
       TableRow,
       TableCell,
@@ -288,11 +291,22 @@ const NewArticle = () => {
         editor?.commands.setContent(live);
       },
       onDone: () => {
+        const metaTitleMatch = accumulated.match(/<!--\s*META_TITLE:\s*(.*?)\s*-->/i);
+        if (metaTitleMatch?.[1]?.trim() && !title) {
+          setTitle(metaTitleMatch[1].trim());
+        }
+
         const metaDescMatch = accumulated.match(/<!--\s*META_DESCRIPTION:\s*(.*?)\s*-->/i)
           || accumulated.match(/\/\/\s*META_DESCRIPTION:\s*(.+)/i);
         if (metaDescMatch?.[1]) {
-          setGeneratedMetaDescription(metaDescMatch[1].trim().slice(0, 150));
+          setGeneratedMetaDescription(metaDescMatch[1].trim().slice(0, 120));
         }
+
+        const altCoverMatch = accumulated.match(/<!--\s*ALT_TEXT_COVER:\s*(.*?)\s*-->/i);
+        if (altCoverMatch?.[1]) setCoverImageAlt(altCoverMatch[1].trim());
+
+        const altInlineMatch = accumulated.match(/<!--\s*ALT_TEXT_INLINE:\s*(.*?)\s*-->/i);
+        const altInfographicMatch = accumulated.match(/<!--\s*ALT_TEXT_INFOGRAPHIC:\s*(.*?)\s*-->/i);
 
         // Extract ARTICLE_META_JSON
         const metaJsonMatch = accumulated.match(/<!--\s*ARTICLE_META_JSON:\s*([\s\S]*?)\s*-->/i);
@@ -361,7 +375,7 @@ const NewArticle = () => {
               : undefined;
             const titleMatch = cleanContent.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
             const h1Title = titleMatch?.[1]?.replace(/<[^>]+>/g, "").trim() || title || topic;
-            const description = metaDescMatch?.[1]?.trim().slice(0, 150) || "";
+            const description = metaDescMatch?.[1]?.trim().slice(0, 120) || "";
             const jsonLd = buildArticleJsonLd({
               title: h1Title,
               description,
@@ -386,6 +400,8 @@ const NewArticle = () => {
           void generateInlineMedia(accumulated, finalContent, {
             wantInlineImage,
             wantInfographic,
+            altInline: altInlineMatch?.[1]?.trim(),
+            altInfographic: altInfographicMatch?.[1]?.trim(),
           });
         }
       },
@@ -405,7 +421,7 @@ const NewArticle = () => {
   const generateInlineMedia = async (
     rawAccumulated: string,
     _contentWithJsonLd: string,
-    opts: { wantInlineImage: boolean; wantInfographic: boolean },
+    opts: { wantInlineImage: boolean; wantInfographic: boolean; altInline?: string; altInfographic?: string },
   ) => {
     setIsGeneratingMedia(true);
     try {
@@ -496,7 +512,8 @@ const NewArticle = () => {
       };
 
       if (inlineRes?.image_url) {
-        const imgTag = INLINE_IMG(inlineRes.image_url, inlinePromptMatch?.[1]?.trim() || "Article image");
+        const alt = opts.altInline || inlinePromptMatch?.[1]?.trim() || "Article image";
+        const imgTag = INLINE_IMG(inlineRes.image_url, alt);
         if (/<!--\s*INLINE_IMAGE_HERE\s*-->/i.test(updated)) {
           updated = updated.replace(/<!--\s*INLINE_IMAGE_HERE\s*-->/i, imgTag);
         } else {
@@ -513,7 +530,8 @@ const NewArticle = () => {
       }
 
       if (infoRes?.image_url) {
-        const imgTag = INLINE_IMG(infoRes.image_url, infoPromptMatch?.[1]?.trim() || "Infographic");
+        const alt = opts.altInfographic || infoPromptMatch?.[1]?.trim() || "Infographic";
+        const imgTag = INLINE_IMG(infoRes.image_url, alt);
         if (/<!--\s*INFOGRAPHIC_HERE\s*-->/i.test(updated)) {
           updated = updated.replace(/<!--\s*INFOGRAPHIC_HERE\s*-->/i, imgTag);
         } else {
@@ -765,7 +783,7 @@ const NewArticle = () => {
         slug,
         content,
         excerpt,
-        meta_description: generatedMetaDescription.trim().slice(0, 150),
+        meta_description: generatedMetaDescription.trim().slice(0, 120),
         category,
         content_type: contentType,
         url_path,
@@ -774,7 +792,7 @@ const NewArticle = () => {
         author_name: authorName.trim(),
         reading_time_minutes,
         rss_enabled: rssEnabled,
-        ...(articleMeta ? { article_meta: articleMeta } : {}),
+        ...(articleMeta ? { article_meta: { ...articleMeta, cover_image_alt: coverImageAlt } } : { article_meta: { cover_image_alt: coverImageAlt } }),
         faq_html
       } as any;
 
@@ -1028,12 +1046,12 @@ const NewArticle = () => {
               </div>
             </div>
 
-            {/* Meta Description — editable, max 150 chars */}
+            {/* Meta Description — editable, max 120 chars */}
             <div className="mt-4">
               <div className="flex items-baseline justify-between">
                 <label className="text-sm font-medium text-foreground">Meta Description</label>
-                <span className={`text-xs ${generatedMetaDescription.length > 150 ? "text-destructive" : "text-muted-foreground"}`}>
-                  {generatedMetaDescription.length} / 150
+                <span className={`text-xs ${generatedMetaDescription.length > 120 ? "text-destructive" : "text-muted-foreground"}`}>
+                  {generatedMetaDescription.length} / 120
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -1041,12 +1059,12 @@ const NewArticle = () => {
               </p>
               <textarea
                 value={generatedMetaDescription}
-                onChange={(e) => setGeneratedMetaDescription(e.target.value.slice(0, 150))}
+                onChange={(e) => setGeneratedMetaDescription(e.target.value.slice(0, 120))}
                 placeholder="A short, compelling description of this article…"
                 rows={2}
-                maxLength={150}
+                maxLength={120}
                 className={`mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 ${
-                  generatedMetaDescription.length > 150
+                  generatedMetaDescription.length > 120
                     ? "border-destructive focus-visible:ring-destructive"
                     : "border-input focus-visible:ring-ring"
                 }`}
@@ -1139,7 +1157,7 @@ const NewArticle = () => {
                 />
                 {coverImageUrl ?
                 <div className="relative overflow-hidden rounded-xl border border-border">
-                    <img src={coverImageUrl} alt="Cover" className="h-48 w-full object-cover" />
+                    <img src={coverImageUrl} alt={coverImageAlt} className="h-48 w-full object-cover" />
                     <button
                     onClick={() => setCoverImageUrl(null)}
                     className="absolute right-2 top-2 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm hover:bg-background">

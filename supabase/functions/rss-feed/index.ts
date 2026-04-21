@@ -37,16 +37,16 @@ serve(async (req) => {
   // Look up the user by their rss_token
   const { data: settings, error: settingsErr } = await db
     .from("ai_settings")
-    .select("user_id, newsletter_website_url, brand_name")
+    .select("user_id, newsletter_website_url")
     .eq("rss_token", token)
     .single();
 
   if (settingsErr || !settings) {
-    return new Response("Not found", { status: 404 });
+    return new Response(JSON.stringify({ error: "Not found", token_prefix: token.slice(0, 8), settingsErr: settingsErr?.message }), { status: 404, headers: { "Content-Type": "application/json" } });
   }
 
   const baseUrl = (settings.newsletter_website_url || "https://www.skillstudio.ai").replace(/\/$/, "");
-  const siteTitle = escapeXml(settings.brand_name || "Content Lab");
+  const siteTitle = escapeXml("Content Lab");
 
   // Fetch RSS-enabled articles for this user, most recent first
   const { data: articles, error: articlesErr } = await db
@@ -68,7 +68,9 @@ serve(async (req) => {
     const desc = escapeXml(a.excerpt || "");
     const title = escapeXml(a.title || "Untitled");
     const imageTag = a.cover_image_url
-      ? `<enclosure url="${escapeXml(a.cover_image_url)}" type="image/jpeg" length="0" />`
+      ? `<enclosure url="${escapeXml(a.cover_image_url)}" type="image/jpeg" length="0" />
+      <media:content url="${escapeXml(a.cover_image_url)}" medium="image" type="image/jpeg"/>
+      <media:thumbnail url="${escapeXml(a.cover_image_url)}"/>`
       : "";
     return `
     <item>
@@ -81,22 +83,22 @@ serve(async (req) => {
     </item>`;
   }).join("\n");
 
-  const feedUrl = escapeXml(`${SUPABASE_URL}/functions/v1/rss-feed?token=${token}`);
+  const selfUrl = escapeXml(`${SUPABASE_URL}/functions/v1/rss-feed?token=${token}`);
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
   <channel>
     <title>${siteTitle}</title>
     <link>${escapeXml(baseUrl)}</link>
+    <atom:link href="${selfUrl}" rel="self" type="application/rss+xml"/>
     <description>Latest articles from ${siteTitle}</description>
     <language>en-us</language>
-    <atom:link href="${feedUrl}" rel="self" type="application/rss+xml" />
     ${items}
   </channel>
 </rss>`;
 
   return new Response(xml, {
     headers: {
-      "Content-Type": "application/rss+xml; charset=utf-8",
+      "Content-Type": "text/xml; charset=utf-8",
       "Cache-Control": "public, max-age=3600",
       "Access-Control-Allow-Origin": "*",
     },
