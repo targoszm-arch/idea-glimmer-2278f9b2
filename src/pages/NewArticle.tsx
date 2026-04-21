@@ -57,6 +57,7 @@ const NewArticle = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [showAssistant, setShowAssistant] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const [coverImageAlt, setCoverImageAlt] = useState("Cover image");
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [generatedMetaDescription, setGeneratedMetaDescription] = useState("");
@@ -294,6 +295,12 @@ const NewArticle = () => {
           setGeneratedMetaDescription(metaDescMatch[1].trim().slice(0, 150));
         }
 
+        const altCoverMatch = accumulated.match(/<!--\s*ALT_TEXT_COVER:\s*(.*?)\s*-->/i);
+        if (altCoverMatch?.[1]) setCoverImageAlt(altCoverMatch[1].trim());
+
+        const altInlineMatch = accumulated.match(/<!--\s*ALT_TEXT_INLINE:\s*(.*?)\s*-->/i);
+        const altInfographicMatch = accumulated.match(/<!--\s*ALT_TEXT_INFOGRAPHIC:\s*(.*?)\s*-->/i);
+
         // Extract ARTICLE_META_JSON
         const metaJsonMatch = accumulated.match(/<!--\s*ARTICLE_META_JSON:\s*([\s\S]*?)\s*-->/i);
         if (metaJsonMatch?.[1]) {
@@ -386,6 +393,8 @@ const NewArticle = () => {
           void generateInlineMedia(accumulated, finalContent, {
             wantInlineImage,
             wantInfographic,
+            altInline: altInlineMatch?.[1]?.trim(),
+            altInfographic: altInfographicMatch?.[1]?.trim(),
           });
         }
       },
@@ -405,7 +414,7 @@ const NewArticle = () => {
   const generateInlineMedia = async (
     rawAccumulated: string,
     _contentWithJsonLd: string,
-    opts: { wantInlineImage: boolean; wantInfographic: boolean },
+    opts: { wantInlineImage: boolean; wantInfographic: boolean; altInline?: string; altInfographic?: string },
   ) => {
     setIsGeneratingMedia(true);
     try {
@@ -496,7 +505,8 @@ const NewArticle = () => {
       };
 
       if (inlineRes?.image_url) {
-        const imgTag = INLINE_IMG(inlineRes.image_url, inlinePromptMatch?.[1]?.trim() || "Article image");
+        const alt = opts.altInline || inlinePromptMatch?.[1]?.trim() || "Article image";
+        const imgTag = INLINE_IMG(inlineRes.image_url, alt);
         if (/<!--\s*INLINE_IMAGE_HERE\s*-->/i.test(updated)) {
           updated = updated.replace(/<!--\s*INLINE_IMAGE_HERE\s*-->/i, imgTag);
         } else {
@@ -513,7 +523,8 @@ const NewArticle = () => {
       }
 
       if (infoRes?.image_url) {
-        const imgTag = INLINE_IMG(infoRes.image_url, infoPromptMatch?.[1]?.trim() || "Infographic");
+        const alt = opts.altInfographic || infoPromptMatch?.[1]?.trim() || "Infographic";
+        const imgTag = INLINE_IMG(infoRes.image_url, alt);
         if (/<!--\s*INFOGRAPHIC_HERE\s*-->/i.test(updated)) {
           updated = updated.replace(/<!--\s*INFOGRAPHIC_HERE\s*-->/i, imgTag);
         } else {
@@ -774,7 +785,7 @@ const NewArticle = () => {
         author_name: authorName.trim(),
         reading_time_minutes,
         rss_enabled: rssEnabled,
-        ...(articleMeta ? { article_meta: articleMeta } : {}),
+        ...(articleMeta ? { article_meta: { ...articleMeta, cover_image_alt: coverImageAlt } } : { article_meta: { cover_image_alt: coverImageAlt } }),
         faq_html
       } as any;
 
@@ -1139,7 +1150,7 @@ const NewArticle = () => {
                 />
                 {coverImageUrl ?
                 <div className="relative overflow-hidden rounded-xl border border-border">
-                    <img src={coverImageUrl} alt="Cover" className="h-48 w-full object-cover" />
+                    <img src={coverImageUrl} alt={coverImageAlt} className="h-48 w-full object-cover" />
                     <button
                     onClick={() => setCoverImageUrl(null)}
                     className="absolute right-2 top-2 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm hover:bg-background">

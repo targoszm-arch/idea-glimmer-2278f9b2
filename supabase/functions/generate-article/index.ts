@@ -106,10 +106,10 @@ function metadataTail(
   // creation. Only emitted when the corresponding flag is true — we don't
   // want the model guessing at prompts the caller isn't going to use.
   const inlineImageLine = includeInlineImage
-    ? `\n<!-- INLINE_IMAGE_PROMPT: [vivid 10-15 word photorealistic scene that illustrates the article's single most important claim — NOT a repeat of the cover scene. Different subject, different angle.] -->`
+    ? `\n<!-- INLINE_IMAGE_PROMPT: [vivid 10-15 word photorealistic scene that illustrates the article's single most important claim — NOT a repeat of the cover scene. Different subject, different angle.] -->\n<!-- ALT_TEXT_INLINE: [5-10 word descriptive alt text for the inline image, e.g. "data analyst reviewing dashboard metrics on screen"] -->`
     : "";
   const infographicLines = includeInfographic
-    ? `\n<!-- INFOGRAPHIC_PROMPT: [15-25 words describing concretely what data, comparison, or process the infographic should visualize based on the article's actual content — reference real numbers, named items, or steps from the body.] -->\n<!-- INFOGRAPHIC_STYLE: [pick exactly one of: stats | comparison | timeline | process | general — based on which fits the INFOGRAPHIC_PROMPT above] -->`
+    ? `\n<!-- INFOGRAPHIC_PROMPT: [15-25 words describing concretely what data, comparison, or process the infographic should visualize based on the article's actual content — reference real numbers, named items, or steps from the body.] -->\n<!-- INFOGRAPHIC_STYLE: [pick exactly one of: stats | comparison | timeline | process | general — based on which fits the INFOGRAPHIC_PROMPT above] -->\n<!-- ALT_TEXT_INFOGRAPHIC: [5-10 word descriptive alt text for the infographic, e.g. "bar chart comparing platform costs across five tiers"] -->`
     : "";
 
   return `
@@ -119,7 +119,8 @@ METADATA (append after final HTML)
 
 <!-- META_TITLE: [exact H1 text] -->
 <!-- META_DESCRIPTION: [one sentence, under 20 words, under 150 characters] -->
-<!-- COVER_IMAGE_PROMPT: [vivid 10-15 word photorealistic scene representing the topic] -->${inlineImageLine}${infographicLines}
+<!-- COVER_IMAGE_PROMPT: [vivid 10-15 word photorealistic scene representing the topic] -->
+<!-- ALT_TEXT_COVER: [5-10 word descriptive alt text for the hero image, e.g. "professional team collaborating around a whiteboard"] -->${inlineImageLine}${infographicLines}
 <!-- ARTICLE_META_JSON:
 {
   "keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
