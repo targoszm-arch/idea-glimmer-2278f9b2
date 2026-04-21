@@ -81,11 +81,13 @@ serve(async (req) => {
     </item>`;
   }).join("\n");
 
+  const selfUrl = escapeXml(`${SUPABASE_URL}/functions/v1/rss-feed?token=${token}`);
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>${siteTitle}</title>
     <link>${escapeXml(baseUrl)}</link>
+    <atom:link href="${selfUrl}" rel="self" type="application/rss+xml"/>
     <description>Latest articles from ${siteTitle}</description>
     <language>en-us</language>
     ${items}
