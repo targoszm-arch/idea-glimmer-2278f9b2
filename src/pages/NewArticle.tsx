@@ -289,6 +289,11 @@ const NewArticle = () => {
         editor?.commands.setContent(live);
       },
       onDone: () => {
+        const metaTitleMatch = accumulated.match(/<!--\s*META_TITLE:\s*(.*?)\s*-->/i);
+        if (metaTitleMatch?.[1]?.trim() && !title) {
+          setTitle(metaTitleMatch[1].trim());
+        }
+
         const metaDescMatch = accumulated.match(/<!--\s*META_DESCRIPTION:\s*(.*?)\s*-->/i)
           || accumulated.match(/\/\/\s*META_DESCRIPTION:\s*(.+)/i);
         if (metaDescMatch?.[1]) {
