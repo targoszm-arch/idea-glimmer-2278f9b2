@@ -38,6 +38,7 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Support from "./pages/Support";
 import ClaudeConnector from "./pages/ClaudeConnector";
+import LinkedInRSS from "./pages/LinkedInRSS";
 
 const queryClient = new QueryClient();
 
@@ -79,6 +80,7 @@ const App = () => (
             <Route path="/settings/brand" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/settings/integrations" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/settings/team" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/linkedin-rss" element={<ProtectedRoute><LinkedInRSS /></ProtectedRoute>} />
             <Route path="/newsletter/analytics" element={<ProtectedRoute><NewsletterAnalytics /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><NewsletterAnalytics /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

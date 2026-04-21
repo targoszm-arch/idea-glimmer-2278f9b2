@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Menu, X, PenSquare, Lightbulb, Library, Settings, Share2, Bookmark,
   LogOut, Coins, HelpCircle, ExternalLink, UserCircle,
-  CalendarDays, ChevronDown, BarChart2, FileText, Video
+  CalendarDays, ChevronDown, BarChart2, FileText, Video, Rss
 } from "lucide-react";
 import contentLabLogo from "@/assets/ContentLab_Logo.png";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,9 +26,10 @@ const NAV_GROUPS = [
   {
     label: "Publish",
     items: [
-      { label: "Post",     href: "/new",           icon: PenSquare,   desc: "Write a new article" },
-      { label: "Schedule", href: "/calendar",      icon: CalendarDays,desc: "Calendar & automations" },
-      { label: "All Posts", href: "/social?tab=library", icon: Bookmark, desc: "Every social post — saved, scheduled, posted, agent-written" },
+      { label: "Post",          href: "/new",            icon: PenSquare,   desc: "Write a new article" },
+      { label: "Schedule",      href: "/calendar",       icon: CalendarDays,desc: "Calendar & automations" },
+      { label: "All Posts",     href: "/social?tab=library", icon: Bookmark, desc: "Every social post — saved, scheduled, posted, agent-written" },
+      { label: "LinkedIn RSS",  href: "/linkedin-rss",   icon: Rss,         desc: "Stream articles to LinkedIn via RSS" },
     ],
   },
   {
@@ -43,7 +44,7 @@ const NAV_GROUPS = [
 // Exact match hrefs per group — used to avoid false positives
 const GROUP_HREFS: Record<string, string[]> = {
   Create:  ["/dashboard", "/brand", "/social", "/ideas"],
-  Publish: ["/new", "/calendar", "/automations"],
+  Publish: ["/new", "/calendar", "/automations", "/linkedin-rss"],
   Monitor: ["/analytics", "/newsletter/analytics", "/reports"],
 };
 

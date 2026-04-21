@@ -81,6 +81,7 @@ const EditArticle = () => {
   const [authorName, setAuthorName] = useState("");
   const [relatedArticleIds, setRelatedArticleIds] = useState<string[]>([]);
   const [contentType, setContentType] = useState<"blog" | "user_guide" | "how_to">("blog");
+  const [rssEnabled, setRssEnabled] = useState(false);
   const [metaDescription, setMetaDescription] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCreditsDialog, setShowCreditsDialog] = useState(false);
@@ -128,6 +129,7 @@ const EditArticle = () => {
       setAuthorName((data as any).author_name || "");
       setRelatedArticleIds((data as any).related_article_ids || []);
       setContentType(((data as any).content_type as any) || "blog");
+      setRssEnabled(!!(data as any).rss_enabled);
       setMetaDescription(data.meta_description || "");
       // Strip any markdown fences or preamble before first HTML tag
       let articleContent = data.content || "";
@@ -174,6 +176,7 @@ const EditArticle = () => {
         author_name: authorName.trim(),
         reading_time_minutes,
         faq_html,
+        rss_enabled: rssEnabled,
         updated_at: new Date().toISOString()
       } as any;
 
@@ -984,6 +987,23 @@ const EditArticle = () => {
                     : "border-border focus:border-primary focus:ring-primary"
                 }`}
               />
+            </div>
+
+            {/* LinkedIn RSS toggle */}
+            <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+              <div>
+                <p className="text-sm font-medium text-foreground">Publish to LinkedIn RSS</p>
+                <p className="text-xs text-muted-foreground">Include this article in your LinkedIn RSS feed</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRssEnabled(v => !v)}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${rssEnabled ? "bg-primary" : "bg-input"}`}
+                role="switch"
+                aria-checked={rssEnabled}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition-transform ${rssEnabled ? "translate-x-4" : "translate-x-0"}`} />
+              </button>
             </div>
 
             <RelatedArticlesPicker
