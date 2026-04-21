@@ -138,6 +138,70 @@ serve(async (req) => {
     userId = user.id;
   }
 
+  // ── Collection-slot enforcement ──────────────────────────────────────────
+  const collectionId = req.headers.get("x-framer-collection-id") ?? null;
+
+  const PLAN_MAX_COLLECTIONS: Record<string, number> = { free: 0, starter: 1, pro: 5 };
+
+  const { data: credits } = await adminSupabase
+    .from("user_credits")
+    .select("plan, stripe_payment_status")
+    .eq("user_id", userId)
+    .single();
+
+  const plan = credits?.plan ?? "free";
+  const isActive =
+    credits?.stripe_payment_status === "active" ||
+    (plan !== "free" && credits?.stripe_payment_status !== "cancelled");
+  const maxCollections = isActive ? (PLAN_MAX_COLLECTIONS[plan] ?? 1) : 0;
+
+  if (maxCollections === 0) {
+    return new Response(
+      JSON.stringify({ error: "Active subscription required to sync collections." }),
+      { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  if (collectionId) {
+    const { data: existing } = await adminSupabase
+      .from("user_integrations")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("platform", "framer")
+      .eq("collection_id", collectionId)
+      .maybeSingle();
+
+    if (!existing) {
+      const { count } = await adminSupabase
+        .from("user_integrations")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("platform", "framer")
+        .not("collection_id", "is", null);
+
+      if ((count ?? 0) >= maxCollections) {
+        return new Response(
+          JSON.stringify({
+            error: `Your plan allows ${maxCollections} collection(s). Upgrade to sync more.`,
+            max_collections: maxCollections,
+            upgrade_required: true,
+          }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      await adminSupabase.from("user_integrations").insert({
+        user_id: userId,
+        platform: "framer",
+        collection_id: collectionId,
+        access_token: "plugin-managed",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    }
+  }
+  // ────────────────────────────────────────────────────────────────────────
+
   try {
     const url = new URL(req.url);
     const categoryFilter = url.searchParams.get("category");
@@ -194,8 +258,20 @@ serve(async (req) => {
         ? meta.sources.map((s: any) => s.url || "").filter(Boolean).join("\n")
         : (meta.references ?? "");
 
+      // Framer formattedText strips <video> tags — convert to linked text
+      let content: string = a.content ?? "";
+      content = content.replace(
+        /<video[^>]*\bsrc="([^"]*)"[^>]*>[\s\S]*?<\/video>/gi,
+        '<p><a href="$1">▶ Watch video</a></p>'
+      );
+      content = content.replace(
+        /<video[^>]*\bsrc="([^"]*)"[^>]*\/?>/gi,
+        '<p><a href="$1">▶ Watch video</a></p>'
+      );
+
       return {
         ...a,
+        content,
         keywords,
         facts,
         references,

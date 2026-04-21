@@ -5,9 +5,18 @@ import Stripe from "https://esm.sh/stripe@14";
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, { apiVersion: "2023-10-16" });
 const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
 
-// Credits granted per plan — keyed by Stripe price amount in cents
+// Credits granted per plan
 const PLAN_CREDITS = 200; // €50/mo = 200 credits
-const PLAN_NAME = "starter";
+
+// Comma-separated Stripe price IDs for the Pro plan tier.
+// Set STRIPE_PRO_PRICE_IDS in Supabase edge function secrets.
+const PRO_PRICE_IDS = new Set(
+  (Deno.env.get("STRIPE_PRO_PRICE_IDS") ?? "").split(",").map(s => s.trim()).filter(Boolean)
+);
+
+function planNameForPriceId(priceId: string): string {
+  return PRO_PRICE_IDS.has(priceId) ? "pro" : "starter";
+}
 
 async function upsertUserCredits(
   adminSupabase: any,
@@ -81,11 +90,20 @@ serve(async (req) => {
       const resolvedUserId = userId ?? await findUserId(adminSupabase, stripeCustomerId, email);
       if (!resolvedUserId) { console.warn("No user found for checkout session"); break; }
 
-      await upsertUserCredits(adminSupabase, resolvedUserId, stripeCustomerId, PLAN_CREDITS, PLAN_NAME, "active");
+      // Detect plan tier from the purchased price ID
+      let priceId = "";
+      if (session.subscription) {
+        try {
+          const sub = await stripe.subscriptions.retrieve(session.subscription as string);
+          priceId = sub.items.data[0]?.price?.id ?? "";
+        } catch {}
+      }
+      const planName = planNameForPriceId(priceId);
 
-      // Store stripe_customer_id on auth user metadata
+      await upsertUserCredits(adminSupabase, resolvedUserId, stripeCustomerId, PLAN_CREDITS, planName, "active");
+
       await adminSupabase.auth.admin.updateUserById(resolvedUserId, {
-        user_metadata: { stripe_customer_id: stripeCustomerId, plan: PLAN_NAME },
+        user_metadata: { stripe_customer_id: stripeCustomerId, plan: planName },
       });
       break;
     }
@@ -102,9 +120,16 @@ serve(async (req) => {
       const resolvedUserId = await findUserId(adminSupabase, stripeCustomerId, email);
       if (!resolvedUserId) { console.warn("No user found for invoice"); break; }
 
-      // Reset credits back to full allocation for the new billing period
-      await upsertUserCredits(adminSupabase, resolvedUserId, stripeCustomerId, PLAN_CREDITS, PLAN_NAME, "active");
-      console.log(`✓ Monthly credits reset for user ${resolvedUserId}`);
+      // Detect plan tier from the invoice line items
+      let renewPriceId = "";
+      try {
+        const sub = await stripe.subscriptions.retrieve(invoice.subscription as string);
+        renewPriceId = sub.items.data[0]?.price?.id ?? "";
+      } catch {}
+      const renewPlanName = planNameForPriceId(renewPriceId);
+
+      await upsertUserCredits(adminSupabase, resolvedUserId, stripeCustomerId, PLAN_CREDITS, renewPlanName, "active");
+      console.log(`✓ Monthly credits reset for user ${resolvedUserId} (plan: ${renewPlanName})`);
       break;
     }
 

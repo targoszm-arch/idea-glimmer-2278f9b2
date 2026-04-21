@@ -130,14 +130,22 @@ const PLUGIN_HTML = `<!DOCTYPE html>
           const collection = await framer.getManagedCollection();
           if (!collection) { setStatus("No managed collection found.", "error"); setLoading(false); return; }
 
+          const collectionId = collection.id ?? "";
+
           const res = await fetch(SYNC_ENDPOINT + "?status=published", {
             headers: {
               "Content-Type": "application/json",
               Authorization: "Bearer " + SUPABASE_ANON_KEY,
               apikey: SUPABASE_ANON_KEY,
+              "x-framer-collection-id": collectionId,
             },
           });
 
+          if (res.status === 403) {
+            const err = await res.json().catch(() => ({}));
+            setStatus(err.error || "Upgrade required to sync more collections.", "error");
+            setLoading(false); return;
+          }
           if (!res.ok) { setStatus("Fetch failed: " + await res.text(), "error"); setLoading(false); return; }
 
           const { articles } = await res.json();
