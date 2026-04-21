@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { buildUrlPath } from "@/lib/slug";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, Copy, Download, Mail, RefreshCw, Check, Send, Pencil, Plus, Trash2 } from "lucide-react";
@@ -105,11 +106,19 @@ export function NewsletterEditor({ open, onClose, article, brandName, brandLogoU
       else if (logoUrl) setBrandSettings(prev => ({ ...prev, logoUrl }));
     });
 
-    // Load real slug + url_path from DB if we have an article id
+    // Load slug + content_type from DB and recompute url_path via buildUrlPath
+    // so stale stored url_path values (with wrong category prefixes) are ignored.
     if (article.id) {
-      supabase.from("articles").select("slug, url_path").eq("id", article.id).maybeSingle().then(({ data }: any) => {
-        if (data?.slug) setArticleSlug(data.slug);
-        if (data?.url_path) setArticleUrlPath(data.url_path);
+      supabase.from("articles").select("slug, content_type, title").eq("id", article.id).maybeSingle().then(({ data }: any) => {
+        if (data?.slug) {
+          setArticleSlug(data.slug);
+          const computed = buildUrlPath({
+            title: data.title || data.slug,
+            contentType: data.content_type || "blog",
+            existingSlug: data.slug,
+          });
+          setArticleUrlPath(computed);
+        }
       });
     }
     if (article.id) {
