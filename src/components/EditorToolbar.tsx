@@ -62,29 +62,22 @@ const EditorToolbar = ({ editor, onUnsplash }: EditorToolbarProps) => {
         : "text-muted-foreground hover:bg-secondary hover:text-foreground"
     }`;
 
-  const fileToBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result.split(",")[1]);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
   const uploadFile = async (file: File): Promise<string | null> => {
     try {
-      const base64 = await fileToBase64(file);
-      const { data, error } = await supabase.functions.invoke("upload-article-media", {
-        body: {
-          file_base64: base64,
-          file_name: file.name,
-          content_type: file.type,
-        },
-      });
-      if (error) throw error;
-      return data.url;
+      const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+      const uniqueName = `content/media-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("article-covers")
+        .upload(uniqueName, file, { contentType: file.type, upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("article-covers")
+        .getPublicUrl(uniqueName);
+
+      return urlData.publicUrl;
     } catch (e) {
       console.error("Upload failed:", e);
       toast({ title: "Upload failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
@@ -108,6 +101,7 @@ const EditorToolbar = ({ editor, onUnsplash }: EditorToolbarProps) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsUploadingVideo(true);
+    toast({ title: "Uploading video…", description: "This may take a moment for large files." });
     const url = await uploadFile(file);
     if (url) {
       editor.chain().focus().insertContent({ type: "video", attrs: { src: url } }).run();
