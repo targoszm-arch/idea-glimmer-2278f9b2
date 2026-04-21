@@ -297,7 +297,7 @@ const NewArticle = () => {
         const metaDescMatch = accumulated.match(/<!--\s*META_DESCRIPTION:\s*(.*?)\s*-->/i)
           || accumulated.match(/\/\/\s*META_DESCRIPTION:\s*(.+)/i);
         if (metaDescMatch?.[1]) {
-          setGeneratedMetaDescription(metaDescMatch[1].trim().slice(0, 150));
+          setGeneratedMetaDescription(metaDescMatch[1].trim().slice(0, 120));
         }
 
         const altCoverMatch = accumulated.match(/<!--\s*ALT_TEXT_COVER:\s*(.*?)\s*-->/i);
@@ -373,7 +373,7 @@ const NewArticle = () => {
               : undefined;
             const titleMatch = cleanContent.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
             const h1Title = titleMatch?.[1]?.replace(/<[^>]+>/g, "").trim() || title || topic;
-            const description = metaDescMatch?.[1]?.trim().slice(0, 150) || "";
+            const description = metaDescMatch?.[1]?.trim().slice(0, 120) || "";
             const jsonLd = buildArticleJsonLd({
               title: h1Title,
               description,
@@ -781,7 +781,7 @@ const NewArticle = () => {
         slug,
         content,
         excerpt,
-        meta_description: generatedMetaDescription.trim().slice(0, 150),
+        meta_description: generatedMetaDescription.trim().slice(0, 120),
         category,
         content_type: contentType,
         url_path,
@@ -1044,12 +1044,12 @@ const NewArticle = () => {
               </div>
             </div>
 
-            {/* Meta Description — editable, max 150 chars */}
+            {/* Meta Description — editable, max 120 chars */}
             <div className="mt-4">
               <div className="flex items-baseline justify-between">
                 <label className="text-sm font-medium text-foreground">Meta Description</label>
-                <span className={`text-xs ${generatedMetaDescription.length > 150 ? "text-destructive" : "text-muted-foreground"}`}>
-                  {generatedMetaDescription.length} / 150
+                <span className={`text-xs ${generatedMetaDescription.length > 120 ? "text-destructive" : "text-muted-foreground"}`}>
+                  {generatedMetaDescription.length} / 120
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -1057,12 +1057,12 @@ const NewArticle = () => {
               </p>
               <textarea
                 value={generatedMetaDescription}
-                onChange={(e) => setGeneratedMetaDescription(e.target.value.slice(0, 150))}
+                onChange={(e) => setGeneratedMetaDescription(e.target.value.slice(0, 120))}
                 placeholder="A short, compelling description of this article…"
                 rows={2}
-                maxLength={150}
+                maxLength={120}
                 className={`mt-2 w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 ${
-                  generatedMetaDescription.length > 150
+                  generatedMetaDescription.length > 120
                     ? "border-destructive focus-visible:ring-destructive"
                     : "border-input focus-visible:ring-ring"
                 }`}

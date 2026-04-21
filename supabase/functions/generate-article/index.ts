@@ -118,7 +118,7 @@ METADATA (append after final HTML)
 --------------------
 
 <!-- META_TITLE: [exact H1 text] -->
-<!-- META_DESCRIPTION: [one sentence, under 20 words, under 150 characters] -->
+<!-- META_DESCRIPTION: [STRICT LIMIT: max 12 words, max 120 characters — a punchy, keyword-rich summary. Example: "Why AI tools cannot replace instructional designers in L&D teams."] -->
 <!-- COVER_IMAGE_PROMPT: [vivid 10-15 word photorealistic scene representing the topic] -->
 <!-- ALT_TEXT_COVER: [5-10 word descriptive alt text for the hero image, e.g. "professional team collaborating around a whiteboard"] -->${inlineImageLine}${infographicLines}
 <!-- ARTICLE_META_JSON:
