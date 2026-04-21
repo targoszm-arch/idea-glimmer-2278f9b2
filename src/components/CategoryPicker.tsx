@@ -12,6 +12,7 @@ const CategoryPicker = ({ value, onChange }: CategoryPickerProps) => {
   const [labels, setLabels] = useState<{ id: string; name: string }[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [newLabel, setNewLabel] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchLabels();
@@ -49,6 +50,18 @@ const CategoryPicker = ({ value, onChange }: CategoryPickerProps) => {
     setIsAdding(false);
   };
 
+  const handleDelete = async (label: { id: string; name: string }) => {
+    setDeletingId(label.id);
+    const { error } = await supabase.from("category_labels").delete().eq("id", label.id);
+    if (error) {
+      toast({ title: "Failed to delete label", description: error.message, variant: "destructive" });
+    } else {
+      setLabels((prev) => prev.filter((l) => l.id !== label.id));
+      if (value === label.name) onChange("");
+    }
+    setDeletingId(null);
+  };
+
   return (
     <div>
       <label className="mb-1.5 block text-sm font-medium text-foreground">Category</label>
@@ -56,19 +69,33 @@ const CategoryPicker = ({ value, onChange }: CategoryPickerProps) => {
         {labels.map((label) => {
           const isSelected = value === label.name;
           return (
-            <button
-              key={label.id}
-              type="button"
-              onClick={() => onChange(isSelected ? "" : label.name)}
-              className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                isSelected
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
-              }`}
-            >
-              <Tag className="h-3 w-3" />
-              {label.name}
-            </button>
+            <span key={label.id} className="group relative inline-flex items-center">
+              <button
+                type="button"
+                onClick={() => onChange(isSelected ? "" : label.name)}
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 pr-6 text-xs font-medium transition-colors ${
+                  isSelected
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+                }`}
+              >
+                <Tag className="h-3 w-3" />
+                {label.name}
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleDelete(label); }}
+                disabled={deletingId === label.id}
+                className={`absolute right-1 rounded-full p-0.5 opacity-0 transition-opacity group-hover:opacity-100 ${
+                  isSelected
+                    ? "text-primary-foreground/70 hover:text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Delete category"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
           );
         })}
         {isAdding ? (
