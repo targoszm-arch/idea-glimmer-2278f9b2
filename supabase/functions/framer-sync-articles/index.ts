@@ -265,9 +265,13 @@ serve(async (req) => {
         ? meta.sources.map((s: any) => s.url || "").filter(Boolean).join("\n")
         : (meta.references ?? "");
 
+      // Extract video URL before stripping — exposed as a dedicated Framer field
+      const rawContent: string = a.content ?? "";
+      const videoMatch = rawContent.match(/<video[^>]*\bsrc="([^"]*)"/i);
+      const video_url: string = videoMatch?.[1] ?? "";
+
       // Framer formattedText strips <video> tags — convert to linked text
-      let content: string = a.content ?? "";
-      content = content.replace(
+      let content = rawContent.replace(
         /<video[^>]*\bsrc="([^"]*)"[^>]*>[\s\S]*?<\/video>/gi,
         '<p><a href="$1">▶ Watch video</a></p>'
       );
@@ -279,6 +283,7 @@ serve(async (req) => {
       return {
         ...a,
         content,
+        video_url,
         keywords,
         facts,
         references,

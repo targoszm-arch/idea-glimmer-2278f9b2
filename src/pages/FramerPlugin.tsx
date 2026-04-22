@@ -83,6 +83,7 @@ const PLUGIN_HTML = `<!DOCTYPE html>
         { name: "Cover Image", type: "image" },
         { name: "Meta Description", type: "string" },
         { name: "Published Date", type: "date" },
+        { name: "Video URL", type: "string" },
       ];
 
       function setStatus(msg, type = "info") {
@@ -167,6 +168,7 @@ const PLUGIN_HTML = `<!DOCTYPE html>
             const covId = fieldMap.get("Cover Image");
             const metId = fieldMap.get("Meta Description");
             const datId = fieldMap.get("Published Date");
+            const vidId = fieldMap.get("Video URL");
             if (titleId) fd[titleId] = { type: "string", value: a.title };
             if (bodyId) fd[bodyId] = { type: "formattedText", value: a.content, contentType: "html" };
             if (excId) fd[excId] = { type: "string", value: a.excerpt };
@@ -175,6 +177,7 @@ const PLUGIN_HTML = `<!DOCTYPE html>
             if (datId) fd[datId] = { type: "date", value: a.created_at };
             if (covId && a.cover_image_url && !a.cover_image_url.startsWith("data:"))
               fd[covId] = { type: "image", value: a.cover_image_url };
+            if (vidId && a.video_url) fd[vidId] = { type: "string", value: a.video_url };
             return { id: a.id, slug: a.slug, title: a.title, fieldData: fd };
           });
 
