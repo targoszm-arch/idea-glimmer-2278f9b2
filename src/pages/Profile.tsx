@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { User, Key, CreditCard, RefreshCw, Copy, Check, ExternalLink, Lock, Coins } from "lucide-react";
+import { User, Key, CreditCard, RefreshCw, Copy, Check, ExternalLink, Lock, Coins, Download } from "lucide-react";
 import PageLayout from "@/components/PageLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCredits, STRIPE_URLS, TOP_UP_OPTIONS } from "@/hooks/use-credits";
 import { toast } from "sonner";
+import { downloadPluginZip } from "@/lib/framer-plugin-download";
 
 
 function TopUpSelector() {
@@ -274,10 +275,17 @@ const Profile = () => {
           <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
             <p className="text-sm font-medium text-blue-900 mb-1">How to use</p>
             <ol className="text-sm text-blue-800 space-y-0.5 list-decimal list-inside">
-              <li>Install ContentLab plugin in Framer from the Marketplace</li>
-              <li>Open the plugin and paste your API key</li>
-              <li>Click Sync to import your published articles</li>
+              <li>Download the plugin ZIP below and extract it</li>
+              <li>In Framer: <kbd className="px-1 py-0.5 bg-blue-100 rounded text-xs font-mono">⌘K</kbd> → Open Development Plugin → Import from folder</li>
+              <li>Open the plugin, paste your API key, and click Sync</li>
             </ol>
+            <button
+              onClick={() => { downloadPluginZip(); toast.success("Plugin downloaded!"); }}
+              className="mt-3 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Download Plugin ZIP
+            </button>
           </div>
         </section>
       </div>
