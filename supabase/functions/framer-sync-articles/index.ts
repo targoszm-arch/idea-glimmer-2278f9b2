@@ -270,15 +270,10 @@ serve(async (req) => {
       const videoMatch = rawContent.match(/<video[^>]*\bsrc="([^"]*)"/i);
       const video_url: string = videoMatch?.[1] ?? "";
 
-      // Framer formattedText strips <video> tags — convert to linked text
-      let content = rawContent.replace(
-        /<video[^>]*\bsrc="([^"]*)"[^>]*>[\s\S]*?<\/video>/gi,
-        '<p><a href="$1">▶ Watch video</a></p>'
-      );
-      content = content.replace(
-        /<video[^>]*\bsrc="([^"]*)"[^>]*\/?>/gi,
-        '<p><a href="$1">▶ Watch video</a></p>'
-      );
+      // Strip <video> from body — video_url field carries the URL for inline
+      // playback via the Framer Video component bound to that CMS field
+      let content = rawContent.replace(/<video[^>]*>[\s\S]*?<\/video>/gi, "");
+      content = content.replace(/<video[^>]*\/?>/gi, "");
 
       return {
         ...a,
