@@ -12,6 +12,7 @@ interface Schedule {
   recipient_count: number;
   status: string;
   from_name: string;
+  error_message: string | null;
 }
 
 interface ContactRow {
@@ -38,8 +39,8 @@ export default function NewsletterAnalytics() {
 
   useEffect(() => {
     supabase.from("newsletter_schedules" as any)
-      .select("id, subject_line, sent_at, scheduled_at, recipient_count, status, from_name")
-      .in("status", ["sent", "sending"])
+      .select("id, subject_line, sent_at, scheduled_at, recipient_count, status, from_name, error_message")
+      .in("status", ["sent", "sending", "failed"])
       .order("scheduled_at", { ascending: false })
       .then(({ data }: any) => {
         if (data) setSchedules(data);
@@ -146,14 +147,21 @@ export default function NewsletterAnalytics() {
                   <p className="text-[10px] text-muted-foreground mt-1">
                     {s.sent_at ? new Date(s.sent_at).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" }) : new Date(s.scheduled_at).toLocaleDateString()}
                   </p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${s.status === "sent" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
-                      {s.status}
+                  <div className="flex items-center gap-1 mt-1 flex-wrap">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                      s.status === "sent" ? "bg-green-100 text-green-700" :
+                      s.status === "failed" ? "bg-red-100 text-red-700" :
+                      "bg-blue-100 text-blue-700"
+                    }`}>
+                      {s.status === "failed" ? "⚠ partial" : s.status}
                     </span>
                     {s.recipient_count > 0 && (
-                      <span className="text-[10px] text-muted-foreground">{s.recipient_count} sent</span>
+                      <span className="text-[10px] text-muted-foreground">{s.recipient_count.toLocaleString()} recipients</span>
                     )}
                   </div>
+                  {s.status === "failed" && s.error_message && (
+                    <p className="text-[10px] text-red-600 mt-1 line-clamp-2">{s.error_message}</p>
+                  )}
                 </button>
               ))}
             </div>
