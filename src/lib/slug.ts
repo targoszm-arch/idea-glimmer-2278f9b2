@@ -16,20 +16,22 @@ export function toSlug(input: string, maxLen = 80): string {
   return s.substring(0, maxLen).replace(/-+$/, "");
 }
 
-// CMS detail-page path in Framer where blog articles are rendered.
-// Must match the route configured in the Framer project.
-const FRAMER_BLOG_COLLECTION_PAGE = "features-updates";
-
 /**
- * Build the full URL path for an article based on its content type.
- * This is what's synced to Framer as the url_path field.
+ * Build the full URL path for an article.
  *
  * Rules:
- *   user_guide, how_to -> "help/knowledge-base/{slug}/documentation-articles"
- *   blog / newsletter  -> "features-updates/{slug}"
+ *   user_guide, how_to → "help/knowledge-base/{slug}/documentation-articles"
+ *   blog / newsletter  → "{category-slug}/{article-slug}"
  *
- * Framer URLs are {collection-page}/{slug} where slug is the plain article
- * slug — no category prefix. e.g. /features-updates/ai-literacy-future-workforce
+ * URL format on skillstudio.ai:
+ *   /features-updates/{slug}
+ *   /course-authoring/{slug}
+ *   /industry-news/{slug}
+ *   /compliance-training/{slug}
+ *   etc.
+ *
+ * The category slug is derived from the article's category field.
+ * Falls back to "features-updates" if no category is set.
  */
 export function buildUrlPath(opts: {
   title: string;
@@ -38,8 +40,14 @@ export function buildUrlPath(opts: {
   existingSlug?: string | null;
 }): string {
   const slug = toSlug(opts.existingSlug || opts.title);
+
   if (opts.contentType === "user_guide" || opts.contentType === "how_to") {
     return `help/knowledge-base/${slug}/documentation-articles`;
   }
-  return `${FRAMER_BLOG_COLLECTION_PAGE}/${slug}`;
+
+  const categorySlug = opts.category
+    ? toSlug(opts.category)
+    : "features-updates";
+
+  return `${categorySlug}/${slug}`;
 }

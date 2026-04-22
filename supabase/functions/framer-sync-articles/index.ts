@@ -60,21 +60,39 @@ serve(async (req) => {
         });
       }
 
-      // Resolve the CMS detail-page path from the user's integration metadata.
-      // Falls back to "features-updates" which is the default for skillstudio.ai.
-      const { data: integration } = await adminSupabase
-        .from("user_integrations")
-        .select("metadata")
-        .eq("user_id", userId)
-        .eq("platform", "framer")
-        .maybeSingle();
-      const collectionPage: string =
-        (integration?.metadata as any)?.collection_page ?? "features-updates";
+      // Build url_path from each article's own category + slug fields.
+      // URL format: {category-slug}/{article-slug}
+      // e.g. "features-updates/ai-literacy-future-workforce-essential"
+      //      "course-authoring/3-ways-to-elevate-online-courses"
+      // We look up the article directly instead of trusting the Framer-assigned
+      // slug (which was causing doubled category prefixes like
+      // "features-updates/features-updates-ai-literacy-...").
+      function toUrlSlug(s: string): string {
+        return s.toLowerCase().normalize("NFKD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+      }
 
       let updatedCount = 0;
-      for (const { id, framer_slug } of updates) {
-        if (!id || !framer_slug) continue;
-        const url_path = `${collectionPage}/${framer_slug}`;
+      for (const { id } of updates) {
+        if (!id) continue;
+        const { data: article } = await adminSupabase
+          .from("articles")
+          .select("slug, category, content_type")
+          .eq("id", id)
+          .eq("user_id", userId)
+          .single();
+        if (!article?.slug) continue;
+
+        let url_path: string;
+        if (article.content_type === "user_guide" || article.content_type === "how_to") {
+          url_path = `help/knowledge-base/${article.slug}/documentation-articles`;
+        } else {
+          const catSlug = article.category ? toUrlSlug(article.category) : "features-updates";
+          url_path = `${catSlug}/${article.slug}`;
+        }
+
         const { error } = await adminSupabase
           .from("articles")
           .update({ url_path })
