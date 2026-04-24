@@ -292,6 +292,12 @@ serve(async (req) => {
       let content = rawContent.replace(/<video[^>]*>[\s\S]*?<\/video>/gi, "");
       content = content.replace(/<video[^>]*\/?>/gi, "");
 
+      // Strip inline <img> tags — Framer tries to re-upload every src URL to its
+      // own CDN; external hosts (e.g. storage.saltfish.ai) often block the fetch
+      // with CORS errors and Framer aborts the entire addItems call. The article
+      // cover image is synced separately via the dedicated Cover Image field.
+      content = content.replace(/<img[^>]*\/?>/gi, "");
+
       return {
         ...a,
         content,
