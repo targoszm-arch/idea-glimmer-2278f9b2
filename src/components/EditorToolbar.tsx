@@ -135,7 +135,7 @@ const EditorToolbar = ({ editor, onUnsplash }: EditorToolbarProps) => {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-border bg-secondary px-3 py-2 rounded-t-xl sticky top-0 z-40 shadow-sm">
+    <div className="flex flex-wrap items-center gap-1 border-b border-border bg-secondary px-3 py-2 rounded-t-xl">
       <button onClick={() => editor.chain().focus().toggleBold().run()} className={btnClass(editorState.isBold)}>
         <Bold className="h-4 w-4" />
       </button>
