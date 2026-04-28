@@ -1014,9 +1014,9 @@ const EditArticle = () => {
               onChange={setRelatedArticleIds}
             />
 
-            <div className="mt-4 rounded-xl border border-border bg-card overflow-hidden">
+            <div className="mt-4 rounded-xl border border-border bg-card">
               {/* Edit / Preview toggle */}
-              <div className="flex items-center border-b border-border">
+              <div className="flex items-center border-b border-border sticky top-0 z-40 bg-card rounded-t-xl">
                 <button
                   onClick={() => setPreviewMode(false)}
                   className={`px-4 py-2.5 text-sm font-medium transition-colors ${!previewMode ? "text-primary border-b-2 border-primary -mb-px bg-background" : "text-muted-foreground hover:text-foreground"}`}>
