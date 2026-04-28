@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.process-newsletter-queue]
 verify_jwt = false
+
+[functions.rss-feed]
+verify_jwt = false
