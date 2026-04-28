@@ -633,7 +633,7 @@ const EditArticle = () => {
   return (
     <>
     <PageLayout hideFooter>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <div>
         <div className="mb-6 flex items-center justify-between">
           <button
             onClick={() => navigate("/dashboard")}
@@ -1079,7 +1079,7 @@ const EditArticle = () => {
             </motion.div>
           )}
         </div>
-      </motion.div>
+      </div>
     </PageLayout>
     <OutOfCreditsDialog open={showCreditsDialog} onOpenChange={setShowCreditsDialog} creditsNeeded={CREDIT_COSTS.generate_cover_image} creditsAvailable={credits ?? 0} />
     <CanvaDesignPicker

@@ -848,7 +848,7 @@ const NewArticle = () => {
     <>
     
     <PageLayout hideFooter>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <div>
           <div className="mb-6 flex items-center justify-between">
             <button onClick={() => navigate("/dashboard")} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
               <ArrowLeft className="h-4 w-4" />
@@ -1257,7 +1257,7 @@ const NewArticle = () => {
               </motion.div>
             }
           </div>
-        </motion.div>
+        </div>
     </PageLayout>
     <OutOfCreditsDialog open={showCreditsDialog} onOpenChange={setShowCreditsDialog} creditsNeeded={CREDIT_COSTS.generate_article} creditsAvailable={credits ?? 0} />
     <UnsplashPicker
