@@ -292,11 +292,20 @@ serve(async (req) => {
       let content = rawContent.replace(/<video[^>]*>[\s\S]*?<\/video>/gi, "");
       content = content.replace(/<video[^>]*\/?>/gi, "");
 
-      // Strip inline <img> tags — Framer tries to re-upload every src URL to its
-      // own CDN; external hosts (e.g. storage.saltfish.ai) often block the fetch
-      // with CORS errors and Framer aborts the entire addItems call. The article
-      // cover image is synced separately via the dedicated Cover Image field.
-      content = content.replace(/<img[^>]*\/?>/gi, "");
+      // Strip <img> tags whose src isn't on a host Framer can reliably fetch.
+      // Framer re-uploads every <img src> to its own CDN; if the source host
+      // blocks the fetch (CORS / auth), Framer aborts the entire addItems call.
+      // Allow Supabase storage (where user-uploaded body images live) and
+      // Framer's own CDN; strip everything else (e.g. storage.saltfish.ai).
+      content = content.replace(/<img[^>]*\bsrc=["']([^"']*)["'][^>]*\/?>/gi, (match, src) => {
+        const allowed =
+          /\.supabase\.co\/storage\//.test(src) ||
+          /(^|\/\/)([^/]*\.)?framerusercontent\.com\//.test(src) ||
+          /(^|\/\/)([^/]*\.)?framer\.com\//.test(src);
+        return allowed ? match : "";
+      });
+      // Also drop any remaining img tags without a src
+      content = content.replace(/<img(?![^>]*\bsrc=)[^>]*\/?>/gi, "");
 
       return {
         ...a,
