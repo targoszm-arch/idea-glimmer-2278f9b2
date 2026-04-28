@@ -98,7 +98,7 @@ serve(async (req) => {
 
   return new Response(xml, {
     headers: {
-      "Content-Type": "text/xml; charset=utf-8",
+      "Content-Type": "application/rss+xml; charset=utf-8",
       // Short cache so Zapier / LinkedIn pick up newly RSS-enabled articles
       // within ~1 minute instead of waiting up to an hour.
       "Cache-Control": "public, max-age=60",
