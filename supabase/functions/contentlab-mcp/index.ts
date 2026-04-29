@@ -373,12 +373,29 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
         jsonLdBlocks.push(`<script type="application/ld+json">${JSON.stringify(blog)}</script>`);
       }
 
+      // Capture inline-image / infographic prompts BEFORE cleaning the HTML —
+      // we'll use them after saving to call the image generation endpoints.
+      const inlineImagePromptMatch = args?.include_inline_image === true
+        ? html.match(/<!--\s*INLINE_IMAGE_PROMPT:\s*([\s\S]*?)\s*-->/i)
+        : null;
+      const infographicPromptMatch = args?.include_infographic === true
+        ? html.match(/<!--\s*INFOGRAPHIC_PROMPT:\s*([\s\S]*?)\s*-->/i)
+        : null;
+      const infographicStyleMatch = args?.include_infographic === true
+        ? html.match(/<!--\s*INFOGRAPHIC_STYLE:\s*(stats|comparison|timeline|process|general)\s*-->/i)
+        : null;
+
       // Clean: strip meta comment blocks, code fences, inline styles, any
       // stray <script> blocks the model may have emitted despite the prompt.
+      // Strip the *_PROMPT comments too (they leaked the prompt to readers).
+      // Keep *_HERE placeholders — they're substituted with <img> tags below.
       const cleanedHtml = html
         .replace(/<!--\s*META_TITLE:[\s\S]*?-->/gi, "")
         .replace(/<!--\s*META_DESCRIPTION:[\s\S]*?-->/gi, "")
         .replace(/<!--\s*COVER_IMAGE_PROMPT:[\s\S]*?-->/gi, "")
+        .replace(/<!--\s*INLINE_IMAGE_PROMPT:[\s\S]*?-->/gi, "")
+        .replace(/<!--\s*INFOGRAPHIC_PROMPT:[\s\S]*?-->/gi, "")
+        .replace(/<!--\s*INFOGRAPHIC_STYLE:[\s\S]*?-->/gi, "")
         .replace(/<!--\s*ARTICLE_META_JSON:[\s\S]*?-->/gi, "")
         .replace(/<!--\s*META_JSON_START[\s\S]*?META_JSON_END\s*-->/g, "")
         .replace(/<script[^>]*application\/ld\+json[^>]*>[\s\S]*?<\/script>/gi, "")
@@ -471,6 +488,92 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
         }
       } else {
         console.log(`[create_article] skipping cover image for article ${data.id} (opt-in flag not set)`);
+      }
+
+      // Inline image + infographic generation (mirrors NewArticle.tsx). Best-
+      // effort: any failure is logged but doesn't fail the article. Both run
+      // in parallel. The article is then UPDATEd with the substituted HTML.
+      const inlinePrompt = inlineImagePromptMatch?.[1]?.trim();
+      const infographicPrompt = infographicPromptMatch?.[1]?.trim();
+      const infographicStyle = infographicStyleMatch?.[1]?.toLowerCase() || "general";
+
+      if (inlinePrompt || infographicPrompt) {
+        try {
+          const contextSnippet = plainText.slice(0, 500);
+          const inlineReq = inlinePrompt
+            ? fetch(`${supabaseUrl}/functions/v1/generate-cover-image`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt: inlinePrompt, context: contextSnippet, user_id_override: ctx.userId }),
+              }).then((r) => r.json()).catch((e) => ({ error: String(e) }))
+            : Promise.resolve(null);
+          const infoReq = infographicPrompt
+            ? fetch(`${supabaseUrl}/functions/v1/generate-infographic`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt: infographicPrompt, style: infographicStyle, user_id_override: ctx.userId }),
+              }).then((r) => r.json()).catch((e) => ({ error: String(e) }))
+            : Promise.resolve(null);
+
+          const [inlineRes, infoRes] = await Promise.all([inlineReq, infoReq]);
+
+          const escapeAttr = (s: string) => s.replace(/"/g, "&quot;");
+          const imgTag = (url: string, alt: string) => `<img src="${url}" alt="${escapeAttr(alt)}" />`;
+
+          const insertAtFallback = (htmlStr: string, tag: string, kind: "inline" | "info"): string => {
+            if (kind === "info") {
+              const faqMatch = htmlStr.match(/<h2[^>]*id="faqs"[^>]*>|<h2[^>]*>[^<]*Frequently Asked/i);
+              if (faqMatch && faqMatch.index !== undefined) {
+                return htmlStr.slice(0, faqMatch.index) + tag + "\n" + htmlStr.slice(faqMatch.index);
+              }
+            }
+            const firstSection = htmlStr.match(/<\/h2>[\s\S]*?<\/p>/i);
+            if (firstSection && firstSection.index !== undefined) {
+              const insertAt = firstSection.index + firstSection[0].length;
+              return htmlStr.slice(0, insertAt) + "\n" + tag + htmlStr.slice(insertAt);
+            }
+            return htmlStr + "\n" + tag;
+          };
+
+          let updated = cleanContent;
+
+          if (inlineRes?.image_url) {
+            const tag = imgTag(inlineRes.image_url, inlinePrompt || "Article image");
+            updated = /<!--\s*INLINE_IMAGE_HERE\s*-->/i.test(updated)
+              ? updated.replace(/<!--\s*INLINE_IMAGE_HERE\s*-->/i, tag)
+              : insertAtFallback(updated, tag, "inline");
+            console.log(`[create_article] inline image attached to article ${data.id}`);
+          } else if (inlinePrompt) {
+            console.warn(`[create_article] inline image failed for article ${data.id}:`, inlineRes?.error || "no image_url");
+          }
+
+          if (infoRes?.image_url) {
+            const tag = imgTag(infoRes.image_url, infographicPrompt || "Infographic");
+            updated = /<!--\s*INFOGRAPHIC_HERE\s*-->/i.test(updated)
+              ? updated.replace(/<!--\s*INFOGRAPHIC_HERE\s*-->/i, tag)
+              : insertAtFallback(updated, tag, "info");
+            console.log(`[create_article] infographic attached to article ${data.id}`);
+          } else if (infographicPrompt) {
+            console.warn(`[create_article] infographic failed for article ${data.id}:`, infoRes?.error || "no image_url");
+          }
+
+          // Strip any leftover *_HERE placeholders that didn't get substituted.
+          updated = updated
+            .replace(/<!--\s*INLINE_IMAGE_HERE\s*-->/gi, "")
+            .replace(/<!--\s*INFOGRAPHIC_HERE\s*-->/gi, "");
+
+          if (updated !== cleanContent) {
+            const { error: mediaUpdateErr } = await admin
+              .from("articles")
+              .update({ content: updated })
+              .eq("id", data.id);
+            if (mediaUpdateErr) {
+              console.warn(`[create_article] media-content update failed for article ${data.id}: ${mediaUpdateErr.message}`);
+            }
+          }
+        } catch (e) {
+          console.warn(`[create_article] inline media generation threw for article ${data.id}:`, e);
+        }
       }
     } catch (e) {
       console.error(`[create_article] background generation threw for user ${ctx.userId}:`, e);
@@ -1060,7 +1163,7 @@ const TOOLS: ToolDef[] = [
   {
     name: "create_article",
     description:
-      "Start generating a new SEO-ready article (1,500–2,000 words) from a topic, grounded in current web data via Perplexity. Costs 5 Content Lab credits for the article text. Returns IMMEDIATELY with status: started — generation runs in the background and typically completes in 90–150 seconds. Call `list_articles` after ~2 minutes to see the finished article in the user's library. A cover image is NOT generated by default; pass `generate_cover_image: true` to opt in (adds 5 credits, uses DALL-E 3). Users can always add or change a cover image later from the Content Lab editor.",
+      "Start generating a new SEO-ready article (1,500–2,000 words) from a topic, grounded in current web data via Perplexity. Costs 5 Content Lab credits for the article text. Returns IMMEDIATELY with status: started — generation runs in the background and typically completes in 90–150 seconds. Call `list_articles` after ~2 minutes to see the finished article in the user's library. Image generation is opt-in: `generate_cover_image: true` adds a DALL-E 3 cover (+5 credits), `include_inline_image: true` adds a DALL-E 3 inline image inside the article body (+5 credits), `include_infographic: true` adds a DALL-E 3 infographic (+5 credits). All three are off by default — only pass true when the user explicitly asked for an image. Users can always add or change images later from the Content Lab editor.",
     inputSchema: {
       type: "object",
       required: ["topic"],
@@ -1090,6 +1193,18 @@ const TOOLS: ToolDef[] = [
           default: false,
           description:
             "Set to true to additionally generate a cover image via DALL-E 3 (adds 5 credits). Off by default — only pass true when the user explicitly asked for an image.",
+        },
+        include_inline_image: {
+          type: "boolean",
+          default: false,
+          description:
+            "Set to true to insert an AI-generated inline image (DALL-E 3) inside the article body. Adds 5 credits. The model places the image at a relevant point in the article.",
+        },
+        include_infographic: {
+          type: "boolean",
+          default: false,
+          description:
+            "Set to true to insert an AI-generated infographic (DALL-E 3) inside the article body. Adds 5 credits. The infographic style is auto-selected from the article topic (stats, comparison, timeline, process, or general).",
         },
       },
     },

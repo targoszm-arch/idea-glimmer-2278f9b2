@@ -55,25 +55,44 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Auth
+    // Auth — accept either a real user JWT or the service-role key with
+    // a user_id_override (used by the MCP server's create_article handler).
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return json({ error: "Unauthorized" }, 401);
     }
-    const supabaseAuth = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
-    if (authError || !user) return json({ error: "Unauthorized" }, 401);
+    const token = authHeader.replace("Bearer ", "").trim();
+    const isServiceRole = token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    let userId: string;
+    let bodyJson: any;
+
+    if (isServiceRole) {
+      bodyJson = await req.json();
+      const overrideId = bodyJson.user_id_override;
+      if (!overrideId) {
+        return json({ error: "user_id_override required when using service role" }, 400);
+      }
+      userId = overrideId;
+    } else {
+      const supabaseAuth = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } },
+      );
+      const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+      if (authError || !user) return json({ error: "Unauthorized" }, 401);
+      userId = user.id;
+      bodyJson = await req.json();
+    }
+
     const { data: hasCredits } = await supabaseAdmin.rpc("deduct_credits", {
-      p_user_id: user.id,
+      p_user_id: userId,
       p_amount: 5,
       p_action: "generate_infographic",
     });
@@ -81,7 +100,7 @@ serve(async (req) => {
       return json({ error: "Insufficient credits", code: "NO_CREDITS" }, 402);
     }
 
-    const { prompt, style = "general" } = await req.json();
+    const { prompt, style = "general" } = bodyJson;
     if (!prompt) return json({ error: "Prompt is required" }, 400);
 
     // Stage 1 — LLM generates structured content.
