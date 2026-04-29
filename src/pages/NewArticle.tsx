@@ -108,6 +108,8 @@ const NewArticle = () => {
       if (data) {
         setAiSettings(data as any);
         setTone(data.tone_key || "informative");
+        const defaultAuthor = (data as any).default_author_name || "";
+        if (defaultAuthor) setAuthorName((prev) => prev || defaultAuthor);
       }
     })();
   }, []);

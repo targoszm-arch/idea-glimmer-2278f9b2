@@ -19,6 +19,9 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
   const [saving, setSaving] = useState(false);
   const [settingsId, setSettingsId] = useState<string | null>(null);
 
+  // Default author name (applied to new articles + used to backfill missing ones)
+  const [defaultAuthorName, setDefaultAuthorName] = useState("");
+
   // Newsletter brand settings
   const [newsletterFromName, setNewsletterFromName] = useState("");
   const [newsletterFromEmail, setNewsletterFromEmail] = useState("");
@@ -48,6 +51,7 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
         setAppAudience(data.app_audience || "");
         setSocialVoiceProfile((data as any).social_voice_profile || "");
         setReferenceUrls(data.reference_urls || []);
+        setDefaultAuthorName((data as any).default_author_name || "");
         setNewsletterFromName((data as any).newsletter_from_name || "ContentLab");
         setNewsletterFromEmail((data as any).newsletter_from_email || "");
         setNewsletterReplyTo((data as any).newsletter_reply_to || "");
@@ -72,6 +76,7 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
       app_audience: appAudience,
       social_voice_profile: socialVoiceProfile,
       reference_urls: referenceUrls,
+      default_author_name: defaultAuthorName.trim(),
       newsletter_from_name: newsletterFromName,
       newsletter_from_email: newsletterFromEmail,
       newsletter_reply_to: newsletterReplyTo,
@@ -92,6 +97,25 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
 
     if (error) {
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
+      setSaving(false);
+      return;
+    }
+
+    // Backfill missing author_name on existing articles for this user.
+    const trimmedAuthor = defaultAuthorName.trim();
+    if (trimmedAuthor && user?.id) {
+      const { data: backfilled, error: backfillErr } = await supabase
+        .from("articles")
+        .update({ author_name: trimmedAuthor })
+        .eq("user_id", user.id)
+        .or("author_name.is.null,author_name.eq.")
+        .select("id");
+      if (backfillErr) {
+        toast({ title: "Settings saved, backfill failed", description: backfillErr.message });
+      } else {
+        const n = backfilled?.length ?? 0;
+        toast({ title: "Settings saved!", description: n > 0 ? `Backfilled author on ${n} article${n === 1 ? "" : "s"}.` : undefined });
+      }
     } else {
       toast({ title: "Settings saved!" });
     }
@@ -272,6 +296,21 @@ Beliefs: care about craft, skeptical of hype, small things tell the truth.`}
                 ))}
               </div>
             )}
+          </section>
+
+          {/* Default Author */}
+          <section className="mb-8 rounded-xl border border-border bg-card p-6">
+            <h2 className="mb-1 text-lg font-bold text-foreground">Default Author Name</h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Used as the author byline on every new article. Saving here also backfills the author
+              on any existing articles where it's missing.
+            </p>
+            <input
+              value={defaultAuthorName}
+              onChange={(e) => setDefaultAuthorName(e.target.value.slice(0, 120))}
+              placeholder="e.g. Magda Targosz"
+              className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
           </section>
 
           {/* Newsletter Brand Settings */}
