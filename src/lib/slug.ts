@@ -40,14 +40,16 @@ export function buildUrlPath(opts: {
   existingSlug?: string | null;
 }): string {
   const slug = toSlug(opts.existingSlug || opts.title);
+  const categorySlug = opts.category ? toSlug(opts.category) : "features-updates";
 
-  if (opts.contentType === "user_guide" || opts.contentType === "how_to") {
+  // Knowledge Base lives under /help/knowledge-base/.../documentation-articles
+  // on skillstudio.ai, regardless of content_type. Match by category slug
+  // so blog/how-to/user_guide articles in the KB collection all land there.
+  if (categorySlug.startsWith("knowledge-base") ||
+      opts.contentType === "user_guide" ||
+      opts.contentType === "how_to") {
     return `help/knowledge-base/${slug}/documentation-articles`;
   }
-
-  const categorySlug = opts.category
-    ? toSlug(opts.category)
-    : "features-updates";
 
   return `${categorySlug}/${slug}`;
 }
