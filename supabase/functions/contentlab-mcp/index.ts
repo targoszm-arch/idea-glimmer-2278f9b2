@@ -659,6 +659,9 @@ async function updateArticleHandler(args: any, ctx: AuthContext): Promise<unknow
     "content_type",
     "status",
     "cover_image_url",
+    "author_name",
+    "rss_enabled",
+    "related_article_ids",
   ] as const;
 
   const update: Record<string, unknown> = {};
@@ -672,6 +675,39 @@ async function updateArticleHandler(args: any, ctx: AuthContext): Promise<unknow
 
   if (typeof update.status === "string" && !["draft", "published", "scheduled", "archived"].includes(update.status as string)) {
     throw new Error("`status` must be one of: draft, published, scheduled, archived");
+  }
+
+  if (update.rss_enabled !== undefined && typeof update.rss_enabled !== "boolean") {
+    throw new Error("`rss_enabled` must be a boolean");
+  }
+
+  if (update.related_article_ids !== undefined) {
+    if (!Array.isArray(update.related_article_ids)) {
+      throw new Error("`related_article_ids` must be an array of article UUIDs");
+    }
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const ids = (update.related_article_ids as unknown[]).map((v) => String(v));
+    for (const rid of ids) {
+      if (!uuidRe.test(rid)) throw new Error(`related_article_ids contains an invalid UUID: ${rid}`);
+      if (rid === id) throw new Error("An article cannot reference itself in related_article_ids");
+    }
+    // Verify every referenced article belongs to the same user — prevents
+    // building a Web of links to articles the caller doesn't own.
+    if (ids.length > 0) {
+      const { data: owned, error: ownedErr } = await ctx.admin
+        .from("articles")
+        .select("id")
+        .eq("user_id", ctx.userId)
+        .in("id", ids);
+      if (ownedErr) throw new Error(`Failed to validate related articles: ${ownedErr.message}`);
+      const ownedSet = new Set((owned ?? []).map((r: { id: string }) => r.id));
+      const missing = ids.filter((rid) => !ownedSet.has(rid));
+      if (missing.length > 0) {
+        throw new Error(`related_article_ids references articles you don't own or that don't exist: ${missing.join(", ")}`);
+      }
+    }
+    // Dedup while preserving order.
+    update.related_article_ids = Array.from(new Set(ids));
   }
 
   // Recompute reading time whenever content changes so the library's
@@ -1260,7 +1296,7 @@ const TOOLS: ToolDef[] = [
   {
     name: "update_article",
     description:
-      "Edit an existing article. Supports partial updates — only pass the fields you want to change. Fields: title, content (HTML), excerpt, meta_description, category, content_type, status (draft|published|scheduled|archived), cover_image_url. When `content` changes, `reading_time_minutes` is recomputed automatically. Slug and sync metadata (WordPress/Intercom ids) are server-controlled and not editable via this tool.",
+      "Edit an existing article. Supports partial updates — only pass the fields you want to change. Fields: title, content (HTML), excerpt, meta_description, category, content_type, status (draft|published|scheduled|archived), cover_image_url, author_name, rss_enabled (toggles inclusion in the LinkedIn/Zapier RSS feed), related_article_ids (array of article UUIDs the caller also owns; used by the editor's Related Articles section and by Framer's multiCollectionReference field). When `content` changes, `reading_time_minutes` is recomputed automatically. Slug and sync metadata (WordPress/Intercom ids) are server-controlled and not editable via this tool.",
     inputSchema: {
       type: "object",
       required: ["id"],
@@ -1274,6 +1310,17 @@ const TOOLS: ToolDef[] = [
         content_type: { type: "string", enum: ["blog", "landing", "comparison", "how-to", "user_guide"] },
         status: { type: "string", enum: ["draft", "published", "scheduled", "archived"] },
         cover_image_url: { type: "string", format: "uri" },
+        author_name: { type: "string", description: "Article byline." },
+        rss_enabled: {
+          type: "boolean",
+          description: "Whether this article should appear in the user's RSS feed (LinkedIn/Zapier).",
+        },
+        related_article_ids: {
+          type: "array",
+          items: { type: "string", format: "uuid" },
+          description:
+            "UUIDs of other articles owned by the same user that should appear as Related Articles. Pass an empty array to clear. Server validates ownership and rejects self-references.",
+        },
       },
     },
     annotations: {
