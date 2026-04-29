@@ -107,3 +107,6 @@ verify_jwt = false
 
 [functions.rss-feed]
 verify_jwt = false
+
+[functions.track-user-signup]
+verify_jwt = false
