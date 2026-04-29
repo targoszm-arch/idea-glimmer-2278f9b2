@@ -102,18 +102,26 @@ const AISettings = ({ embedded = false }: { embedded?: boolean }) => {
     }
 
     // Backfill missing author_name on existing articles for this user.
+    // Run two updates because PostgREST rejects an empty value after .eq.
     const trimmedAuthor = defaultAuthorName.trim();
     if (trimmedAuthor && user?.id) {
-      const { data: backfilled, error: backfillErr } = await supabase
-        .from("articles")
-        .update({ author_name: trimmedAuthor })
-        .eq("user_id", user.id)
-        .or("author_name.is.null,author_name.eq.")
-        .select("id");
+      const [{ data: nullRows, error: nullErr }, { data: emptyRows, error: emptyErr }] = await Promise.all([
+        supabase.from("articles")
+          .update({ author_name: trimmedAuthor })
+          .eq("user_id", user.id)
+          .is("author_name", null)
+          .select("id"),
+        supabase.from("articles")
+          .update({ author_name: trimmedAuthor })
+          .eq("user_id", user.id)
+          .eq("author_name", "")
+          .select("id"),
+      ]);
+      const backfillErr = nullErr || emptyErr;
       if (backfillErr) {
         toast({ title: "Settings saved, backfill failed", description: backfillErr.message });
       } else {
-        const n = backfilled?.length ?? 0;
+        const n = (nullRows?.length ?? 0) + (emptyRows?.length ?? 0);
         toast({ title: "Settings saved!", description: n > 0 ? `Backfilled author on ${n} article${n === 1 ? "" : "s"}.` : undefined });
       }
     } else {
