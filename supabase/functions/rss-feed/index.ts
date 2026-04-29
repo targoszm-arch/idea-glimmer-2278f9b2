@@ -62,8 +62,20 @@ serve(async (req) => {
     return new Response("Internal error", { status: 500 });
   }
 
+  // Add UTM tags so PostHog/GA can attribute clicks back to the LinkedIn
+  // RSS feed (Zapier reposts each item to LinkedIn). guid is built without
+  // UTMs so feed readers don't treat the same item with different campaigns
+  // as different posts.
   const items = (articles ?? []).map((a) => {
-    const link = `${baseUrl}/${a.url_path ?? a.id}`;
+    const baseLink = `${baseUrl}/${a.url_path ?? a.id}`;
+    const slugForCampaign = (a.url_path ?? a.id).split("/").pop() || a.id;
+    const utm = new URLSearchParams({
+      utm_source: "linkedin",
+      utm_medium: "social",
+      utm_campaign: "rss",
+      utm_content: slugForCampaign,
+    }).toString();
+    const link = `${baseLink}?${utm}`;
     const pubDate = new Date(a.updated_at || a.created_at).toUTCString();
     const desc = escapeXml(a.excerpt || "");
     const title = escapeXml(a.title || "Untitled");
@@ -76,7 +88,7 @@ serve(async (req) => {
     <item>
       <title>${title}</title>
       <link>${escapeXml(link)}</link>
-      <guid isPermaLink="true">${escapeXml(link)}</guid>
+      <guid isPermaLink="false">${escapeXml(baseLink)}</guid>
       <description>${desc}</description>
       <pubDate>${pubDate}</pubDate>
       ${imageTag}
