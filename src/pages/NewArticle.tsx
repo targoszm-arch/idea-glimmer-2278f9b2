@@ -1084,7 +1084,19 @@ const NewArticle = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setRssEnabled(v => !v)}
+                  onClick={() => {
+                    setRssEnabled(v => {
+                      const next = !v;
+                      if (next && !rssPublishAt) {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 1);
+                        d.setHours(9, 0, 0, 0);
+                        const pad = (n: number) => String(n).padStart(2, "0");
+                        setRssPublishAt(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                      }
+                      return next;
+                    });
+                  }}
                   className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${rssEnabled ? "bg-primary" : "bg-input"}`}
                   role="switch"
                   aria-checked={rssEnabled}
@@ -1101,17 +1113,19 @@ const NewArticle = () => {
                     onChange={(e) => setRssPublishAt(e.target.value)}
                     className="rounded border border-input bg-background px-2 py-1 text-xs"
                   />
-                  {rssPublishAt && (
+                  {rssPublishAt ? (
                     <button
                       type="button"
                       onClick={() => setRssPublishAt("")}
                       className="text-xs text-muted-foreground underline hover:text-foreground"
                     >
-                      Clear (broadcast now)
+                      Clear
                     </button>
+                  ) : (
+                    <span className="text-xs font-medium text-amber-600">⚠ Will broadcast immediately on save</span>
                   )}
                   <p className="basis-full text-xs text-muted-foreground">
-                    Leave blank to broadcast immediately. Set a future time to delay when Zapier/LinkedIn picks it up.
+                    Default is tomorrow 9am to prevent flooding Zapier. Pick any future time, or clear to broadcast immediately.
                   </p>
                 </div>
               )}
