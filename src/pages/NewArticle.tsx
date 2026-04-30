@@ -64,6 +64,7 @@ const NewArticle = () => {
   const [generatedMetaDescription, setGeneratedMetaDescription] = useState("");
   const [authorName, setAuthorName] = useState("");
   const [rssEnabled, setRssEnabled] = useState(false);
+  const [rssPublishAt, setRssPublishAt] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCreditsDialog, setShowCreditsDialog] = useState(false);
   const [showMediaLibrary, setShowMediaLibrary] = useState(false);
@@ -794,6 +795,7 @@ const NewArticle = () => {
         author_name: authorName.trim(),
         reading_time_minutes,
         rss_enabled: rssEnabled,
+        rss_publish_at: rssEnabled && rssPublishAt ? new Date(rssPublishAt).toISOString() : null,
         ...(articleMeta ? { article_meta: { ...articleMeta, cover_image_alt: coverImageAlt } } : { article_meta: { cover_image_alt: coverImageAlt } }),
         faq_html
       } as any;
@@ -1074,20 +1076,45 @@ const NewArticle = () => {
             </div>
 
             {/* LinkedIn RSS toggle */}
-            <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2.5">
-              <div>
-                <p className="text-sm font-medium text-foreground">Publish to LinkedIn RSS</p>
-                <p className="text-xs text-muted-foreground">Include this article in your LinkedIn RSS feed</p>
+            <div className="mt-4 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Publish to LinkedIn RSS</p>
+                  <p className="text-xs text-muted-foreground">Include this article in your LinkedIn RSS feed</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRssEnabled(v => !v)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${rssEnabled ? "bg-primary" : "bg-input"}`}
+                  role="switch"
+                  aria-checked={rssEnabled}
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition-transform ${rssEnabled ? "translate-x-4" : "translate-x-0"}`} />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setRssEnabled(v => !v)}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${rssEnabled ? "bg-primary" : "bg-input"}`}
-                role="switch"
-                aria-checked={rssEnabled}
-              >
-                <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition-transform ${rssEnabled ? "translate-x-4" : "translate-x-0"}`} />
-              </button>
+              {rssEnabled && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                  <label className="text-xs font-medium text-foreground">Broadcast at:</label>
+                  <input
+                    type="datetime-local"
+                    value={rssPublishAt}
+                    onChange={(e) => setRssPublishAt(e.target.value)}
+                    className="rounded border border-input bg-background px-2 py-1 text-xs"
+                  />
+                  {rssPublishAt && (
+                    <button
+                      type="button"
+                      onClick={() => setRssPublishAt("")}
+                      className="text-xs text-muted-foreground underline hover:text-foreground"
+                    >
+                      Clear (broadcast now)
+                    </button>
+                  )}
+                  <p className="basis-full text-xs text-muted-foreground">
+                    Leave blank to broadcast immediately. Set a future time to delay when Zapier/LinkedIn picks it up.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Media options — blog only. Inline image and infographic

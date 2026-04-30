@@ -48,13 +48,17 @@ serve(async (req) => {
   const baseUrl = (settings.newsletter_website_url || "https://www.skillstudio.ai").replace(/\/$/, "");
   const siteTitle = escapeXml("Content Lab");
 
-  // Fetch RSS-enabled articles for this user, most recent first
+  // Fetch RSS-enabled articles for this user, most recent first.
+  // Articles with rss_publish_at set in the future are held back so users
+  // can stage when Zapier / LinkedIn picks them up.
+  const nowIso = new Date().toISOString();
   const { data: articles, error: articlesErr } = await db
     .from("articles")
-    .select("id, title, excerpt, url_path, cover_image_url, created_at, updated_at, category")
+    .select("id, title, excerpt, url_path, cover_image_url, created_at, updated_at, rss_publish_at, category")
     .eq("user_id", settings.user_id)
     .eq("rss_enabled", true)
     .eq("status", "published")
+    .or(`rss_publish_at.is.null,rss_publish_at.lte.${nowIso}`)
     .order("updated_at", { ascending: false })
     .limit(50);
 
@@ -76,7 +80,9 @@ serve(async (req) => {
       utm_content: slugForCampaign,
     }).toString();
     const link = `${baseLink}?${utm}`;
-    const pubDate = new Date(a.updated_at || a.created_at).toUTCString();
+    // Use rss_publish_at as the pubDate when set so Zapier sees the item
+    // with the user-chosen broadcast time and treats it as "new on that day".
+    const pubDate = new Date(a.rss_publish_at || a.updated_at || a.created_at).toUTCString();
     const desc = escapeXml(a.excerpt || "");
     const title = escapeXml(a.title || "Untitled");
     const imageTag = a.cover_image_url

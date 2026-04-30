@@ -661,6 +661,7 @@ async function updateArticleHandler(args: any, ctx: AuthContext): Promise<unknow
     "cover_image_url",
     "author_name",
     "rss_enabled",
+    "rss_publish_at",
     "related_article_ids",
   ] as const;
 
@@ -679,6 +680,18 @@ async function updateArticleHandler(args: any, ctx: AuthContext): Promise<unknow
 
   if (update.rss_enabled !== undefined && typeof update.rss_enabled !== "boolean") {
     throw new Error("`rss_enabled` must be a boolean");
+  }
+
+  // rss_publish_at: ISO 8601 timestamp, or null to clear (publish to RSS now).
+  if (update.rss_publish_at !== undefined && update.rss_publish_at !== null) {
+    if (typeof update.rss_publish_at !== "string") {
+      throw new Error("`rss_publish_at` must be an ISO 8601 timestamp string or null");
+    }
+    const parsed = Date.parse(update.rss_publish_at);
+    if (Number.isNaN(parsed)) {
+      throw new Error(`\`rss_publish_at\` is not a valid timestamp: ${update.rss_publish_at}`);
+    }
+    update.rss_publish_at = new Date(parsed).toISOString();
   }
 
   if (update.related_article_ids !== undefined) {
@@ -1314,6 +1327,12 @@ const TOOLS: ToolDef[] = [
         rss_enabled: {
           type: "boolean",
           description: "Whether this article should appear in the user's RSS feed (LinkedIn/Zapier).",
+        },
+        rss_publish_at: {
+          type: ["string", "null"],
+          format: "date-time",
+          description:
+            "Optional ISO 8601 timestamp at which the article should appear in the RSS feed. Use this to schedule when Zapier/LinkedIn picks it up. Null/omitted means broadcast immediately. Requires rss_enabled to be true to take effect.",
         },
         related_article_ids: {
           type: "array",
