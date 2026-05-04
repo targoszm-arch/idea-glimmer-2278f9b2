@@ -680,10 +680,10 @@ const NewArticle = () => {
     setIsUploadingImage(false);
   };
 
-  const handlePublishToFramer = async () => {
-    if (!savedArticleId) { toast({ title: "Save the article first", variant: "destructive" }); return; }
-    // Save first to make sure latest content is in DB
-    await handleSave("published");
+  // Inner helper — fires the Framer push without saving. Returns true if
+  // the push succeeded OR returned plugin_managed (acceptable). Used by
+  // both the Publish button (auto-fires) and the Publish-to dropdown.
+  const pushToFramer = async (articleId: string, opts: { silent?: boolean } = {}): Promise<boolean> => {
     setIsSyncingFramer(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -692,21 +692,29 @@ const NewArticle = () => {
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/publish-to-framer`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ article_id: savedArticleId, framer_item_id: framerItemId ?? null, slug, title }),
+        body: JSON.stringify({ article_id: articleId, framer_item_id: framerItemId ?? null, slug, title }),
       });
       const data = await res.json();
       if (data.error === "plugin_managed") {
-        toast({ title: "Framer syncs via plugin", description: data.message });
-        setIsSyncingFramer(false);
-        return;
+        if (!opts.silent) toast({ title: "Framer syncs via plugin", description: data.message });
+        return true;
       }
       if (!res.ok) throw new Error(data.error || "Framer sync failed");
       if (data.framer_item_id) setFramerItemId(data.framer_item_id);
-      toast({ title: `Article ${data.action ?? "synced"} in Framer CMS!` });
+      if (!opts.silent) toast({ title: `Article ${data.action ?? "synced"} in Framer CMS!` });
+      return true;
     } catch (e: any) {
       toast({ title: "Framer sync failed", description: e.message, variant: "destructive" });
+      return false;
+    } finally {
+      setIsSyncingFramer(false);
     }
-    setIsSyncingFramer(false);
+  };
+
+  const handlePublishToFramer = async () => {
+    if (!savedArticleId) { toast({ title: "Save the article first", variant: "destructive" }); return; }
+    await handleSave("published");
+    await pushToFramer(savedArticleId);
   };
 
   const handlePublishToWordPress = async () => {
@@ -771,7 +779,7 @@ const NewArticle = () => {
       const content = (editor?.getHTML() || "").replace(/\s*style="[^"]*"/gi, "");
       const plainText = editor?.getText() || "";
       const excerpt = plainText.slice(0, 200);
-      const slug = toSlug(title, 64);
+      const slug = toSlug(title);
       const url_path = buildUrlPath({ title, contentType, category, existingSlug: slug });
 
       const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
@@ -834,15 +842,25 @@ const NewArticle = () => {
         return;
       }
 
-      if (status === "published") {
-        toast({ title: "Article published!", description: "Use 'Publish to' to push to Framer, WordPress and more." });
-      } else {
-        toast({ title: "Saved as draft!" });
-      }
-
       setSavedArticleId(data.id);
       if ((data as any).framer_item_id) setFramerItemId((data as any).framer_item_id);
       if ((data as any).wp_permalink) setWpPermalink((data as any).wp_permalink);
+
+      if (status === "published") {
+        // Publish = save AND push to Framer in a single click. The user
+        // shouldn't have to chase a second menu. Other destinations
+        // (WordPress, Notion, etc.) stay opt-in via the Publish-to menu.
+        const ok = await pushToFramer(data.id, { silent: true });
+        toast({
+          title: ok ? "Article published & synced to Framer ✓" : "Published — Framer push failed",
+          description: ok
+            ? "Live on your site and in the RSS feed."
+            : "The article is published in ContentLab; retry the Framer push manually from the Publish to menu.",
+          variant: ok ? "default" : "destructive",
+        });
+      } else {
+        toast({ title: "Saved as draft!" });
+      }
     } finally {
       setIsSaving(false);
     }

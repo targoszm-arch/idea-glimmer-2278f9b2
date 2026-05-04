@@ -164,7 +164,7 @@ const EditArticle = () => {
       const content = (editor?.getHTML() || "").replace(/\s*style="[^"]*"/gi, "");
       const plainText = editor?.getText() || "";
       const excerpt = plainText.slice(0, 200);
-      const slug = toSlug(title, 80);
+      const slug = toSlug(title);
       const url_path = buildUrlPath({ title, contentType, category, existingSlug: slug });
       const finalStatus = newStatus || status;
 
@@ -217,9 +217,16 @@ const EditArticle = () => {
       setStatus(finalStatus);
 
       if (finalStatus === "published") {
+        // Publish = also push to Framer in one click. The user shouldn't
+        // have to chase a second menu. pushToFramer is silent on success
+        // so we own the toast here; failures still show their own toast.
+        const ok = await pushToFramer({ silent: true });
         toast({
-          title: "Article published!",
-          description: "Use the Publish to menu to distribute to Framer and other platforms."
+          title: ok ? "Article published & synced to Framer ✓" : "Published — Framer push failed",
+          description: ok
+            ? "Live on your site and in the RSS feed."
+            : "The article is published in ContentLab; retry the Framer push manually from the Publish to menu.",
+          variant: ok ? "default" : "destructive",
         });
       } else {
         toast({ title: "Article saved!" });
@@ -385,9 +392,12 @@ const EditArticle = () => {
     return session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   };
 
-  const handleSyncToFramer = async () => {
-    if (!id) return;
-    await handleSave();
+  // Inner helper: runs the actual Framer push without saving first.
+  // Returns true on success / plugin-managed (acceptable), false on real failure.
+  // Used by both the standalone Publish-to-Framer menu (which saves first)
+  // and the Publish button (which saves itself, then calls this directly).
+  const pushToFramer = async (opts: { silent?: boolean } = {}): Promise<boolean> => {
+    if (!id) return false;
     setIsSyncingFramer(true);
     try {
       const token = await getAuthToken();
@@ -401,19 +411,26 @@ const EditArticle = () => {
         }),
       });
       const data = await res.json();
-      // Handle plugin-managed mode gracefully
       if (data.error === "plugin_managed") {
-        toast({ title: "Framer syncs via plugin", description: data.message });
-        setIsSyncingFramer(false);
-        return;
+        if (!opts.silent) toast({ title: "Framer syncs via plugin", description: data.message });
+        return true;
       }
       if (!res.ok) throw new Error(data.error || "Framer sync failed");
       if (data.framer_item_id) setFramerItemId(data.framer_item_id);
-      toast({ title: `Article ${data.action ?? "synced"} in Framer CMS!` });
+      if (!opts.silent) toast({ title: `Article ${data.action ?? "synced"} in Framer CMS!` });
+      return true;
     } catch (e: any) {
       toast({ title: "Framer sync failed", description: e.message, variant: "destructive" });
+      return false;
+    } finally {
+      setIsSyncingFramer(false);
     }
-    setIsSyncingFramer(false);
+  };
+
+  const handleSyncToFramer = async () => {
+    if (!id) return;
+    await handleSave();
+    await pushToFramer();
   };
 
   const handleSyncToNotion = async (databaseId?: string) => {

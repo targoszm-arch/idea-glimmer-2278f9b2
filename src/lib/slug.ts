@@ -3,8 +3,16 @@
 
 export type ContentType = "blog" | "user_guide" | "how_to" | "newsletter";
 
-/** Convert any string into a URL-safe kebab-case slug. */
-export function toSlug(input: string, maxLen = 80): string {
+/**
+ * Convert any string into a URL-safe kebab-case slug.
+ * Default max length is 200 (Framer / common CMS practical ceiling).
+ * Crucially: when truncating, cut at the last word boundary so the slug
+ * never ends mid-word. A slug ending in `-actions` cut to 64 chars used
+ * to become `business-a`, which then produced /industry-news/business-a
+ * \u2014 Framer's auto-generated slug from the same title was the full word,
+ * so every truncated URL 404'd.
+ */
+export function toSlug(input: string, maxLen = 200): string {
   if (!input) return "article";
   const s = input
     .toLowerCase()
@@ -13,7 +21,11 @@ export function toSlug(input: string, maxLen = 80): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   if (!s) return "article";
-  return s.substring(0, maxLen).replace(/-+$/, "");
+  if (s.length <= maxLen) return s;
+  // Cut to last word boundary, never mid-word.
+  const sliced = s.slice(0, maxLen);
+  const lastDash = sliced.lastIndexOf("-");
+  return (lastDash > 0 ? sliced.slice(0, lastDash) : sliced).replace(/-+$/, "");
 }
 
 /**
