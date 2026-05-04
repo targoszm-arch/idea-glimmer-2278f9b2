@@ -51,6 +51,10 @@ serve(async (req) => {
   // Fetch RSS-enabled articles for this user, most recent first.
   // Articles with rss_publish_at set in the future are held back so users
   // can stage when Zapier / LinkedIn picks them up.
+  // framer_item_id IS NOT NULL: only articles that have actually been
+  // synced to Framer have a real URL on skillstudio.ai. Without this
+  // filter, AI-generated LinkedIn-style hooks land in the feed pointing
+  // at /features-updates/<slug> URLs that 404 because no Framer page exists.
   const nowIso = new Date().toISOString();
   const { data: articles, error: articlesErr } = await db
     .from("articles")
@@ -58,6 +62,7 @@ serve(async (req) => {
     .eq("user_id", settings.user_id)
     .eq("rss_enabled", true)
     .eq("status", "published")
+    .not("framer_item_id", "is", null)
     .or(`rss_publish_at.is.null,rss_publish_at.lte.${nowIso}`)
     .order("updated_at", { ascending: false })
     .limit(50);
