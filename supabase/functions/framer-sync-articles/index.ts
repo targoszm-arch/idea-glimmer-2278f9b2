@@ -9,11 +9,16 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // POST — write back actual Framer slugs so url_path stays in sync.
-  // Body: { url_path_updates: [{id: string, framer_slug: string}] }
-  // Framer auto-prepends the Category field slug to each item slug, so the
-  // actual slug isn't known until after addItems. The plugin calls this right
-  // after every sync to correct url_path for all affected articles.
+  // POST — write back the live URLs Framer itself publishes each item at.
+  // This is the single source of truth for article links: the RSS feed reads
+  // framer_live_url directly, never constructs a URL from slug. If the plugin
+  // hasn't reported a URL for an article, it is ineligible for RSS — enforced
+  // by a DB trigger.
+  //
+  // Body: {
+  //   live_url_updates: [{ id: string, framer_live_url: string }]
+  //   // legacy: url_path_updates: [{ id, framer_slug }]  ← still accepted, derives url_path only
+  // }
   if (req.method === "POST") {
     const authHeader = req.headers.get("Authorization") ?? "";
     const xApiKey = req.headers.get("x-api-key") ?? "";
@@ -53,11 +58,29 @@ serve(async (req) => {
 
     try {
       const body = await req.json();
+      const liveUrlUpdates: Array<{ id: string; framer_live_url: string }> =
+        body.live_url_updates ?? [];
       const updates: Array<{ id: string; framer_slug: string }> = body.url_path_updates ?? [];
+
+      // Persist Framer's published URLs first — this is what RSS reads.
+      let liveUrlUpdated = 0;
+      for (const { id, framer_live_url } of liveUrlUpdates) {
+        if (!id || !framer_live_url) continue;
+        // Light validation: must be an absolute https URL.
+        if (!/^https:\/\/[^/]+\/.+/.test(framer_live_url)) continue;
+        const { error } = await adminSupabase
+          .from("articles")
+          .update({ framer_live_url })
+          .eq("id", id)
+          .eq("user_id", userId);
+        if (!error) liveUrlUpdated++;
+      }
+
       if (!updates.length) {
-        return new Response(JSON.stringify({ ok: true, updated: 0 }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ ok: true, updated: 0, live_urls_updated: liveUrlUpdated }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
 
       // Build url_path from each article's own category + slug fields.
@@ -101,9 +124,10 @@ serve(async (req) => {
         if (!error) updatedCount++;
       }
 
-      return new Response(JSON.stringify({ ok: true, updated: updatedCount }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ ok: true, updated: updatedCount, live_urls_updated: liveUrlUpdated }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     } catch (error) {
       return new Response(
         JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
@@ -166,7 +190,7 @@ serve(async (req) => {
   const { data: authUser } = await adminSupabase.auth.admin.getUserById(userId!);
   const isAdmin = adminEmails.has((authUser?.user?.email ?? "").toLowerCase());
 
-  const PLAN_MAX_COLLECTIONS: Record<string, number> = { free: 0, starter: 1, pro: 5 };
+  const PLAN_MAX_COLLECTIONS: Record<string, number> = { free: 0, starter: 1, pro: 5, admin: Number.POSITIVE_INFINITY };
 
   const { data: credits } = await adminSupabase
     .from("user_credits")

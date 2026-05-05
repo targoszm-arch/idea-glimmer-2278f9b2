@@ -13,6 +13,7 @@ import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import { Save, Sparkles, Loader2, ArrowLeft, Trash2, ImagePlus, X, Upload, ChevronDown, Send, Mail, Share2, BookmarkPlus, Check } from "lucide-react";
 import { ArticleSocialPanel } from "@/components/ArticleSocialPanel";
+import { MetaDescriptionGenerator } from "@/components/MetaDescriptionGenerator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
@@ -1002,9 +1003,16 @@ const EditArticle = () => {
                   {metaDescription.length} / 150
                 </span>
               </div>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Shown in search results and social shares. Keep it under 150 characters.
-              </p>
+              <div className="mt-0.5 flex items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">
+                  Shown in search results and social shares. Keep it under 150 characters.
+                </p>
+                <MetaDescriptionGenerator
+                  title={title}
+                  excerpt={editor?.getText()?.slice(0, 500) ?? ""}
+                  onGenerated={(text) => setMetaDescription(text.slice(0, 150))}
+                />
+              </div>
               <textarea
                 value={metaDescription}
                 onChange={(e) => setMetaDescription(e.target.value.slice(0, 150))}

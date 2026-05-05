@@ -48,20 +48,19 @@ serve(async (req) => {
   const baseUrl = (settings.newsletter_website_url || "https://www.skillstudio.ai").replace(/\/$/, "");
   const siteTitle = escapeXml("Content Lab");
 
-  // Fetch RSS-enabled articles for this user, most recent first.
-  // Articles with rss_publish_at set in the future are held back so users
-  // can stage when Zapier / LinkedIn picks them up.
-  // The Framer plugin sync doesn't currently set framer_item_id, so we
-  // can't filter on it without zeroing out the whole feed. The user is
-  // responsible for only enabling rss_enabled on articles that exist in
-  // Framer until we wire up framer_item_id from the plugin write-back.
+  // Fetch RSS-eligible articles. The link comes from framer_live_url — the
+  // URL Framer itself published the item at, written back by the plugin.
+  // We do NOT construct URLs from slug/url_path here. If framer_live_url is
+  // null an article cannot be in the feed (DB trigger also enforces this on
+  // rss_enabled). This is the single source of truth that prevents drift.
   const nowIso = new Date().toISOString();
   const { data: articles, error: articlesErr } = await db
     .from("articles")
-    .select("id, title, excerpt, url_path, cover_image_url, created_at, updated_at, rss_publish_at, category")
+    .select("id, title, excerpt, framer_live_url, cover_image_url, created_at, updated_at, rss_publish_at")
     .eq("user_id", settings.user_id)
     .eq("rss_enabled", true)
     .eq("status", "published")
+    .not("framer_live_url", "is", null)
     .or(`rss_publish_at.is.null,rss_publish_at.lte.${nowIso}`)
     .order("updated_at", { ascending: false })
     .limit(50);
@@ -75,15 +74,16 @@ serve(async (req) => {
   // UTMs so feed readers don't treat the same item with different campaigns
   // as different posts.
   const items = (articles ?? []).map((a) => {
-    const baseLink = `${baseUrl}/${a.url_path ?? a.id}`;
-    const slugForCampaign = (a.url_path ?? a.id).split("/").pop() || a.id;
+    // baseLink is byte-for-byte what Framer told us it published. Cannot drift.
+    const baseLink: string = a.framer_live_url;
+    const slugForCampaign = baseLink.split("/").pop() || a.id;
     const utm = new URLSearchParams({
       utm_source: "linkedin",
       utm_medium: "social",
       utm_campaign: "rss",
       utm_content: slugForCampaign,
     }).toString();
-    const link = `${baseLink}?${utm}`;
+    const link = baseLink.includes("?") ? `${baseLink}&${utm}` : `${baseLink}?${utm}`;
     // Use rss_publish_at as the pubDate when set so Zapier sees the item
     // with the user-chosen broadcast time and treats it as "new on that day".
     const pubDate = new Date(a.rss_publish_at || a.updated_at || a.created_at).toUTCString();

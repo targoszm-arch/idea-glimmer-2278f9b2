@@ -124,7 +124,10 @@ function LinkedInConnect() {
   );
 }
 
-const PLAN_MAX_COLLECTIONS: Record<string, number> = { free: 0, starter: 1, pro: 5 };
+// Mirror server-side limits in supabase/functions/framer-sync-articles. The
+// admin tier and ADMIN_EMAILS env-var bypass on the server both unlock
+// unlimited collections; the UI matches that with Infinity for admin.
+const PLAN_MAX_COLLECTIONS: Record<string, number> = { free: 0, starter: 1, pro: 5, admin: Infinity };
 const UPGRADE_URL = "https://buy.stripe.com/8x28wOdlsdBpak09Jk1sQ06";
 
 function FramerCollections() {

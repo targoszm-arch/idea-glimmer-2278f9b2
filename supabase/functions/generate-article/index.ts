@@ -1,21 +1,23 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Article generation via Perplexity sonar-pro (web-grounded).
+// Article generation via Anthropic Claude.
 //
-// Rewrite history:
-//   Before: single ~2,000-word mega-prompt with `{{#if content_type}}` format
-//   overrides ending in six CRITICAL reminders — a classic "patch drift with
-//   more rules" antipattern that grew over time. Model frequently violated
-//   tail-of-prompt rules and produced invalid JSON-LD script blocks.
+// Model routing:
+//   - Default: claude-sonnet-4-6 (best quality/cost for long-form articles)
+//   - Deep research (body flag `deep_research: true`): claude-opus-4-7
+//   - Haiku is intentionally not used here — it's reserved for metadata
+//     (slugs, meta descriptions, classification) in other functions.
 //
-//   Now: three focused templates (blog / user_guide / how_to) that share a
-//   preamble. Output rules live at the TOP (beginning-of-prompt attention is
-//   strong), format-specific content lives in the middle, metadata block at
-//   the end. JSON-LD <script> generation is removed from the model entirely
-//   — the model emits structured `faq_pairs` in ARTICLE_META_JSON and the
-//   caller (NewArticle.tsx + contentlab-mcp) builds the schema server-side
-//   where JSON syntax is guaranteed.
+// Streaming: Anthropic emits its own SSE shape. We translate into the
+// OpenAI/Perplexity-style `data: {choices:[{delta:{content}}]}` events the
+// frontend already parses, so the UI doesn't need changes.
+//
+// The system prompt enforces brand tone (no hype phrases, no hollow openers),
+// citation discipline (no fabricated stats), AI-search-citation structure
+// (definition blocks, FAQ, comparison tables), and Skill Studio AI brand
+// context. HTML output and the metadata-tail comments downstream parsers
+// rely on (META_TITLE, ARTICLE_META_JSON, etc.) are preserved.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +39,73 @@ type PromptVars = {
   include_inline_image?: boolean;
   include_infographic?: boolean;
 };
+
+// Brand-wide rules that apply to every article. These come BEFORE the
+// content-type-specific structure so the model anchors on tone, citation
+// discipline, and AI-search-citation format from the very start.
+const BRAND_RULES = `
+--------------------
+TONE RULES
+--------------------
+
+- Write like a knowledgeable human practitioner, not a marketing robot.
+- NO hype phrases. Never use: "game-changing", "revolutionary", "cutting-edge", "seamlessly", "unlock your potential", "elevate your X", "in today's fast-paced world", "harness the power of".
+- NO hollow openers. Never start with "In today's digital landscape...", "As AI continues to transform...", or any variation. Open directly with the specific insight or claim.
+- Confident but not pushy. State opinions clearly — you don't need to hedge everything with "may" and "might" — but don't oversell.
+- Conversational and precise. Short sentences. Plain words. No filler.
+- Comparison articles must be genuinely balanced. Acknowledge competitor strengths. AI systems penalise obviously biased comparisons and so do readers.
+- Verdict statements in comparisons should acknowledge use cases where the competitor wins, not just push the reader toward Skill Studio AI.
+
+--------------------
+CITATION RULES — CRITICAL
+--------------------
+
+- NEVER fabricate statistics. If you don't have a real, verifiable source, do not include the number.
+- Every statistic must have: the exact figure, the source name, and the year. Format: "According to LinkedIn's 2024 Workplace Learning Report, 94% of employees..."
+- Do not cite a study summary — cite the original source.
+- If you cannot verify a claim with a real source, write the claim qualitatively without the number, or omit it.
+- Never use phrases like "studies show" or "research suggests" without naming the specific study.
+
+--------------------
+STRUCTURE FOR AI SEARCH CITATION
+--------------------
+
+Build every article so AI systems (Perplexity, ChatGPT, Google AI Overviews) can extract answers directly:
+
+1. DEFINITION BLOCK — for any "What is X?" article, the first substantive paragraph must contain a standalone definition: "[Term] is [1-sentence definition]. [1-2 sentences of context]."
+2. HEADINGS — H2/H3 must match how people phrase search queries. Good: "What Is Compliance Training?" Bad: "The Importance of Training Your Workforce".
+3. COMPARISON TABLES — any X-vs-Y article must include a structured feature <table>, not just prose comparisons.
+4. FAQ SECTION — 4–6 FAQs at the bottom, phrased exactly as users would search. Answers 50–100 words each, self-contained.
+5. STATISTIC BLOCKS — embed stats in this format: "[Claim]. According to [Source, Year], [specific number + context]."
+6. KEEP KEY PASSAGES TO 40–60 WORDS — AI systems extract passages, not pages. Each key answer block should work standalone, without surrounding context.
+7. LAST UPDATED DATE — every article must include a visible "Last updated: [Month Year]" line near the top.
+8. ONE QUERY PER ARTICLE — every article targets a single primary search query. The first H2 must match or closely mirror that query.
+
+--------------------
+SKILL STUDIO AI BRAND CONTEXT
+--------------------
+
+- Product: AI-powered course creation platform + LMS.
+- Target users: L&D managers, HR teams, compliance officers, and instructors at mid-to-enterprise companies.
+- Key differentiator: Instructors can clone their own teaching style/avatar and scale their content without extra recording time.
+- Strong verticals: Regulated industries (financial services, healthcare, manufacturing), corporate compliance training.
+- Positioning: NOT a generic LMS. NOT just a video tool. It is instructor scaling — one SME's knowledge turned into unlimited courses.
+- Do NOT refer to Skill Studio AI as "agentic LMS for regulated industries" — that framing is outdated.
+- URLs: training.skillstudio.ai (app), www.skillstudio.ai (marketing site).
+- Tone in product references: matter-of-fact, not salesy. Mention it where genuinely relevant; don't force it into every paragraph.
+
+--------------------
+WHAT GOOD LOOKS LIKE
+--------------------
+
+- Opens with a concrete claim, not a scene-setter.
+- Cites real sources, not phantom stats.
+- Includes at least one comparison table or structured list.
+- Has a FAQ section.
+- Shows "Last updated" date.
+- Reads like a practitioner who knows this space — not AI generating plausible-sounding content.
+- In comparisons: acknowledges where the competitor is better, then explains specifically who should choose Skill Studio AI and why.
+`.trim();
 
 function sharedPreamble(v: PromptVars): string {
   const contextLines: string[] = [];
@@ -61,6 +130,8 @@ THINGS THAT WILL RUIN THE ARTICLE (do NOT do these):
     : "No specific product context provided. Write as a neutral industry expert.";
 
   return `
+${BRAND_RULES}
+
 --------------------
 OUTPUT FORMAT (READ FIRST)
 --------------------
@@ -222,6 +293,8 @@ ARTICLE STRUCTURE
 Follow this exact output order:
 
 1. <p class="subtitle">[1-2 sentence summary of the article's core finding or recommendation]</p>
+
+2. <p class="last-updated">Last updated: [current Month Year]</p>
 
 3. <nav>
      <h2>Contents</h2>
@@ -474,10 +547,24 @@ serve(async (req) => {
       // buildBlogPrompt honors them.
       include_inline_image = false,
       include_infographic = false,
+      // Model routing:
+      //   default → Sonnet (best price/quality for long-form articles).
+      //   deep_research:true → Opus (slower, ~5x cost — only when the topic
+      //   needs heavy synthesis or a one-shot high-quality first pass).
+      // Caller can also pass an explicit `model` override (full Anthropic ID).
+      deep_research = false,
+      model: modelOverride,
     } = parsedBody ?? await req.json();
 
-    const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
-    if (!PERPLEXITY_API_KEY) throw new Error("PERPLEXITY_API_KEY is not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
+
+    const SONNET_MODEL = "claude-sonnet-4-6";
+    const OPUS_MODEL = "claude-opus-4-7";
+    const selectedModel: string =
+      typeof modelOverride === "string" && modelOverride.length > 0
+        ? modelOverride
+        : (deep_research ? OPUS_MODEL : SONNET_MODEL);
 
     const vars: PromptVars = {
       topic,
@@ -493,18 +580,21 @@ serve(async (req) => {
     const systemPrompt = getSystemPrompt(content_type, vars);
     const userMessage = getUserMessage(content_type, topic);
 
-    const response = await fetch("https://api.perplexity.ai/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "sonar-pro",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
-        ],
+        model: selectedModel,
+        // Long-form articles (1,500+ words HTML + nav + FAQ + metadata tail)
+        // routinely exceed 8k output tokens. Sonnet 4.6 supports up to 64k
+        // output; 32k is plenty of headroom while bounding worst-case cost.
+        max_tokens: 32000,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
         stream: true,
       }),
     });
@@ -516,13 +606,49 @@ serve(async (req) => {
         });
       }
       const t = await response.text();
-      console.error("Perplexity API error:", response.status, t);
+      console.error("Anthropic API error:", response.status, t);
       return new Response(JSON.stringify({ error: "AI service error" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(response.body, {
+    // Translate Anthropic's SSE shape → OpenAI/Perplexity-style events the
+    // frontend already parses. Only `content_block_delta` text deltas need
+    // forwarding; we close with the standard "[DONE]" sentinel on stop.
+    const upstream = response.body!.getReader();
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+    let buffer = "";
+
+    const stream = new ReadableStream({
+      async pull(controller) {
+        const { value, done } = await upstream.read();
+        if (done) {
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+          return;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data:")) continue;
+          const payload = line.slice(5).trim();
+          if (!payload || payload === "[DONE]") continue;
+          try {
+            const evt = JSON.parse(payload);
+            if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
+              const out = { choices: [{ delta: { content: evt.delta.text } }] };
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(out)}\n\n`));
+            }
+          } catch {
+            // Ignore malformed/keepalive lines.
+          }
+        }
+      },
+    });
+
+    return new Response(stream, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {

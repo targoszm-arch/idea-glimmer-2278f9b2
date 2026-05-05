@@ -1,0 +1,45 @@
+# Content Lab
+
+> AI-powered content marketing platform that turns one brand brief into publish-ready blog articles, LinkedIn posts, newsletters, and SEO metadata — synced directly to Framer, WordPress, Notion, Intercom, and Confluence.
+
+## About Content Lab
+
+Content Lab generates long-form articles, comparison pages, and how-to guides grounded in current web data, with built-in tone enforcement (no hype phrases), citation discipline (no fabricated stats), and AI-search-citation structure (definition blocks, FAQ, comparison tables). Articles ship with cover image, inline image, infographic, and JSON-LD schema. One-click publishing to Framer CMS via the official Framer plugin; LinkedIn distribution via per-user RSS feeds.
+
+Built for L&D teams, content marketers, and SaaS founders who need volume + quality without the agency cost.
+
+## Marketing site
+
+- https://www.content-lab.ie/
+
+## App
+
+- https://www.app.content-lab.ie/signup
+- https://www.app.content-lab.ie/login
+- https://www.app.content-lab.ie/dashboard
+
+## Capabilities
+
+- **AI article generation** — Claude Sonnet 4.6 by default, Opus 4.7 for deep-research pieces, Haiku 4.5 for metadata.
+- **Brand-safe tone** — system prompt blocks hype phrases ("game-changing", "revolutionary", etc.) and hollow openers; enforces citation discipline.
+- **AI-search-optimised structure** — definition blocks, FAQ sections, comparison tables, "Last updated" line, 40–60 word answer blocks for Perplexity / ChatGPT / Google AI Overviews extraction.
+- **Targeted meta descriptions** — separate generator with inputs for keywords, brand strapline, marketing message, USPs, brand tone, and an optional good example to mirror.
+- **Multi-platform sync** — Framer plugin (Managed Collection), WordPress, Notion, Intercom, Confluence, Shopify.
+- **LinkedIn RSS** — per-user feed; only articles confirmed live in Framer can be enabled (DB trigger enforces this — broken links impossible by construction).
+- **MCP server** — `create_article`, `update_article`, `generate_social_post`, etc. Used by Claude Desktop, Cursor, and other MCP clients.
+
+## Integrations
+
+- Framer (CMS sync via plugin)
+- LinkedIn (RSS → Zapier → posts)
+- WordPress, Notion, Intercom, Confluence, Shopify
+- Stripe (billing)
+- PostHog (product analytics)
+- Resend (email/newsletter)
+
+## Pricing tiers
+
+- Free trial — limited credits
+- Starter — 1 Framer collection
+- Pro — 5 Framer collections
+- Admin — unlimited (internal)

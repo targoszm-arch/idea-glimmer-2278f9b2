@@ -19,6 +19,7 @@ type Article = {
   category: string;
   status: string;
   rss_enabled: boolean;
+  framer_live_url: string | null;
   updated_at: string;
 };
 
@@ -63,7 +64,7 @@ export default function LinkedInRSS() {
       // Load published articles
       const { data: arts } = await supabase
         .from("articles")
-        .select("id, title, category, status, rss_enabled, updated_at")
+        .select("id, title, category, status, rss_enabled, framer_live_url, updated_at")
         .eq("user_id", user.id)
         .eq("status", "published")
         .order("updated_at", { ascending: false });
@@ -82,7 +83,23 @@ export default function LinkedInRSS() {
   }
 
   async function toggleArticle(articleId: string, current: boolean) {
-    await supabase.from("articles").update({ rss_enabled: !current }).eq("id", articleId);
+    const article = articles.find(a => a.id === articleId);
+    if (!current && !article?.framer_live_url) {
+      toast({
+        title: "Sync to Framer first",
+        description: "RSS only ships URLs Framer has confirmed are live. Open the Framer plugin and sync, then try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const { error } = await supabase
+      .from("articles")
+      .update({ rss_enabled: !current })
+      .eq("id", articleId);
+    if (error) {
+      toast({ title: "Couldn't toggle RSS", description: error.message, variant: "destructive" });
+      return;
+    }
     setArticles(prev => prev.map(a => a.id === articleId ? { ...a, rss_enabled: !current } : a));
   }
 
@@ -169,7 +186,12 @@ export default function LinkedInRSS() {
                 <div key={article.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{article.title}</p>
-                    <p className="text-xs text-muted-foreground">{article.category || "Uncategorized"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {article.category || "Uncategorized"}
+                      {!article.framer_live_url && (
+                        <span className="ml-2 text-amber-600">· Not synced to Framer</span>
+                      )}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <Link to={`/edit/${article.id}`} className="text-muted-foreground hover:text-foreground transition-colors" title="Edit article">
@@ -178,10 +200,11 @@ export default function LinkedInRSS() {
                     <button
                       type="button"
                       onClick={() => toggleArticle(article.id, article.rss_enabled)}
-                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${article.rss_enabled ? "bg-[#0A66C2]" : "bg-input"}`}
+                      disabled={!article.framer_live_url && !article.rss_enabled}
+                      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${article.rss_enabled ? "bg-[#0A66C2]" : "bg-input"} ${!article.framer_live_url && !article.rss_enabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
                       role="switch"
                       aria-checked={article.rss_enabled}
-                      title={article.rss_enabled ? "Remove from feed" : "Add to feed"}
+                      title={!article.framer_live_url ? "Sync to Framer first" : (article.rss_enabled ? "Remove from feed" : "Add to feed")}
                     >
                       <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition-transform ${article.rss_enabled ? "translate-x-4" : "translate-x-0"}`} />
                     </button>

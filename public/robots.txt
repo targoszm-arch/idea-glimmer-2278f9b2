@@ -1,14 +1,29 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
+# app.content-lab.ie hosts the authenticated app. The dashboard and edit
+# routes shouldn't be indexed, but /llms.txt is intentionally crawlable so
+# AI assistants can discover what Content Lab does.
 User-agent: *
+Disallow: /dashboard
+Disallow: /new
+Disallow: /edit/
+Disallow: /settings
+Disallow: /integrations
+Disallow: /signup
+Disallow: /login
+Disallow: /reset-password
+Allow: /llms.txt
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
 Allow: /
