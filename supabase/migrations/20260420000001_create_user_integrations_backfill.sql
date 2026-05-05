@@ -1,9 +1,11 @@
--- Originally applied on prod via direct SQL before migration tracking was
--- adopted. Reconstructed here so Supabase preview branches (and local
--- `supabase db reset`) can run all migrations from scratch without errors.
+-- The 20260319045814_create_user_integrations migration was an empty stub
+-- (table was created directly on prod before migration tracking). Preview
+-- branches run all migrations from scratch, so 20260422000001_collection_sync_limits
+-- fails with "relation public.user_integrations does not exist".
 --
--- Uses IF NOT EXISTS throughout so this is a no-op on the live database
--- where the table already exists.
+-- This migration (timestamped before collection_sync_limits) creates the
+-- table if it doesn't already exist. All clauses are IF NOT EXISTS so this
+-- is a complete no-op on the live database.
 
 CREATE TABLE IF NOT EXISTS public.user_integrations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -24,7 +26,6 @@ CREATE INDEX IF NOT EXISTS user_integrations_user_id_idx
 
 ALTER TABLE public.user_integrations ENABLE ROW LEVEL SECURITY;
 
--- Users can only read/write their own integration rows.
 DO $$
 BEGIN
   IF NOT EXISTS (

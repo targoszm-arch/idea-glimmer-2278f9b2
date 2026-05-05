@@ -1814,16 +1814,43 @@ serve(async (req) => {
     return wellKnownJson(AUTH_SERVER_META);
   }
 
-  // Any other GET → 401 with discovery header (standard MCP auth handshake).
+  // Any other GET:
+  //   - No token → 401 + WWW-Authenticate (triggers OAuth discovery in the client)
+  //   - Token present → 405 (SSE not supported; use POST for all MCP messages)
+  //
+  // Returning 401 for an authenticated GET is wrong: the client already has a
+  // valid token and would interpret the 401 as "authentication failed", causing
+  // a connection error. 405 correctly signals that GET/SSE is not implemented
+  // without invalidating the client's credentials.
   if (req.method === "GET") {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-        "WWW-Authenticate": WWW_AUTH_HEADER,
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const xApiKey = req.headers.get("x-api-key") ?? "";
+    const hasToken = authHeader.startsWith("Bearer ") && authHeader.length > 7 || xApiKey.length > 0;
+
+    if (!hasToken) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+          "WWW-Authenticate": WWW_AUTH_HEADER,
+        },
+      });
+    }
+
+    // Authenticated client requesting SSE — not supported. Per MCP 2025-06-18
+    // spec a server that does not support SSE MUST return 405.
+    return new Response(
+      JSON.stringify({ error: "SSE not supported. Use POST for all MCP requests." }),
+      {
+        status: 405,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+          Allow: "POST, OPTIONS",
+        },
       },
-    });
+    );
   }
 
   if (req.method !== "POST") {
