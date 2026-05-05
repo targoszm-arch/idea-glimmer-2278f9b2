@@ -64,7 +64,7 @@ automatically on first run.
 3. Replace `cl_your_key_here` with your actual key.
 4. Restart Claude Desktop. Content Lab tools appear in the hammer/tools panel.
 
-## Available tools (v1 — 9 total)
+## Available tools (v1 — 11 total)
 
 | Tool | What it does |
 |---|---|
@@ -76,6 +76,8 @@ automatically on first run.
 | `schedule_social_post` | Queue a LinkedIn post for auto-publishing. 5 pending posts max per user. |
 | `list_newsletter_schedules` | List your one-time newsletter sends. |
 | `schedule_newsletter` | Schedule a one-time newsletter send (LinkedIn only for social, Resend for email). 5 pending max. |
+| `generate_newsletter_data` | Generate AI email content (subject, sections, CTA) from an article. Required before `schedule_newsletter`. |
+| `update_newsletter_data` | Edit an article's newsletter content (subject, sections, CTA, sign-off, etc.) before sending. |
 | `cancel_newsletter_schedule` | Cancel a still-scheduled newsletter send. |
 
 Each tool ships with MCP tool annotations (`readOnlyHint`, `destructiveHint`,

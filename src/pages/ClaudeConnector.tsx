@@ -37,14 +37,14 @@ export default function ClaudeConnector() {
         <h1 className="text-3xl font-bold tracking-tight">Connect Content Lab to Claude</h1>
         <p className="mt-3 text-base text-muted-foreground">
           Draft articles, schedule LinkedIn posts, and queue newsletters — all by
-          chatting with Claude. The Content Lab MCP server exposes nine tools that Claude
+          chatting with Claude. The Content Lab MCP server exposes eleven tools that Claude
           can call on your behalf.
         </p>
       </div>
 
       <div className="mb-10 grid gap-3 sm:grid-cols-3">
         <Feature icon={<Shield className="h-4 w-4" />} title="OAuth 2.1" body="PKCE + refresh-token rotation. Your password never leaves content-lab.ie." />
-        <Feature icon={<Zap className="h-4 w-4" />} title="Nine tools" body="Create and edit articles, list and schedule posts, manage newsletter sends." />
+        <Feature icon={<Zap className="h-4 w-4" />} title="Eleven tools" body="Create and edit articles, list and schedule posts, generate and manage newsletter content." />
         <Feature icon={<Sparkles className="h-4 w-4" />} title="You stay in control" body="120 MCP calls/hour by default. Every call logged. Revoke anytime." />
       </div>
 
@@ -118,6 +118,8 @@ export default function ClaudeConnector() {
               <Row name="schedule_social_post" desc="Queue a LinkedIn post for auto-publishing." />
               <Row name="list_newsletter_schedules" desc="See your scheduled newsletter sends." />
               <Row name="schedule_newsletter" desc="Schedule a one-time newsletter to your audience." />
+              <Row name="generate_newsletter_data" desc="Generate AI email content from an article (subject, sections, CTA)." />
+              <Row name="update_newsletter_data" desc="Edit an article's newsletter content before sending." />
               <Row name="cancel_newsletter_schedule" desc="Cancel a scheduled newsletter send." />
             </tbody>
           </table>

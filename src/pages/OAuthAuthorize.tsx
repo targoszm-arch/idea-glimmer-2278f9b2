@@ -209,10 +209,10 @@ export default function OAuthAuthorize() {
         <div className="mb-6 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
           <p className="font-medium text-foreground">If you approve, this app will be able to:</p>
           <ul className="ml-4 mt-2 list-disc space-y-1">
-            <li>Read and create articles in your library</li>
+            <li>Read, create, and edit articles in your library</li>
             <li>List your scheduled social posts and newsletters</li>
             <li>Schedule LinkedIn posts on your behalf</li>
-            <li>Schedule one-time newsletter sends to your audience</li>
+            <li>Generate, edit, and schedule one-time newsletter sends</li>
           </ul>
           <p className="mt-3">
             Access can be revoked any time from{" "}
