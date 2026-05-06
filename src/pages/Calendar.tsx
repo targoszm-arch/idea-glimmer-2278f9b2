@@ -615,8 +615,14 @@ export default function CalendarPage() {
                             p.status === "failed" ? "bg-red-50" :
                             "bg-sky-50"
                           }`}
-                          onClick={() => setPreviewItem({ kind: "social", post: p })}
-                          title="Click to preview full post"
+                          onClick={() => {
+                            // Scheduled posts open the edit/reschedule modal
+                            // (where the content textarea is editable). Posted
+                            // and failed rows open the read-only preview.
+                            if (p.status === "scheduled") setSocialPostReschedule(p);
+                            else setPreviewItem({ kind: "social", post: p });
+                          }}
+                          title={p.status === "scheduled" ? "Click to edit content or reschedule" : "Click to preview full post"}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">

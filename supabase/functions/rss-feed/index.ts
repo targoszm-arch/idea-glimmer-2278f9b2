@@ -69,11 +69,45 @@ serve(async (req) => {
     return new Response("Internal error", { status: 500 });
   }
 
+  // Belt-and-braces: HEAD-check every URL right before we ship the feed. If
+  // an article's URL 404s (e.g. user renamed the slug in Framer and the
+  // plugin sync hasn't caught up), drop it from this response AND flip
+  // rss_enabled=false on that row so the user is forced to re-sync to
+  // Framer before it can ship. Cached implicitly by the 60s response cache
+  // below — Zapier never sees a dead link.
+  const candidates = articles ?? [];
+  const checks = await Promise.all(
+    candidates.map(async (a) => {
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 4000);
+        const r = await fetch(a.framer_live_url, { method: "HEAD", redirect: "follow", signal: ctrl.signal });
+        clearTimeout(timer);
+        return { a, ok: r.ok };
+      } catch {
+        return { a, ok: false };
+      }
+    }),
+  );
+  const verified = checks.filter((c) => c.ok).map((c) => c.a);
+  const dead = checks.filter((c) => !c.ok).map((c) => c.a);
+
+  if (dead.length > 0) {
+    console.warn(`rss-feed: dropping ${dead.length} dead URL(s) and disabling RSS:`,
+      dead.map((d) => d.framer_live_url).join(", "));
+    // Disable RSS on the dead rows so the toggle in the UI flags them as
+    // "Sync to Framer first." Fire-and-forget; we don't block the response.
+    db.from("articles")
+      .update({ rss_enabled: false })
+      .in("id", dead.map((d) => d.id))
+      .then(() => {});
+  }
+
   // Add UTM tags so PostHog/GA can attribute clicks back to the LinkedIn
   // RSS feed (Zapier reposts each item to LinkedIn). guid is built without
   // UTMs so feed readers don't treat the same item with different campaigns
   // as different posts.
-  const items = (articles ?? []).map((a) => {
+  const items = verified.map((a) => {
     // baseLink is byte-for-byte what Framer told us it published. Cannot drift.
     const baseLink: string = a.framer_live_url;
     const slugForCampaign = baseLink.split("/").pop() || a.id;
