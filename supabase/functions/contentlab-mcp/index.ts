@@ -219,26 +219,24 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
     throw new Error("`topic` is required and must be a string");
   }
 
-  // Category is required and must be a non-empty human label, not a slug.
-  // Empty / slugified categories caused articles to land at the wrong
-  // /features-updates/... URL and break the RSS feed.
+  // Category is required. Both human labels ("Industry News") and slugs
+  // ("industry-news") are accepted — we normalise to slug form so the
+  // value stored in `articles.category` matches the slug shown in the UI
+  // and the URL path. This stops MCP from bouncing articles between
+  // "Industry News" and "industry-news" on every update.
   const rawCategory = typeof args?.category === "string" ? args.category.trim() : "";
   if (!rawCategory) {
     throw new Error(
-      "`category` is required. Pass the human-readable name of a CMS category that exists in the user's Framer collection, e.g. 'Industry News', 'Compliance Training', 'Course Authoring', 'Features Updates', or 'Knowledge Base'. Do NOT pass a slug like 'industry-news'.",
+      "`category` is required. Pass a category that exists in the user's Framer CMS — either the human label ('Industry News') or the slug form ('industry-news') is fine; we normalise to slug.",
     );
   }
-  // Reject pre-slugified categories — these silently end up at the wrong
-  // URL because the trigger slugifies whatever is passed.
-  if (/^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(rawCategory)) {
-    throw new Error(
-      `\`category\` looks like a slug ("${rawCategory}"). Pass the human label instead, e.g. "${rawCategory.split("-").map((w) => w[0].toUpperCase() + w.slice(1)).join(" ")}".`,
-    );
-  }
-
-  // Normalize for storage: keep the human label as-is. The DB trigger
-  // slugifies it for url_path.
-  args = { ...args, category: rawCategory };
+  const categorySlug = rawCategory
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  args = { ...args, category: categorySlug };
 
   const body = { ...args, user_id_override: ctx.userId };
 
@@ -699,19 +697,20 @@ async function updateArticleHandler(args: any, ctx: AuthContext): Promise<unknow
     throw new Error("`status` must be one of: draft, published, scheduled, archived");
   }
 
-  // Reject pre-slugified categories (e.g. "industry-news") — they end up
-  // double-slugged in url_path. Pass the human label like "Industry News".
+  // Normalise category to slug form. Either human ("Industry News") or
+  // slug ("industry-news") input is accepted — both end up stored as the
+  // slug so the value matches what the UI shows and the URL path.
   if (typeof update.category === "string") {
     const trimmed = update.category.trim();
     if (!trimmed) {
-      throw new Error("`category` cannot be empty. Pass a human-readable category name.");
+      throw new Error("`category` cannot be empty.");
     }
-    if (/^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(trimmed)) {
-      throw new Error(
-        `\`category\` looks like a slug ("${trimmed}"). Pass the human label instead, e.g. "${trimmed.split("-").map((w) => w[0].toUpperCase() + w.slice(1)).join(" ")}".`,
-      );
-    }
-    update.category = trimmed;
+    update.category = trimmed
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
   }
 
   if (update.rss_enabled !== undefined && typeof update.rss_enabled !== "boolean") {
@@ -1248,7 +1247,7 @@ const TOOLS: ToolDef[] = [
   {
     name: "create_article",
     description:
-      "Start generating a new SEO-ready article (1,500–2,000 words) from a topic, grounded in current web data via Perplexity. Costs 5 Content Lab credits for the article text. Returns IMMEDIATELY with status: started — generation runs in the background and typically completes in 90–150 seconds. Call `list_articles` after ~2 minutes to see the finished article in the user's library.\n\nIMPORTANT RULES:\n1. `category` is REQUIRED and must be the human-readable label of a CMS category that exists in the user's Framer site (e.g. 'Industry News', 'Compliance Training', 'Course Authoring', 'Features Updates', 'Knowledge Base'). Do NOT pass slugs like 'industry-news' — the server rejects pre-slugified categories. If you don't know which categories the user uses, ask them BEFORE calling this tool.\n2. The article won't be visible in the user's RSS feed (LinkedIn / Zapier) until it has been synced to Framer via the Framer plugin. Server-side article creation alone does NOT publish to the live website. Tell the user they need to open the Framer plugin and click Sync after the article finishes generating.\n3. Image generation is opt-in: `generate_cover_image: true` adds a DALL-E 3 cover (+5 credits), `include_inline_image: true` adds a DALL-E 3 inline image inside the article body (+5 credits), `include_infographic: true` adds a DALL-E 3 infographic (+5 credits). All three are off by default — only pass true when the user explicitly asked for an image.",
+      "Start generating a new SEO-ready article (1,500–2,000 words) from a topic, grounded in current web data via Perplexity. Costs 5 Content Lab credits for the article text. Returns IMMEDIATELY with status: started — generation runs in the background and typically completes in 90–150 seconds. Call `list_articles` after ~2 minutes to see the finished article in the user's library.\n\nIMPORTANT RULES:\n1. `category` is REQUIRED. Pass a slug like 'industry-news', 'compliance-training', 'course-authoring', 'features-updates', or 'knowledge-base' (human labels like 'Industry News' also accepted — both forms are normalised to slug). If you don't know which categories the user uses, ask them BEFORE calling this tool.\n2. The article won't be visible in the user's RSS feed (LinkedIn / Zapier) until it has been synced to Framer via the Framer plugin. Server-side article creation alone does NOT publish to the live website. Tell the user they need to open the Framer plugin and click Sync after the article finishes generating.\n3. Image generation is opt-in: `generate_cover_image: true` adds a DALL-E 3 cover (+5 credits), `include_inline_image: true` adds a DALL-E 3 inline image inside the article body (+5 credits), `include_infographic: true` adds a DALL-E 3 infographic (+5 credits). All three are off by default — only pass true when the user explicitly asked for an image.",
     inputSchema: {
       type: "object",
       required: ["topic", "category"],
@@ -1264,7 +1263,7 @@ const TOOLS: ToolDef[] = [
           type: "string",
           minLength: 1,
           description:
-            "REQUIRED. Human-readable category name matching one of the user's Framer CMS categories (e.g. 'Industry News', 'Compliance Training', 'Course Authoring', 'Features Updates', 'Knowledge Base'). DO NOT pass slugs like 'industry-news' — pass the human label. The server slugifies it for the URL path. If you don't know the categories, ask the user first.",
+            "REQUIRED. Category matching one of the user's Framer CMS categories. Either form works — slug ('industry-news') or human label ('Industry News') — the server normalises both to the slug form (lowercase, dashes between words). If you don't know which categories the user uses, ask first. Categories: industry-news, compliance-training, course-authoring, features-updates, knowledge-base.",
         },
         content_type: {
           type: "string",

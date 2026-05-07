@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Plus, X, Tag } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
+import { toSlug } from "@/lib/slug";
 
 interface CategoryPickerProps {
   value: string;
@@ -27,15 +28,19 @@ const CategoryPicker = ({ value, onChange }: CategoryPickerProps) => {
   };
 
   const handleAdd = async () => {
-    const trimmed = newLabel.trim();
-    if (!trimmed) return;
-    if (labels.some((l) => l.name.toLowerCase() === trimmed.toLowerCase())) {
-      toast({ title: "Label already exists", variant: "destructive" });
+    // Slugify on save so categories are uniform (lowercase, dashes between
+    // words). MCP and the URL-path builder use the same normalisation, so
+    // typing "Industry News" and "industry-news" land on the same row
+    // instead of bouncing the article between two flavours of the label.
+    const slug = toSlug(newLabel.trim());
+    if (!slug) return;
+    if (labels.some((l) => l.name.toLowerCase() === slug)) {
+      toast({ title: "Category already exists", variant: "destructive" });
       return;
     }
     const { data, error } = await supabase
       .from("category_labels")
-      .insert({ name: trimmed })
+      .insert({ name: slug })
       .select("id, name")
       .single();
     if (error) {
@@ -108,7 +113,7 @@ const CategoryPicker = ({ value, onChange }: CategoryPickerProps) => {
                 if (e.key === "Enter") handleAdd();
                 if (e.key === "Escape") { setIsAdding(false); setNewLabel(""); }
               }}
-              placeholder="New label..."
+              placeholder="new-category"
               className="h-7 w-28 rounded-full border border-input bg-background px-2.5 text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
             <button

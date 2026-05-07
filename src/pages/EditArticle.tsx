@@ -985,8 +985,10 @@ const EditArticle = () => {
               <input
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                placeholder="Category"
-                className="w-32 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
+                onBlur={(e) => setCategory(toSlug(e.target.value))}
+                placeholder="category-slug"
+                title="Lowercase, dashes between words. Auto-formatted on blur."
+                className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
               
               <input
                 value={authorName}
