@@ -521,14 +521,21 @@ serve(async (req) => {
     const overrideId: string | undefined = bodyJson?.user_id_override;
 
     if (overrideId) {
-      // Internal-call path. Use the supplied token as service-role and
-      // verify it really can resolve the user — that's a cheap, robust
-      // check that this is a legit admin call.
-      const candidate = createClient(Deno.env.get('SUPABASE_URL')!, token);
-      const { data: userLookup, error: lookupErr } = await candidate.auth.admin.getUserById(overrideId);
-      if (lookupErr || !userLookup?.user) {
+      // Internal-call path. Decode the JWT and verify role=service_role.
+      // No network call — robust to env/key drift between functions.
+      let role: string | undefined;
+      try {
+        const payloadB64 = token.split('.')[1];
+        const padded = payloadB64 + '='.repeat((4 - payloadB64.length % 4) % 4);
+        const json = JSON.parse(atob(padded.replace(/-/g, '+').replace(/_/g, '/')));
+        role = json?.role;
+      } catch {
+        role = undefined;
+      }
+      if (role !== 'service_role') {
+        console.error('generate-article: user_id_override given but token role is', role);
         return new Response(
-          JSON.stringify({ error: 'Unauthorized', detail: 'token cannot resolve user_id_override (invalid service role)' }),
+          JSON.stringify({ error: 'Unauthorized', detail: 'user_id_override requires a service_role JWT' }),
           { status: 401, headers: corsHeaders },
         );
       }
