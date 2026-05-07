@@ -267,30 +267,38 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
 
   const articleId = placeholder.id;
 
+  // Synchronous probe: kick off the request to generate-article and await
+  // response headers BEFORE detaching the stream consumer. This lets us
+  // surface auth / quota / config failures back to the MCP caller as a
+  // proper tool error instead of leaving the placeholder spinning.
+  const upstream = await fetch(`${supabaseUrl}/functions/v1/generate-article`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${serviceKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!upstream.ok) {
+    const errText = await upstream.text();
+    const detail = `generate-article returned ${upstream.status}: ${errText.slice(0, 200)}`;
+    await markGenerationFailed(admin, articleId, detail);
+    throw new Error(detail);
+  }
+  if (!upstream.body) {
+    const detail = "No response body from generate-article";
+    await markGenerationFailed(admin, articleId, detail);
+    throw new Error(detail);
+  }
+
   const generation = (async () => {
     try {
-      const res = await fetch(`${supabaseUrl}/functions/v1/generate-article`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${serviceKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        await markGenerationFailed(admin, articleId, `generate-article returned ${res.status}: ${errText.slice(0, 200)}`);
-        return;
-      }
-      if (!res.body) {
-        await markGenerationFailed(admin, articleId, "No response body from generate-article");
-        return;
-      }
+      const res = upstream;
 
       // Consume the SSE stream from Perplexity (via generate-article).
       // Each line looks like: `data: {"choices":[{"delta":{"content":"..."}}]}`
-      const reader = res.body.getReader();
+      const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       let html = "";
