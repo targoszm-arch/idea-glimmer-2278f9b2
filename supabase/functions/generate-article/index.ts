@@ -498,27 +498,51 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const token = authHeader.replace('Bearer ', '').trim();
-    const isServiceRole = token === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
+    // Two acceptable auth paths:
+    //   (a) End-user JWT — validate via auth.getUser
+    //   (b) Internal call (e.g. contentlab-mcp) — body carries
+    //       `user_id_override`. We verify the token is a real service-role
+    //       key by using it to look up that user via auth.admin. This is
+    //       robust to key rotation / string-equality mismatches between the
+    //       caller's env and ours; if the token can fetch a user via
+    //       auth.admin, it has admin privileges and we trust it.
     let userId: string;
     let parsedBody: any = null;
 
-    if (isServiceRole) {
+    // Tentatively read body so internal calls can self-identify.
+    let bodyJson: any = null;
+    try {
       const bodyText = await req.text();
-      const bodyJson = JSON.parse(bodyText || '{}');
-      const overrideId = bodyJson.user_id_override;
-      if (!overrideId) {
-        return new Response(JSON.stringify({ error: 'user_id_override required when using service role' }), { status: 400, headers: corsHeaders });
+      bodyJson = bodyText ? JSON.parse(bodyText) : null;
+    } catch {
+      bodyJson = null;
+    }
+    const overrideId: string | undefined = bodyJson?.user_id_override;
+
+    if (overrideId) {
+      // Internal-call path. Use the supplied token as service-role and
+      // verify it really can resolve the user — that's a cheap, robust
+      // check that this is a legit admin call.
+      const candidate = createClient(Deno.env.get('SUPABASE_URL')!, token);
+      const { data: userLookup, error: lookupErr } = await candidate.auth.admin.getUserById(overrideId);
+      if (lookupErr || !userLookup?.user) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized', detail: 'token cannot resolve user_id_override (invalid service role)' }),
+          { status: 401, headers: corsHeaders },
+        );
       }
       userId = overrideId;
       parsedBody = bodyJson;
     } else {
+      // End-user JWT path. Validate via auth.getUser.
       const supabaseAuth = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authHeader } } });
       const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
       if (authError || !user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
       }
       userId = user.id;
+      parsedBody = bodyJson;
     }
 
     const { data: hasCredits } = await supabaseAdmin.rpc('deduct_credits', { p_user_id: userId, p_amount: 5, p_action: 'generate_article' });
@@ -548,7 +572,7 @@ serve(async (req) => {
       // Caller can also pass an explicit `model` override (full Anthropic ID).
       deep_research = false,
       model: modelOverride,
-    } = parsedBody ?? await req.json();
+    } = parsedBody ?? {};
 
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
     if (!PERPLEXITY_API_KEY) throw new Error("PERPLEXITY_API_KEY is not configured");
