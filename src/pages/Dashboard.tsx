@@ -15,6 +15,7 @@ const Dashboard = () => {
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"updated" | "created">("updated");
   const categoryRef = useRef<HTMLDivElement>(null);
   const [syncing, setSyncing] = useState(false);
   const location = useLocation();
@@ -217,8 +218,16 @@ const Dashboard = () => {
       );
     }
 
+    // Sort
+    const sortKey = sortBy === "updated" ? "updated_at" : "created_at";
+    result = [...result].sort((a, b) => {
+      const av = new Date((a as any)[sortKey] ?? a.created_at).getTime();
+      const bv = new Date((b as any)[sortKey] ?? b.created_at).getTime();
+      return bv - av;
+    });
+
     return result;
-  }, [articles, statusFilter, selectedCategories, searchQuery]);
+  }, [articles, statusFilter, selectedCategories, searchQuery, sortBy]);
 
   return (
     <PageLayout>
@@ -266,6 +275,15 @@ const Dashboard = () => {
         {/* Filters */}
         <div className="mb-6 flex items-center gap-3 flex-wrap">
           <Filter className="h-4 w-4 text-muted-foreground" />
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as "updated" | "created")}
+            className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none"
+            title="Sort articles"
+          >
+            <option value="updated">Sort: Recently updated</option>
+            <option value="created">Sort: Newest first</option>
+          </select>
           {(["all", "published", "draft", "automation"] as const).map((s) =>
           <button
             key={s}

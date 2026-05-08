@@ -11,11 +11,15 @@ interface ArticleCardProps {
 }
 
 const ArticleCard = ({ article, selectable, selected, onToggleSelect }: ArticleCardProps) => {
-  const date = new Date(article.created_at).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+  // Show "Updated" when the row was meaningfully edited after creation
+  // (>60s gap rules out the row's own initial-insert auto-update).
+  const wasEdited =
+    !!article.updated_at &&
+    new Date(article.updated_at).getTime() - new Date(article.created_at).getTime() > 60_000;
+  const dateLabel = wasEdited ? `Updated ${fmt(article.updated_at)}` : fmt(article.created_at);
 
   return (
     <div className={`group relative flex flex-col rounded-xl border bg-card p-5 transition-all hover:border-primary/30 hover:shadow-md ${selected ? "border-primary ring-1 ring-primary" : "border-border"}`}>
@@ -66,7 +70,7 @@ const ArticleCard = ({ article, selectable, selected, onToggleSelect }: ArticleC
       <div className="mt-auto flex items-center justify-between pt-3 border-t border-border">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Calendar className="h-3.5 w-3.5" />
-          {date}
+          {dateLabel}
         </div>
         <div className="flex gap-2">
           <Link
