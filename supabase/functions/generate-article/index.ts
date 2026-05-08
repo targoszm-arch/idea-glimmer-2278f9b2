@@ -105,7 +105,7 @@ function sharedPreamble(v: PromptVars): string {
   const contextLines: string[] = [];
   if (v.app_description) contextLines.push(`Product/App: ${v.app_description}`);
   if (v.app_audience) contextLines.push(`Target audience: ${v.app_audience}`);
-  if (v.reference_urls.length > 0) contextLines.push(`Reference style: ${v.reference_urls.join(", ")}`);
+  if (v.reference_urls.length > 0) contextLines.push(`Reference these URLs for writing style and structure only (do NOT cite them as sources unless you can verify the content): ${v.reference_urls.join(", ")}`);
   const contextBlock = contextLines.length > 0
     ? `${contextLines.join("\n")}
 
@@ -278,7 +278,7 @@ CONTENT RULES
 - Write with nuance. When the product context block is present, the product is the leading example throughout — woven into 3–5 body sections per the PRODUCT INTEGRATION rules, never as a closing "About us" section and never displaced by a list of competitor vendors. When the product context is absent, write as a neutral industry expert.
 - Vary sentence structure and paragraph length.
 
-Word count: minimum 1,500 words. If your draft is under 1,400 words, expand the thinnest section with additional detail before finishing.
+Word count: minimum 1,500 words. If your draft is under 1,500 words, expand the thinnest section with additional detail before finishing.
 
 --------------------
 ARTICLE STRUCTURE
@@ -461,7 +461,7 @@ CONTENT RULES
 - No disclaimers, no footers ("unsubscribe below" — the email platform adds that), no <hr> dividers.
 - No images — text only. The sender's email platform handles imagery.
 
-${metadataTail(true)}`;
+${metadataTail(false)}`;
 }
 
 function getSystemPrompt(contentType: string, vars: PromptVars): string {
@@ -552,10 +552,23 @@ serve(async (req) => {
       parsedBody = bodyJson;
     }
 
+    if (typeof bodyJson?.topic !== 'string' || bodyJson.topic.trim().length === 0) {
+      return new Response(JSON.stringify({ error: '`topic` is required and must be a non-empty string' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     const { data: hasCredits } = await supabaseAdmin.rpc('deduct_credits', { p_user_id: userId, p_amount: 5, p_action: 'generate_article' });
     if (!hasCredits) {
       return new Response(JSON.stringify({ error: 'Insufficient credits', code: 'NO_CREDITS' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
+    // Refund helper — call when Perplexity fails so the user isn't billed
+    // for a non-result. Direct table mutation since there's no refund RPC.
+    const refundCredits = async () => {
+      try {
+        await supabaseAdmin.rpc('deduct_credits', { p_user_id: userId, p_amount: -5, p_action: 'generate_article_refund' });
+      } catch (e) {
+        console.error('refundCredits failed:', e);
+      }
+    };
 
     const {
       topic,
@@ -588,6 +601,9 @@ serve(async (req) => {
     // 150s edge background budget without producing content. Reverted to
     // Perplexity sonar-pro (proven, single non-streaming-style response).
     // The brand-tone + citation rules in the system prompt work for both.
+    // TODO: wire deep_research / modelOverride to Anthropic routing once
+    // the Sonnet streaming-timeout issue is resolved. Intentionally voided
+    // so callers can keep passing the flags without TS unused-var warnings.
     void modelOverride; void deep_research;
 
     const vars: PromptVars = {
@@ -621,6 +637,7 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
+      await refundCredits();
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
