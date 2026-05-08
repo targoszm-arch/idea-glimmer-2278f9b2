@@ -677,6 +677,42 @@ async function updateArticleHandler(args: any, ctx: AuthContext): Promise<unknow
   const id = args?.id;
   if (typeof id !== "string" || id.length === 0) throw new Error("`id` is required");
 
+  // generate_cover_image: true → call the cover-image edge function and
+  // attach the result. Mutually exclusive with passing a literal
+  // cover_image_url, so we don't silently ignore one of the two.
+  const wantsCoverGen = args?.generate_cover_image === true;
+  if (wantsCoverGen && typeof args?.cover_image_url === "string") {
+    throw new Error("Pass either `generate_cover_image: true` OR a literal `cover_image_url` — not both.");
+  }
+  if (wantsCoverGen) {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // Pull title + meta_description + content for prompt context.
+    const { data: existing, error: fetchErr } = await ctx.admin
+      .from("articles")
+      .select("title, meta_description, content")
+      .eq("user_id", ctx.userId)
+      .eq("id", id)
+      .single();
+    if (fetchErr || !existing) throw new Error("Article not found or you don't have access");
+    const plainText = String(existing.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const coverPrompt = String(existing.meta_description || "").trim() || String(existing.title || "").trim();
+    const contextSnippet = plainText.slice(0, 500);
+    const coverRes = await fetch(`${supabaseUrl}/functions/v1/generate-cover-image`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: coverPrompt, context: contextSnippet, user_id_override: ctx.userId }),
+    });
+    if (!coverRes.ok) {
+      const errText = await coverRes.text();
+      throw new Error(`Cover image generation failed: ${coverRes.status} ${errText.slice(0, 200)}`);
+    }
+    const coverJson = await coverRes.json();
+    const imageUrl: string | undefined = coverJson?.image_url;
+    if (!imageUrl) throw new Error("Cover image generation returned no image_url");
+    args = { ...args, cover_image_url: imageUrl };
+  }
+
   const allowed = [
     "title",
     "content",
@@ -1357,7 +1393,7 @@ const TOOLS: ToolDef[] = [
   {
     name: "update_article",
     description:
-      "Edit an existing article. Supports partial updates — only pass the fields you want to change. Fields: title, content (HTML), excerpt, meta_description, category, content_type, status (draft|published|scheduled|archived), cover_image_url, author_name, rss_enabled (toggles inclusion in the LinkedIn/Zapier RSS feed), related_article_ids (array of article UUIDs the caller also owns; used by the editor's Related Articles section and by Framer's multiCollectionReference field). When `content` changes, `reading_time_minutes` is recomputed automatically. Slug and sync metadata (WordPress/Intercom ids) are server-controlled and not editable via this tool.",
+      "Edit an existing article. Supports partial updates — only pass the fields you want to change. Fields: title, content (HTML), excerpt, meta_description, category, content_type, status (draft|published|scheduled|archived), cover_image_url, author_name, rss_enabled (toggles inclusion in the LinkedIn/Zapier RSS feed), related_article_ids (array of article UUIDs the caller also owns; used by the editor's Related Articles section and by Framer's multiCollectionReference field). When `content` changes, `reading_time_minutes` is recomputed automatically. Slug and sync metadata (WordPress/Intercom ids) are server-controlled and not editable via this tool.\n\nIMAGES: pass `generate_cover_image: true` to generate a DALL-E 3 cover for an article that doesn't have one (+5 credits). Mutually exclusive with passing a literal `cover_image_url`. Only call this when the user explicitly asks for a cover image.",
     inputSchema: {
       type: "object",
       required: ["id"],
@@ -1371,6 +1407,10 @@ const TOOLS: ToolDef[] = [
         content_type: { type: "string", enum: ["blog", "landing", "comparison", "how-to", "user_guide"] },
         status: { type: "string", enum: ["draft", "published", "scheduled", "archived"] },
         cover_image_url: { type: "string", format: "uri" },
+        generate_cover_image: {
+          type: "boolean",
+          description: "If true, generate a DALL-E 3 cover image (+5 credits) and attach it. Mutually exclusive with cover_image_url.",
+        },
         author_name: { type: "string", description: "Article byline." },
         rss_enabled: {
           type: "boolean",
