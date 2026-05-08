@@ -18,6 +18,10 @@ import {
   Video,
   Loader2,
   BarChart3,
+  Table as TableIcon,
+  Rows3,
+  Columns3,
+  Trash2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
@@ -222,6 +226,58 @@ const EditorToolbar = ({ editor, onUnsplash }: EditorToolbarProps) => {
         title="Insert Infographic"
       >
         <BarChart3 className="h-4 w-4" />
+      </button>
+
+      <div className="mx-1 h-6 w-px bg-border" />
+
+      {/* Table controls — only meaningful inside a table, but TipTap's
+          can()/isActive() handles that, so we just disable when no-op. */}
+      <button
+        onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+        className={btnClass(false)}
+        title="Insert table"
+      >
+        <TableIcon className="h-4 w-4" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().addRowAfter().run()}
+        disabled={!editor.can().addRowAfter()}
+        className={btnClass(false, !editor.can().addRowAfter())}
+        title="Add row below"
+      >
+        <Rows3 className="h-4 w-4" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().deleteRow().run()}
+        disabled={!editor.can().deleteRow()}
+        className={btnClass(false, !editor.can().deleteRow())}
+        title="Delete row"
+      >
+        <Rows3 className="h-4 w-4 text-destructive" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().addColumnAfter().run()}
+        disabled={!editor.can().addColumnAfter()}
+        className={btnClass(false, !editor.can().addColumnAfter())}
+        title="Add column after"
+      >
+        <Columns3 className="h-4 w-4" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().deleteColumn().run()}
+        disabled={!editor.can().deleteColumn()}
+        className={btnClass(false, !editor.can().deleteColumn())}
+        title="Delete column"
+      >
+        <Columns3 className="h-4 w-4 text-destructive" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().deleteTable().run()}
+        disabled={!editor.can().deleteTable()}
+        className={btnClass(false, !editor.can().deleteTable())}
+        title="Delete entire table"
+      >
+        <Trash2 className="h-4 w-4 text-destructive" />
       </button>
 
       <div className="mx-1 h-6 w-px bg-border" />
