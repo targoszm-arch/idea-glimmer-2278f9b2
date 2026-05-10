@@ -17,6 +17,20 @@
   const QUERY_ID_POSTS =
     "voyagerFeedDashProfileUpdates.80d5abb3cd25edff72c093a5db696079";
 
+  // Company / organization endpoints. Voyager endpoints below are REST
+  // (decorated) — they're stable across query-id rotations.
+  const ORG_LOOKUP_URL = (universalName) =>
+    `${API_URL}/organization/companies?decorationId=com.linkedin.voyager.deco.organization.web.WebFullCompanyMain-12&q=universalName&universalName=${encodeURIComponent(universalName)}`;
+  const ORG_BY_ID_URL = (orgId) =>
+    `${API_URL}/organization/companies/${encodeURIComponent(orgId)}?decorationId=com.linkedin.voyager.deco.organization.web.WebFullCompanyMain-12`;
+  const ORG_FOLLOWERS_URL = (orgUrn) =>
+    `${API_URL}/organization/organizationPageStatistics?q=organization&organization=${encodeURIComponent(orgUrn)}`;
+  const ORG_UPDATES_URL = (orgUrn, count = 25) =>
+    `${API_URL}/feed/updatesV2?q=companyFeedByUniversalName&moduleKey=member-share&count=${count}&start=0&companyUniversalName=${encodeURIComponent(orgUrn)}`;
+  // Admin-only analytics; will 403 if the user doesn't admin the page.
+  const ORG_ADMIN_ANALYTICS_URL = (orgUrn) =>
+    `${API_URL}/organization/organizationPageStatistics?q=organization&organization=${encodeURIComponent(orgUrn)}`;
+
   function getCookie(name) {
     const m = document.cookie
       .split("; ")
@@ -85,6 +99,7 @@
       arts.find((a) => a.width >= 100 && a.height >= 100) || arts[0];
     const pic = art && root ? root + art.fileIdentifyingUrlPathSegment : "";
     return {
+      kind: "person",
       firstName: el.firstName,
       lastName: el.lastName,
       headline: el.headline,
@@ -92,6 +107,50 @@
       publicId,
       location: el.geoLocation?.geo?.defaultLocalizedName || "",
       profilePictureUrl: pic,
+    };
+  }
+
+  // ---- Company helpers ----------------------------------------------------
+
+  async function getCompanyByUniversalName(universalName) {
+    const data = await voyagerGet(ORG_LOOKUP_URL(universalName));
+    const el = data?.elements?.[0];
+    if (!el) throw new Error("Company not found: " + universalName);
+    return el;
+  }
+
+  async function getCompanyFollowers(orgUrn) {
+    return voyagerGet(ORG_FOLLOWERS_URL(orgUrn));
+  }
+
+  async function getCompanyUpdates(universalName, count = 25) {
+    return voyagerGet(ORG_UPDATES_URL(universalName, count));
+  }
+
+  function extractCompany(el) {
+    if (!el) return null;
+    const logoVec =
+      el.logo?.image?.["com.linkedin.common.VectorImage"] ||
+      el.logoResolutionResult?.vectorImage;
+    const root = logoVec?.rootUrl || "";
+    const arts = logoVec?.artifacts || [];
+    const art = arts.find((a) => a.width >= 100) || arts[0];
+    const logo = art && root ? root + art.fileIdentifyingUrlPathSegment : "";
+    return {
+      kind: "company",
+      name: el.name,
+      universalName: el.universalName,
+      entityUrn: el.entityUrn,
+      industry: el.companyIndustries?.[0]?.localizedName || el.industry || "",
+      headquarter:
+        [el.headquarter?.city, el.headquarter?.country]
+          .filter(Boolean)
+          .join(", ") || "",
+      followerCount: el.followingInfo?.followerCount ?? null,
+      staffCount: el.staffCount ?? null,
+      tagline: el.tagline || "",
+      logoUrl: logo,
+      websiteUrl: el.companyPageUrl || el.websiteUrl || "",
     };
   }
 
@@ -135,6 +194,41 @@
                 following:
                   following.status === "fulfilled" ? following.value : null,
                 posts: posts.status === "fulfilled" ? posts.value : null,
+                fetchedAt: Date.now(),
+              },
+            });
+            return;
+          }
+          case "getCompany": {
+            const universalName = msg.universalName;
+            if (!universalName)
+              return sendResponse({
+                success: false,
+                error: "universalName required (the slug from the company URL)",
+              });
+            const raw = await getCompanyByUniversalName(universalName);
+            const company = extractCompany(raw);
+            const orgUrn = company?.entityUrn;
+            const [followers, updates] = await Promise.allSettled([
+              orgUrn ? getCompanyFollowers(orgUrn) : Promise.resolve(null),
+              getCompanyUpdates(universalName, msg.postCount || 25),
+            ]);
+            sendResponse({
+              success: true,
+              data: {
+                company,
+                rawCompany: raw,
+                followers:
+                  followers.status === "fulfilled" ? followers.value : null,
+                followersError:
+                  followers.status === "rejected"
+                    ? String(followers.reason?.message || followers.reason)
+                    : null,
+                posts: updates.status === "fulfilled" ? updates.value : null,
+                postsError:
+                  updates.status === "rejected"
+                    ? String(updates.reason?.message || updates.reason)
+                    : null,
                 fetchedAt: Date.now(),
               },
             });
