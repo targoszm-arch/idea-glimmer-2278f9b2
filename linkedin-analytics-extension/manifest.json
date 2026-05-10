@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "LinkedIn Personal Analytics",
+  "short_name": "LIAnalytics",
+  "version": "1.0.0",
+  "description": "Self-hosted LinkedIn analytics. No backend, no subscription. Reads your own LinkedIn data and displays it locally.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "LinkedIn Personal Analytics"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage", "cookies", "activeTab", "tabs"],
+  "host_permissions": ["*://*.linkedin.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["*://*.linkedin.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
