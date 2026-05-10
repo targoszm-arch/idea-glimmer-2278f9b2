@@ -49,6 +49,11 @@ const ArticleCard = ({ article, selectable, selected, onToggleSelect }: ArticleC
               <Zap className="w-2.5 h-2.5" /> Auto
             </Badge>
           )}
+          {article.display_type && (
+            <Badge variant="outline" className="text-xs capitalize">
+              {article.display_type}
+            </Badge>
+          )}
         </div>
         {article.category && (
           <span className="text-xs font-medium text-muted-foreground">

@@ -16,9 +16,20 @@ export type Article = {
   author_name: string;
   reading_time_minutes: number;
   faq_html: string;
+  display_type?: string | null;
   created_at: string;
   updated_at: string;
 };
+
+export const DISPLAY_TYPES = [
+  "comparison",
+  "guide",
+  "how-to",
+  "listicle",
+  "product",
+  "social post",
+] as const;
+export type DisplayType = typeof DISPLAY_TYPES[number];
 
 export type ContentIdea = {
   id: string;

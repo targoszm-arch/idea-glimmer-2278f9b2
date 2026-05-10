@@ -4,7 +4,7 @@ import { PenSquare, Filter, Loader2, RefreshCw, Search, X, ChevronDown, Check, C
 import { motion } from "framer-motion";
 import PageLayout from "@/components/PageLayout";
 import ArticleCard from "@/components/ArticleCard";
-import { supabase, type Article } from "@/lib/supabase";
+import { supabase, type Article, DISPLAY_TYPES } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 
@@ -16,6 +16,9 @@ const Dashboard = () => {
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"updated" | "created">("updated");
+  const [selectedDisplayTypes, setSelectedDisplayTypes] = useState<Set<string>>(new Set());
+  const [displayTypeOpen, setDisplayTypeOpen] = useState(false);
+  const [bulkDisplayTypeOpen, setBulkDisplayTypeOpen] = useState(false);
   const categoryRef = useRef<HTMLDivElement>(null);
   const [syncing, setSyncing] = useState(false);
   const location = useLocation();
@@ -26,6 +29,8 @@ const Dashboard = () => {
   const [bulkCategoryValue, setBulkCategoryValue] = useState("");
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const bulkCatRef = useRef<HTMLDivElement>(null);
+  const displayTypeRef = useRef<HTMLDivElement>(null);
+  const bulkDisplayTypeRef = useRef<HTMLDivElement>(null);
 
   const handleSyncFramer = async () => {
     setSyncing(true);
@@ -164,10 +169,49 @@ const Dashboard = () => {
       if (bulkCatRef.current && !bulkCatRef.current.contains(e.target as Node)) {
         setBulkCategoryOpen(false);
       }
+      if (displayTypeRef.current && !displayTypeRef.current.contains(e.target as Node)) {
+        setDisplayTypeOpen(false);
+      }
+      if (bulkDisplayTypeRef.current && !bulkDisplayTypeRef.current.contains(e.target as Node)) {
+        setBulkDisplayTypeOpen(false);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  const toggleDisplayType = (t: string) => {
+    setSelectedDisplayTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
+  };
+
+  const handleBulkDisplayTypeChange = async (newType: string) => {
+    if (selectedArticles.size === 0) return;
+    setBulkUpdating(true);
+    try {
+      const ids = Array.from(selectedArticles);
+      const value = newType.trim() || null;
+      const { error } = await supabase
+        .from("articles")
+        .update({ display_type: value } as any)
+        .in("id", ids);
+      if (error) throw error;
+      setArticles((prev) =>
+        prev.map((a) => (ids.includes(a.id) ? { ...a, display_type: value } : a))
+      );
+      toast({ title: `Updated ${ids.length} article${ids.length !== 1 ? "s" : ""}`, description: value ? `Content type set to "${value}"` : "Content type cleared" });
+      clearSelection();
+      setBulkDisplayTypeOpen(false);
+    } catch (err: any) {
+      toast({ title: "Bulk update failed", description: err.message, variant: "destructive" });
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
 
   const handleBulkCategoryChange = async (newCategory: string) => {
     if (!newCategory.trim() || selectedArticles.size === 0) return;
@@ -205,6 +249,11 @@ const Dashboard = () => {
     // Category filter (multi-select)
     if (selectedCategories.size > 0) {
       result = result.filter((a) => selectedCategories.has(a.category));
+    }
+
+    // Display-type filter (multi-select)
+    if (selectedDisplayTypes.size > 0) {
+      result = result.filter((a) => a.display_type && selectedDisplayTypes.has(a.display_type));
     }
 
     // Search filter
@@ -355,6 +404,62 @@ const Dashboard = () => {
             </div>
           )}
 
+          {/* Display-type multi-select dropdown */}
+          <div className="relative" ref={displayTypeRef}>
+            <button
+              onClick={() => setDisplayTypeOpen((v) => !v)}
+              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                selectedDisplayTypes.size > 0
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Content type
+              {selectedDisplayTypes.size > 0 && (
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary-foreground/20 px-1.5 text-xs font-semibold">
+                  {selectedDisplayTypes.size}
+                </span>
+              )}
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${displayTypeOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {displayTypeOpen && (
+              <div className="absolute left-0 top-full z-50 mt-1.5 w-56 rounded-lg border border-border bg-background shadow-lg">
+                <div className="p-1.5">
+                  {DISPLAY_TYPES.map((t) => {
+                    const selected = selectedDisplayTypes.has(t);
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => toggleDisplayType(t)}
+                        className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
+                          selected ? "bg-primary/10 text-primary" : "text-foreground hover:bg-secondary"
+                        }`}
+                      >
+                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                          selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                        }`}>
+                          {selected && <Check className="h-3 w-3" />}
+                        </span>
+                        <span className="truncate capitalize">{t}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedDisplayTypes.size > 0 && (
+                  <div className="border-t border-border p-1.5">
+                    <button
+                      onClick={() => { setSelectedDisplayTypes(new Set()); setDisplayTypeOpen(false); }}
+                      className="w-full rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    >
+                      Clear types
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Active category tags */}
           {selectedCategories.size > 0 && (
             Array.from(selectedCategories).map((cat) => (
@@ -502,6 +607,43 @@ const Dashboard = () => {
                             {cat}
                           </button>
                         ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Change content type */}
+                <div className="relative" ref={bulkDisplayTypeRef}>
+                  <button
+                    onClick={() => setBulkDisplayTypeOpen((v) => !v)}
+                    disabled={bulkUpdating}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {bulkUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Tag className="h-4 w-4" />}
+                    Change Content Type
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${bulkDisplayTypeOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {bulkDisplayTypeOpen && (
+                    <div className="absolute bottom-full right-0 mb-2 w-56 rounded-lg border border-border bg-background shadow-lg">
+                      <div className="p-1.5">
+                        {DISPLAY_TYPES.map((t) => (
+                          <button
+                            key={t}
+                            onClick={() => handleBulkDisplayTypeChange(t)}
+                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm capitalize text-foreground hover:bg-secondary transition-colors"
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="border-t border-border p-1.5">
+                        <button
+                          onClick={() => handleBulkDisplayTypeChange("")}
+                          className="w-full rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        >
+                          Clear content type
+                        </button>
                       </div>
                     </div>
                   )}

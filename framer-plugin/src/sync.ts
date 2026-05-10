@@ -12,6 +12,7 @@ export const FIELDS = [
     { id: "Content",          name: "Body (Rich Text)",    type: "formattedText" },
     { id: "Excerpt",          name: "Excerpt",             type: "string"        },
     { id: "Category",         name: "Category",            type: "string"        },
+    { id: "ContentType",      name: "Content Type",        type: "string"        },
     { id: "Meta Description", name: "Meta Description",    type: "string"        },
     { id: "Publication Date", name: "Published Date",      type: "date"          },
     { id: "Preview Image",    name: "Cover Image",         type: "image"         },
@@ -24,7 +25,7 @@ export const FIELDS = [
 
 type Article = {
     id: string; title: string; slug: string; content: string
-    excerpt: string; meta_description: string; category: string
+    excerpt: string; meta_description: string; category: string; display_type: string | null
     cover_image_url: string | null; created_at: string
     reading_time_minutes: number | null; author_name: string | null
     keywords: string | null; facts: string | null; references: string | null
@@ -77,6 +78,7 @@ export async function performSync(collection: ManagedCollection, category = "all
             "Content":          { type: "formattedText", value: a.content ?? "" },
             "Excerpt":          { type: "string",        value: a.excerpt ?? "" },
             "Category":         { type: "string",        value: a.category ?? "" },
+            "ContentType":      { type: "string",        value: a.display_type ?? "" },
             "Meta Description": { type: "string",        value: a.meta_description ?? "" },
             "Publication Date": { type: "date",          value: a.created_at ?? "" },
             "Preview Image":    { type: "image",         value: imageAsset },
