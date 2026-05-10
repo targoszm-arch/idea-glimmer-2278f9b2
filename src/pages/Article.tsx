@@ -122,6 +122,9 @@ const Article = () => {
             <Badge variant={article.status === "published" ? "default" : "secondary"}>
               {article.status}
             </Badge>
+            {article.display_type && (
+              <Badge variant="outline" className="capitalize">{article.display_type}</Badge>
+            )}
             {article.category && (
               <span className="text-sm text-muted-foreground">{article.category}</span>
             )}

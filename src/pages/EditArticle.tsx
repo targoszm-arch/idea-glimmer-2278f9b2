@@ -40,6 +40,7 @@ const EditArticle = () => {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
+  const [displayType, setDisplayType] = useState<string>("");
   const [status, setStatus] = useState<"draft" | "published">("draft");
   const [previewMode, setPreviewMode] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -122,6 +123,7 @@ const EditArticle = () => {
       }
       setTitle(data.title);
       setCategory(data.category || "");
+      setDisplayType(((data as any).display_type as string) || "");
       setStatus(data.status as "draft" | "published");
       setWpPermalink((data as any).wp_permalink || null);
       setCoverImageUrl(data.cover_image_url || null);
@@ -184,6 +186,7 @@ const EditArticle = () => {
         excerpt,
         meta_description: metaDescription.trim().slice(0, 150),
         category,
+        display_type: displayType || null,
         status: finalStatus,
         cover_image_url: coverImageUrl,
         author_name: authorName.trim(),
@@ -989,7 +992,22 @@ const EditArticle = () => {
                 placeholder="category-slug"
                 title="Lowercase, dashes between words. Auto-formatted on blur."
                 className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
-              
+
+              <select
+                value={displayType}
+                onChange={(e) => setDisplayType(e.target.value)}
+                title="Content type tag (display only — does not affect URL or generation)"
+                className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm capitalize"
+              >
+                <option value="">— content type —</option>
+                <option value="comparison">Comparison</option>
+                <option value="guide">Guide</option>
+                <option value="how-to">How-to</option>
+                <option value="listicle">Listicle</option>
+                <option value="product">Product</option>
+                <option value="social post">Social post</option>
+              </select>
+
               <input
                 value={authorName}
                 onChange={(e) => setAuthorName(e.target.value)}
