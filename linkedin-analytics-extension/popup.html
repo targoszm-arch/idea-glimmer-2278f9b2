@@ -7,12 +7,25 @@
   </head>
   <body>
     <header>
-      <h1>LinkedIn Personal Analytics</h1>
+      <h1>LinkedIn Analytics</h1>
       <div class="actions">
         <button id="refresh">Refresh</button>
         <button id="clear" class="ghost">Clear</button>
       </div>
     </header>
+    <div class="modebar">
+      <label
+        ><input type="radio" name="mode" value="personal" checked /> Personal</label
+      >
+      <label
+        ><input type="radio" name="mode" value="company" /> Company page</label
+      >
+      <input
+        id="universalName"
+        class="hidden"
+        placeholder="company-slug (from linkedin.com/company/<slug>)"
+      />
+    </div>
     <div id="status" class="status"></div>
     <section id="profile" class="card hidden"></section>
     <section id="stats" class="grid hidden"></section>

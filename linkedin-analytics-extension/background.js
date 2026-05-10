@@ -2,7 +2,8 @@
 // No external network calls — everything stays on the user's machine.
 "use strict";
 
-const STORAGE_KEY = "li_analytics_snapshot";
+const PERSONAL_KEY = "li_analytics_snapshot";
+const COMPANY_KEY = "li_analytics_company_snapshot";
 
 async function getLinkedInTab() {
   const tabs = await chrome.tabs.query({ url: "*://*.linkedin.com/*" });
@@ -45,18 +46,46 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           postCount: msg.postCount || 50,
         });
         if (resp?.success) {
-          await chrome.storage.local.set({ [STORAGE_KEY]: resp.data });
+          await chrome.storage.local.set({ [PERSONAL_KEY]: resp.data });
+        }
+        sendResponse(resp);
+        return;
+      }
+      if (msg.type === "fetchCompany") {
+        const tab = await ensureLinkedInTab();
+        if (!tab?.id)
+          return sendResponse({ success: false, error: "No LinkedIn tab" });
+        const resp = await sendToTab(tab.id, {
+          type: "getCompany",
+          universalName: msg.universalName,
+          postCount: msg.postCount || 25,
+        });
+        if (resp?.success) {
+          const all = (await chrome.storage.local.get(COMPANY_KEY))[
+            COMPANY_KEY
+          ] || {};
+          all[msg.universalName] = resp.data;
+          await chrome.storage.local.set({ [COMPANY_KEY]: all });
         }
         sendResponse(resp);
         return;
       }
       if (msg.type === "getSnapshot") {
-        const data = await chrome.storage.local.get(STORAGE_KEY);
-        sendResponse({ success: true, data: data[STORAGE_KEY] || null });
+        const data = await chrome.storage.local.get([
+          PERSONAL_KEY,
+          COMPANY_KEY,
+        ]);
+        sendResponse({
+          success: true,
+          data: {
+            personal: data[PERSONAL_KEY] || null,
+            companies: data[COMPANY_KEY] || {},
+          },
+        });
         return;
       }
       if (msg.type === "clear") {
-        await chrome.storage.local.remove(STORAGE_KEY);
+        await chrome.storage.local.remove([PERSONAL_KEY, COMPANY_KEY]);
         sendResponse({ success: true });
         return;
       }

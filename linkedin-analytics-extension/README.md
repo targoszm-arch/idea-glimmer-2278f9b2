@@ -29,6 +29,18 @@ currently logged-in user, and stored only in `chrome.storage.local`.
   results in `chrome.storage.local`.
 - `popup.html/.css/.js` — the local dashboard.
 
+## Modes
+
+- **Personal** — analytics for your own member account (followers,
+  connections, post impressions, profile views, recent posts).
+- **Company page** — paste a company slug (e.g. `microsoft`) or full URL
+  (`https://www.linkedin.com/company/microsoft/`) and hit Refresh.
+  - **Public data** (always available): name, logo, industry, HQ,
+    follower count, employee count, recent posts.
+  - **Admin-only data** (page admins only): new follower counts, page
+    views, demographics. If you don't admin the page, those cards show
+    "—" and a small note appears in the status bar.
+
 ## Voyager endpoints used
 
 | Data        | Endpoint                                                                                          |
@@ -38,6 +50,9 @@ currently logged-in user, and stored only in `chrome.storage.local`.
 | Posts       | GraphQL `voyagerFeedDashProfileUpdates.80d5abb3cd25edff72c093a5db696079`                          |
 | Following   | GraphQL `voyagerSearchDashClusters.15c671c3162c043443995439a3d3b6dd`                              |
 | Connections | REST `/voyager/api/search/dash/clusters?...resultType:CONNECTIONS`                                |
+| Company profile | REST `/voyager/api/organization/companies?q=universalName&universalName=…`                    |
+| Company followers / page stats | REST `/voyager/api/organization/organizationPageStatistics?q=organization&organization=…` |
+| Company posts | REST `/voyager/api/feed/updatesV2?q=companyFeedByUniversalName&companyUniversalName=…`           |
 
 These query IDs are LinkedIn-internal and may rotate. If a request
 starts returning HTTP 4xx, open the LinkedIn web app, watch the network

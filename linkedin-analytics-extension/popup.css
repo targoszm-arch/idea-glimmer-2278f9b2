@@ -54,3 +54,19 @@ button:disabled { opacity: 0.6; cursor: wait; }
 .post .meta { color: #777; font-size: 11px; margin-top: 4px; }
 .post .text { white-space: pre-wrap; word-break: break-word; }
 footer { margin-top: 8px; color: #888; }
+.modebar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.modebar input[type="text"], .modebar #universalName {
+  flex: 1;
+  min-width: 180px;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 12px;
+}
