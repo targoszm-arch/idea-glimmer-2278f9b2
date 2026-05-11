@@ -171,7 +171,7 @@ export default function LinkedInAnalytics() {
           <Linkedin className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
           <h1 className="text-2xl font-bold mb-2">No LinkedIn data yet</h1>
           <p className="text-muted-foreground mb-4">Install the LinkedIn Browser Extension and connect it in Settings to start syncing analytics.</p>
-          <a href="/integrations" className="text-primary underline text-sm">Go to Integrations →</a>
+          <a href="/settings/integrations" className="text-primary underline text-sm">Go to Integrations →</a>
         </div>
       </PageLayout>
     );
@@ -202,7 +202,7 @@ export default function LinkedInAnalytics() {
             <div>
               <div className="font-medium text-yellow-900">LinkedIn Browser Extension not detected on this page.</div>
               <div className="text-yellow-800">
-                Install it from <a href="/integrations" className="underline">Settings → Integrations</a> to enable one-click refresh from here.
+                Install it from <a href="/settings/integrations" className="underline">Settings → Integrations</a> to enable one-click refresh from here.
               </div>
             </div>
           </div>
