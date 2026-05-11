@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, XCircle, Loader2, ExternalLink, Linkedin, Trash2 } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ExternalLink, Linkedin, Trash2, Copy, Plus } from "lucide-react";
 
 const SUPABASE_URL = "https://rnshobvpqegttrpaowxe.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo";
@@ -119,6 +119,139 @@ function LinkedInConnect() {
             </div>
           </div>
         </CardHeader>
+      </Card>
+    </div>
+  );
+}
+
+function LinkedInExtension() {
+  const { toast } = useToast();
+  const [tokens, setTokens] = useState<Array<{ id: string; label: string | null; created_at: string; last_used_at: string | null }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [newToken, setNewToken] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    const { data } = await supabase
+      .from("linkedin_extension_tokens" as any)
+      .select("id, label, created_at, last_used_at, revoked_at")
+      .is("revoked_at", null)
+      .order("created_at", { ascending: false });
+    setTokens(((data as any) || []) as any);
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  async function createToken() {
+    setCreating(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+      const bytes = crypto.getRandomValues(new Uint8Array(32));
+      const raw = "lix_" + Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+      const hashBuf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
+      const hash = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+      const { error } = await supabase.from("linkedin_extension_tokens" as any).insert({
+        user_id: user.id,
+        token_hash: hash,
+        label: `Token ${new Date().toISOString().slice(0, 10)}`,
+      });
+      if (error) throw error;
+      setNewToken(raw);
+      await load();
+    } catch (e: any) {
+      toast({ title: "Could not create token", description: e.message, variant: "destructive" });
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function revokeToken(id: string) {
+    if (!confirm("Revoke this token? The extension using it will stop syncing.")) return;
+    await supabase.from("linkedin_extension_tokens" as any).update({ revoked_at: new Date().toISOString() }).eq("id", id);
+    await load();
+  }
+
+  async function copyToClipboard(text: string) {
+    await navigator.clipboard.writeText(text);
+    toast({ title: "Copied to clipboard" });
+  }
+
+  return (
+    <div className="mt-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg border border-border bg-[#0A66C2] flex items-center justify-center">
+                <Linkedin className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-base">LinkedIn Browser Extension</CardTitle>
+                <CardDescription className="text-xs mt-0.5">
+                  Pulls follower, impression and engagement stats from your LinkedIn session into ContentLab Analytics.
+                </CardDescription>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0 pb-4 space-y-4">
+          <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2 text-xs">
+            <p className="font-medium text-sm">Install</p>
+            <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
+              <li>Download the extension from <a className="underline" href="https://github.com/targoszm-arch/linkedin-analytics-extension" target="_blank" rel="noreferrer">GitHub</a> (or your local copy at <code>~/linkedin-analytics-extension</code>).</li>
+              <li>Open <code>chrome://extensions</code>, enable Developer Mode, click <strong>Load unpacked</strong>, pick that folder.</li>
+              <li>Open the extension popup → <strong>Settings</strong> → paste a token below and the ContentLab URL <code>{SUPABASE_URL}</code>.</li>
+              <li>Click <strong>Refresh</strong>. Data shows up in <a className="underline" href="/analytics/linkedin">Monitor → LinkedIn Analytics</a>.</li>
+            </ol>
+          </div>
+
+          {newToken && (
+            <div className="rounded-md border border-yellow-500/40 bg-yellow-50 p-3 space-y-2">
+              <p className="text-xs font-medium text-yellow-900">Copy this token — it won't be shown again.</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs bg-white px-2 py-1.5 rounded border border-yellow-300 break-all">{newToken}</code>
+                <Button size="sm" variant="outline" onClick={() => copyToClipboard(newToken)}>
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => setNewToken(null)}>I've saved it</Button>
+            </div>
+          )}
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-sm">Active tokens</Label>
+              <Button size="sm" onClick={createToken} disabled={creating}>
+                {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                <span className="ml-1">New token</span>
+              </Button>
+            </div>
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            ) : tokens.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No tokens yet. Create one to connect the extension.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {tokens.map((t) => (
+                  <div key={t.id} className="flex items-center justify-between rounded-md border border-border bg-muted/20 px-3 py-2 text-xs">
+                    <div>
+                      <div className="font-medium">{t.label || "Unnamed"}</div>
+                      <div className="text-muted-foreground">
+                        Created {new Date(t.created_at).toLocaleDateString()}
+                        {t.last_used_at ? ` · Last used ${new Date(t.last_used_at).toLocaleString()}` : " · Never used"}
+                      </div>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => revokeToken(t.id)}>
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
       </Card>
     </div>
   );
@@ -641,6 +774,9 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
 
         {/* LinkedIn Section */}
         <LinkedInConnect />
+
+        {/* LinkedIn Browser Extension */}
+        <LinkedInExtension />
 
         <div className="mt-8 p-4 bg-muted/50 rounded-lg">
           <p className="text-xs text-muted-foreground">
