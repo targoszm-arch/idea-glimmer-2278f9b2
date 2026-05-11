@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, Linkedin, Twitter, Instagram, Send, Calendar, Loader2, Check, ExternalLink } from "lucide-react";
+import { X, Linkedin, Twitter, Instagram, Send, Calendar, Loader2, Check, ExternalLink, ChevronDown, ChevronUp, ImagePlus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -58,7 +58,19 @@ export function SocialPostPreviewModal({
   const [scheduling, setScheduling] = useState(false);
   const [posted, setPosted] = useState(false);
   const [scheduled, setScheduled] = useState(false);
+  // Preview is collapsed by default when editing an existing post (the user
+  // is here to rewrite, not admire). New drafts: expanded so user sees what
+  // the AI generated.
+  const [previewOpen, setPreviewOpen] = useState(!existingPostId);
+  // User-uploaded image overrides the article cover passed in via props.
+  const [uploadedMediaUrl, setUploadedMediaUrl] = useState<string | null>(null);
+  const [uploadedMediaType, setUploadedMediaType] = useState<"image" | "video" | null>(null);
+  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
+
+  // The image actually shown in the preview + saved to the row.
+  const effectiveMediaUrl = uploadedMediaUrl ?? mediaUrl ?? null;
+  const effectiveMediaType = uploadedMediaType ?? mediaType ?? null;
 
   // The parent keeps a single instance of this modal mounted and toggles
   // `open` + swaps `content`. Because `useState(content)` only reads the
@@ -75,7 +87,45 @@ export function SocialPostPreviewModal({
     setScheduleDate(toLocalInputValue(initialScheduledAt));
     setPosted(false);
     setScheduled(false);
+    setPreviewOpen(!isReschedule);
+    setUploadedMediaUrl(null);
+    setUploadedMediaType(null);
   }, [open, content, isReschedule, initialScheduledAt, initialTab]);
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Max 10MB. Compress and retry.", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `social-post-images/${user.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("article-covers")
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from("article-covers").getPublicUrl(path);
+      setUploadedMediaUrl(data.publicUrl);
+      setUploadedMediaType(file.type.startsWith("video/") ? "video" : "image");
+      toast({ title: "Image attached" });
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+      // Reset input so selecting the same file again still fires onChange.
+      e.target.value = "";
+    }
+  }
+
+  function removeImage() {
+    setUploadedMediaUrl(null);
+    setUploadedMediaType(null);
+  }
 
   if (!open) return null;
 
@@ -137,6 +187,8 @@ export function SocialPostPreviewModal({
             scheduled_at: newScheduledAt,
             status: "scheduled",
             error_message: null,
+            media_url: effectiveMediaUrl,
+            media_type: effectiveMediaType,
           })
           .eq("id", existingPostId);
         if (error) throw error;
@@ -148,7 +200,7 @@ export function SocialPostPreviewModal({
           topic: topic || articleTitle, title: articleTitle || topic,
           article_id: articleId || null, article_title: articleTitle || null,
           scheduled_at: newScheduledAt, status: "scheduled",
-          media_url: mediaUrl || null, media_type: mediaType || null,
+          media_url: effectiveMediaUrl, media_type: effectiveMediaType,
         });
         if (error) throw error;
         setScheduled(true);
@@ -164,7 +216,7 @@ export function SocialPostPreviewModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="bg-background rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="bg-background rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2">
@@ -180,51 +232,75 @@ export function SocialPostPreviewModal({
 
         <div className="overflow-y-auto max-h-[70vh]">
           {tab === "preview" ? (
-            <div className="p-5 space-y-4">
-              {/* Mock social post preview */}
-              <div className="border border-border rounded-xl overflow-hidden bg-white">
-                {/* Platform header bar */}
-                <div className={`h-1.5 ${meta.bg}`} />
-                <div className="p-4">
-                  {/* Fake profile row */}
-                  <div className="flex items-center gap-2.5 mb-3">
-                    <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">You</div>
-                    <div>
-                      <p className="text-xs font-semibold text-foreground">Your Name</p>
-                      <p className="text-[10px] text-muted-foreground">{meta.label} · Just now</p>
+            <div className="p-5 space-y-3">
+              {/* Collapsible preview */}
+              <button
+                type="button"
+                onClick={() => setPreviewOpen((v) => !v)}
+                className="w-full flex items-center justify-between text-xs font-medium text-muted-foreground hover:text-foreground transition"
+              >
+                <span>Preview how this will look on {meta.label}</span>
+                {previewOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </button>
+
+              {previewOpen && (
+                <div className="border border-border rounded-xl overflow-hidden bg-white">
+                  <div className={`h-1.5 ${meta.bg}`} />
+                  <div className="p-4">
+                    <div className="flex items-center gap-2.5 mb-3">
+                      <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">You</div>
+                      <div>
+                        <p className="text-xs font-semibold text-foreground">Your Name</p>
+                        <p className="text-[10px] text-muted-foreground">{meta.label} · Just now</p>
+                      </div>
                     </div>
+                    <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{editedContent}</p>
+                    {effectiveMediaUrl && (
+                      <div className="mt-3 rounded-lg overflow-hidden border border-border">
+                        {effectiveMediaType === "video" ? (
+                          <video src={effectiveMediaUrl} controls className="w-full max-h-64 object-cover" />
+                        ) : (
+                          <img src={effectiveMediaUrl} alt="media" className="w-full max-h-64 object-cover" />
+                        )}
+                      </div>
+                    )}
+                    {articleUrl && isLinkedIn && (
+                      <div className="mt-3 border border-border rounded-lg p-3 flex items-center gap-2 bg-muted/30">
+                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                        <span className="text-xs text-muted-foreground truncate">{articleTitle || articleUrl}</span>
+                      </div>
+                    )}
                   </div>
-                  {/* Content */}
-                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{editedContent}</p>
-                  {/* Media preview */}
-                  {mediaUrl && (
-                    <div className="mt-3 rounded-lg overflow-hidden border border-border">
-                      {mediaType === "video" ? (
-                        <video src={mediaUrl} controls className="w-full max-h-48 object-cover" />
-                      ) : (
-                        <img src={mediaUrl} alt="media" className="w-full max-h-48 object-cover" />
-                      )}
-                    </div>
-                  )}
-                  {/* Article link preview */}
-                  {articleUrl && isLinkedIn && (
-                    <div className="mt-3 border border-border rounded-lg p-3 flex items-center gap-2 bg-muted/30">
-                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                      <span className="text-xs text-muted-foreground truncate">{articleTitle || articleUrl}</span>
-                    </div>
-                  )}
                 </div>
-              </div>
+              )}
 
               {/* Editable content */}
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Edit before posting</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-medium text-foreground">Edit post content</label>
+                  <div className="flex items-center gap-1">
+                    <label className="inline-flex items-center gap-1 text-xs text-primary hover:underline cursor-pointer">
+                      {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+                      {uploading ? "Uploading…" : effectiveMediaUrl ? "Replace image" : "Add image"}
+                      <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} disabled={uploading} />
+                    </label>
+                    {effectiveMediaUrl && (
+                      <button
+                        type="button"
+                        onClick={removeImage}
+                        className="inline-flex items-center gap-1 text-xs text-destructive hover:underline"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Remove image
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <textarea
                   value={editedContent}
                   onChange={e => setEditedContent(e.target.value)}
-                  rows={6}
+                  rows={previewOpen ? 10 : 16}
                   placeholder={`Write your ${meta.label} post…`}
-                  className="w-full text-sm border border-border rounded-lg p-3 bg-background resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 leading-relaxed"
+                  className="w-full text-sm border border-border rounded-lg p-3 bg-background resize-y focus:outline-none focus:ring-2 focus:ring-primary/30 leading-relaxed min-h-[200px]"
                 />
                 <p className={`text-xs mt-1 text-right ${overLimit ? "text-destructive" : "text-muted-foreground"}`}>
                   {charCount.toLocaleString()} / {meta.charLimit.toLocaleString()}

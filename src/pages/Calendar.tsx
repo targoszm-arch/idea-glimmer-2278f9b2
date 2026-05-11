@@ -995,6 +995,8 @@ export default function CalendarPage() {
           articleId={socialPostReschedule?.article_id || socialPostEdit?.article_id || socialPostDraft?.articleId || undefined}
           articleTitle={socialPostReschedule?.article_title || socialPostEdit?.article_title || socialPostDraft?.articleTitle || undefined}
           topic={socialPostReschedule?.topic || socialPostEdit?.topic || socialPostDraft?.topic || undefined}
+          mediaUrl={socialPostReschedule?.media_url || socialPostEdit?.media_url || socialPostDraft?.mediaUrl || undefined}
+          mediaType={(socialPostReschedule?.media_type || socialPostEdit?.media_type || socialPostDraft?.mediaType) as any}
           existingPostId={socialPostReschedule?.id || socialPostEdit?.id}
           initialScheduledAt={socialPostReschedule?.scheduled_at || socialPostEdit?.scheduled_at || undefined}
           initialTab={socialPostEdit ? "preview" : socialPostReschedule ? "schedule" : undefined}
