@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Linkedin, Youtube, Twitter, Instagram, Film, Loader2, Sparkles, Trash2, Copy, Check, ChevronDown, ChevronUp, Lightbulb, Video, Play, Images, Clapperboard, Eye, BookOpen } from "lucide-react";
+import { Linkedin, Youtube, Twitter, Instagram, Film, Loader2, Sparkles, Trash2, Copy, Check, ChevronDown, ChevronUp, Lightbulb, Video, Play, Images, Clapperboard, Eye, BookOpen, PenSquare } from "lucide-react";
 import { SocialPostPreviewModal } from "@/components/SocialPostPreviewModal";
 import { PLATFORM_META as SOCIAL_PLATFORM_META } from "@/components/SocialPostPreviewModal";
 import { motion, AnimatePresence } from "framer-motion";
@@ -34,7 +34,7 @@ const platforms = [
   { key: "instagram_reel", label: "IG Reel", icon: Film },
 ] as const;
 
-type VideoMode = "text_post" | "sora_video" | "heygen_template" | "heygen_agent" | "multipage";
+type VideoMode = "text_post" | "manual" | "sora_video" | "heygen_template" | "heygen_agent" | "multipage";
 
 type Platform = (typeof platforms)[number]["key"];
 
@@ -59,6 +59,71 @@ type SocialPost = {
   video_url?: string | null;
   created_at: string;
 };
+
+function ManualPostComposer({ platform, onSaved }: { platform: string; onSaved: () => void }) {
+  const [content, setContent] = useState("");
+  const [title, setTitle] = useState("");
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+  const limit = platform === "twitter" ? 280 : 3000;
+
+  async function save() {
+    if (!content.trim()) {
+      toast({ title: "Post is empty", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+      const { error } = await supabase.from("social_posts").insert({
+        user_id: user.id,
+        platform,
+        title: title.trim() || content.trim().slice(0, 60),
+        topic: "manual",
+        content: content.trim(),
+      });
+      if (error) throw error;
+      toast({ title: "Saved to library" });
+      setContent("");
+      setTitle("");
+      onSaved();
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Optional title (used in the library only — not posted)"
+        className="w-full rounded-lg border border-input bg-background px-4 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        placeholder={`Write your ${platform} post here. Hooks belong on line 1.`}
+        rows={6}
+        className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y"
+      />
+      <div className="flex items-center justify-between text-xs">
+        <span className={content.length > limit ? "text-red-600 font-medium" : "text-muted-foreground"}>
+          {content.length} / {limit} characters
+        </span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => { setContent(""); setTitle(""); }} disabled={!content && !title}>Clear</Button>
+          <Button size="sm" onClick={save} disabled={saving || !content.trim() || content.length > limit}>
+            {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />Saving…</> : <>Save to library</>}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const SocialMedia = () => {
   const { showUpgrade, setShowUpgrade, showTopUp, setShowTopUp, checkCredits } = useUpgrade();
@@ -1282,7 +1347,8 @@ const SocialMedia = () => {
                           <p className="text-xs text-muted-foreground">Generation method:</p>
                           <div className="flex flex-wrap rounded-lg border border-input overflow-hidden">
                             {([
-                              { key: "text_post" as VideoMode, label: "Text Post", icon: Sparkles },
+                              { key: "manual" as VideoMode, label: "Write yourself", icon: PenSquare },
+                              { key: "text_post" as VideoMode, label: "AI text post", icon: Sparkles },
                               { key: "sora_video" as VideoMode, label: "Sora Video", icon: Video },
                               { key: "heygen_template" as VideoMode, label: "Generate videos from template", icon: Clapperboard },
                               { key: "heygen_agent" as VideoMode, label: "Generate Video with A agent", icon: Sparkles },
@@ -1340,26 +1406,30 @@ const SocialMedia = () => {
                           Using your AI Settings: <span className="font-medium text-foreground">{aiSettings.app_description.slice(0, 80)}{aiSettings.app_description.length > 80 ? "…" : ""}</span>
                         </p>
                       )}
-                      <div className="flex gap-3">
-                        <input
-                          value={niche}
-                          onChange={(e) => setNiche(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleGenerateIdeas()}
-                          placeholder={aiSettings?.app_description ? "Optional: add extra context or leave empty" : "Describe your product or niche"}
-                          className="flex-1 rounded-lg border border-input bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        />
-                        <Button
-                          onClick={handleGenerateIdeas}
-                          disabled={isGeneratingIdeas}
-                          className="gap-2"
-                        >
-                          {isGeneratingIdeas ? (
-                            <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</>
-                          ) : (
-                            <><Sparkles className="h-4 w-4" /> Generate Ideas</>
-                          )}
-                        </Button>
-                      </div>
+                      {videoMode === "manual" ? (
+                        <ManualPostComposer platform={p.key} onSaved={fetchData} />
+                      ) : (
+                        <div className="flex gap-3">
+                          <input
+                            value={niche}
+                            onChange={(e) => setNiche(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleGenerateIdeas()}
+                            placeholder={aiSettings?.app_description ? "Optional: add extra context or leave empty" : "Describe your product or niche"}
+                            className="flex-1 rounded-lg border border-input bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          />
+                          <Button
+                            onClick={handleGenerateIdeas}
+                            disabled={isGeneratingIdeas}
+                            className="gap-2"
+                          >
+                            {isGeneratingIdeas ? (
+                              <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</>
+                            ) : (
+                              <><Sparkles className="h-4 w-4" /> Generate Ideas</>
+                            )}
+                          </Button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Ideas Grid */}
