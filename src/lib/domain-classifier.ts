@@ -81,18 +81,48 @@ function competitorDomains(competitors: string[]): Set<string> {
   return out;
 }
 
+export type ClassifierContext = {
+  ownBrandUrl: string;
+  ownedDomains?: string[];           // resolved authoritative list of user's own domains
+  competitors: string[];             // competitor names (used for heuristic fallback)
+  competitorDomains?: Record<string, string[]>;  // resolved authoritative: name → domains
+};
+
+function hostMatches(host: string, root: string, candidate: string): boolean {
+  const c = candidate.toLowerCase().replace(/^www\./, "").replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  return host === c || host.endsWith("." + c) || root === c || root === rootDomain(c);
+}
+
 export function classifyDomain(
   url: string,
-  ownBrandUrl: string,
-  competitors: string[],
+  ctxOrOwnUrl: ClassifierContext | string,
+  competitorsFallback?: string[],
 ): DomainType {
+  // Back-compat: allow the old signature classifyDomain(url, ownUrl, competitors[])
+  const ctx: ClassifierContext = typeof ctxOrOwnUrl === "string"
+    ? { ownBrandUrl: ctxOrOwnUrl, competitors: competitorsFallback || [] }
+    : ctxOrOwnUrl;
+
   const host = topHostname(url);
   const root = rootDomain(host);
-  const ownRoot = ownBrandUrl ? rootDomain(topHostname(ownBrandUrl)) : "";
 
-  if (ownRoot && (host === ownRoot || host.endsWith("." + ownRoot) || root === ownRoot)) return "you";
+  // 1. Authoritative owned domains (from owned_domains[] + brand_url)
+  const ownedCandidates = [...(ctx.ownedDomains || []), ctx.ownBrandUrl].filter(Boolean);
+  for (const c of ownedCandidates) {
+    if (hostMatches(host, root, c)) return "you";
+  }
 
-  const compSet = competitorDomains(competitors);
+  // 2. Authoritative competitor domains (from competitor_domains map)
+  if (ctx.competitorDomains) {
+    for (const domains of Object.values(ctx.competitorDomains)) {
+      for (const d of domains || []) {
+        if (hostMatches(host, root, d)) return "competitor";
+      }
+    }
+  }
+  // Heuristic fallback only if no authoritative map is set OR competitor wasn't
+  // resolved yet (the map will not contain it).
+  const compSet = competitorDomains(ctx.competitors);
   if (compSet.has(host) || compSet.has(root)) return "competitor";
 
   if (UGC_DOMAINS.has(host) || UGC_DOMAINS.has(root)) return "ugc";
@@ -104,13 +134,11 @@ export function classifyDomain(
     if (host === ed || host.endsWith("." + ed)) return "editorial";
   }
 
-  // Org domains that aren't institutional (standards bodies) → corporate
   if (host.endsWith(".org")) {
     if (host.includes("standards") || host.includes("iso") || host.includes("ietf")) return "institutional";
     return "other";
   }
 
-  // Everything else with a normal commercial TLD → corporate-ish
   if (host.endsWith(".com") || host.endsWith(".io") || host.endsWith(".ai") || host.endsWith(".co") || host.endsWith(".app")) {
     return "corporate";
   }

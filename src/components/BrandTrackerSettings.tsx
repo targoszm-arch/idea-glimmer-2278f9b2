@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, X, Sparkles, Radar } from "lucide-react";
+import { Loader2, Plus, X, Sparkles, Radar, RefreshCw } from "lucide-react";
 
 type Config = {
   brand_name: string;
@@ -18,6 +18,8 @@ type Config = {
   runs_per_prompt: number;
   web_browsing: boolean;
   use_llm_judge: boolean;
+  owned_domains: string[];
+  competitor_domains: Record<string, string[]>;
 };
 
 const SUPABASE_URL = "https://rnshobvpqegttrpaowxe.supabase.co";
@@ -27,7 +29,8 @@ export default function BrandTrackerSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [cfg, setCfg] = useState<Config>({ brand_name: "", brand_url: "", brand_aliases: [], competitors: [], prompts: [], model_tier: "premium", runs_per_prompt: 5, web_browsing: true, use_llm_judge: true });
+  const [cfg, setCfg] = useState<Config>({ brand_name: "", brand_url: "", brand_aliases: [], competitors: [], prompts: [], model_tier: "premium", runs_per_prompt: 5, web_browsing: true, use_llm_judge: true, owned_domains: [], competitor_domains: {} });
+  const [resolvingDomain, setResolvingDomain] = useState<string | null>(null);
   const [aliasInput, setAliasInput] = useState("");
   const [competitorInput, setCompetitorInput] = useState("");
   const [promptInput, setPromptInput] = useState("");
@@ -47,6 +50,8 @@ export default function BrandTrackerSettings() {
           runs_per_prompt: d.runs_per_prompt || 5,
           web_browsing: d.web_browsing !== false,
           use_llm_judge: d.use_llm_judge !== false,
+          owned_domains: d.owned_domains || [],
+          competitor_domains: d.competitor_domains || {},
         });
       }
       setLoading(false);
@@ -78,10 +83,65 @@ export default function BrandTrackerSettings() {
     if (cfg[key].includes(v)) { setter(""); return; }
     setCfg({ ...cfg, [key]: [...cfg[key], v] });
     setter("");
+    // For competitors, kick off domain resolution in the background.
+    if (key === "competitors") resolveDomain(v);
   }
 
   function removeFromList(key: "brand_aliases" | "competitors" | "prompts", value: string) {
-    setCfg({ ...cfg, [key]: cfg[key].filter((x) => x !== value) });
+    if (key === "competitors") {
+      const { [value]: _, ...rest } = cfg.competitor_domains;
+      setCfg({ ...cfg, competitors: cfg.competitors.filter((x) => x !== value), competitor_domains: rest });
+    } else {
+      setCfg({ ...cfg, [key]: cfg[key].filter((x) => x !== value) });
+    }
+  }
+
+  async function resolveDomain(name: string) {
+    setResolvingDomain(name);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/resolve-brand-domain`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (res.ok && Array.isArray(data?.domains) && data.domains.length > 0) {
+        setCfg((prev) => ({ ...prev, competitor_domains: { ...prev.competitor_domains, [name]: data.domains } }));
+        if (!data.verified) toast({ title: `Found domains for ${name}`, description: data.note || "Please double-check the suggested domains before saving." });
+      }
+    } catch (e: any) {
+      console.error("resolve-brand-domain failed", e);
+    } finally {
+      setResolvingDomain(null);
+    }
+  }
+
+  async function resolveOwnedDomains() {
+    if (!cfg.brand_name) { toast({ title: "Set your brand name first", variant: "destructive" }); return; }
+    setResolvingDomain("__own__");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/resolve-brand-domain`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ name: cfg.brand_name }),
+      });
+      const data = await res.json();
+      if (res.ok && Array.isArray(data?.domains)) {
+        const merged = Array.from(new Set([...(cfg.owned_domains || []), ...data.domains]));
+        setCfg((prev) => ({ ...prev, owned_domains: merged }));
+        toast({ title: `Found ${data.domains.length} domain(s) for ${cfg.brand_name}` });
+      }
+    } finally { setResolvingDomain(null); }
+  }
+
+  function setCompetitorDomains(name: string, domains: string[]) {
+    setCfg({ ...cfg, competitor_domains: { ...cfg.competitor_domains, [name]: domains } });
+  }
+
+  function setOwnedDomains(domains: string[]) {
+    setCfg({ ...cfg, owned_domains: domains });
   }
 
   async function generatePrompts() {
@@ -162,15 +222,53 @@ export default function BrandTrackerSettings() {
           onRemove={(v) => removeFromList("brand_aliases", v)}
         />
 
-        <ListEditor
-          label="Competitors"
-          hint="Brands you want to track alongside yours. Mention frequency is your share-of-voice baseline."
-          value={competitorInput}
-          onChange={setCompetitorInput}
-          onAdd={() => addToList("competitors", competitorInput, setCompetitorInput)}
-          items={cfg.competitors}
-          onRemove={(v) => removeFromList("competitors", v)}
-        />
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <Label className="text-xs">Your owned domains</Label>
+            <Button size="sm" variant="outline" onClick={resolveOwnedDomains} disabled={resolvingDomain === "__own__" || !cfg.brand_name}>
+              {resolvingDomain === "__own__" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              <span className="ml-1">Auto-detect</span>
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground mb-1">Domains we should classify as "You" in citations. Auto-detect uses LLM + web search to find your real domain(s). Edit freely.</p>
+          <DomainPills domains={cfg.owned_domains} onChange={setOwnedDomains} />
+        </div>
+
+        <div>
+          <Label className="text-xs">Competitors</Label>
+          <p className="text-[11px] text-muted-foreground mb-1">When you add a competitor, we look up their real website via LLM + web search instead of guessing the domain. You can edit the resolved domains.</p>
+          <div className="flex gap-2 mb-2">
+            <Input value={competitorInput} onChange={(e) => setCompetitorInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addToList("competitors", competitorInput, setCompetitorInput); } }} placeholder="e.g. TalentLMS" />
+            <Button size="sm" onClick={() => addToList("competitors", competitorInput, setCompetitorInput)}><Plus className="h-3.5 w-3.5" /></Button>
+          </div>
+          {cfg.competitors.length > 0 && (
+            <div className="space-y-2">
+              {cfg.competitors.map((name) => (
+                <div key={name} className="rounded-md border border-border bg-muted/20 p-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium">{name}</span>
+                      {resolvingDomain === name && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => resolveDomain(name)} disabled={resolvingDomain === name} title="Re-resolve domains">
+                        <RefreshCw className={`h-3 w-3 ${resolvingDomain === name ? "animate-spin" : ""}`} />
+                      </Button>
+                      <button onClick={() => removeFromList("competitors", name)} className="text-muted-foreground hover:text-destructive">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                  <DomainPills
+                    domains={cfg.competitor_domains[name] || []}
+                    onChange={(domains) => setCompetitorDomains(name, domains)}
+                    emptyHint={resolvingDomain === name ? "Looking up domains…" : "No domains resolved yet. Click ↻ to look up, or paste manually."}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div>
           <div className="flex items-center justify-between mb-1">
@@ -276,6 +374,48 @@ export default function BrandTrackerSettings() {
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+function DomainPills({ domains, onChange, emptyHint }: { domains: string[]; onChange: (d: string[]) => void; emptyHint?: string }) {
+  const [input, setInput] = useState("");
+  function normalize(raw: string): string {
+    return raw.trim().toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .replace(/\/.*$/, "");
+  }
+  function add() {
+    const v = normalize(input);
+    if (!v || !v.includes(".")) { setInput(""); return; }
+    if (domains.includes(v)) { setInput(""); return; }
+    onChange([...domains, v]);
+    setInput("");
+  }
+  return (
+    <div>
+      <div className="flex flex-wrap gap-1 items-center">
+        {domains.map((d) => (
+          <Badge key={d} variant="outline" className="gap-1 pl-2 pr-1 text-[11px]">
+            {d}
+            <button onClick={() => onChange(domains.filter((x) => x !== d))} className="text-muted-foreground hover:text-destructive">
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </Badge>
+        ))}
+        {domains.length === 0 && emptyHint && <span className="text-[11px] text-muted-foreground italic">{emptyHint}</span>}
+      </div>
+      <div className="flex gap-1 mt-1.5">
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+          placeholder="domain.com"
+          className="h-7 text-xs"
+        />
+        <Button size="sm" variant="outline" onClick={add} className="h-7"><Plus className="h-3 w-3" /></Button>
+      </div>
+    </div>
   );
 }
 

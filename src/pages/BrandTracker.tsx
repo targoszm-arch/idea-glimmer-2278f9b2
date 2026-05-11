@@ -40,6 +40,8 @@ type Config = {
   brand_aliases: string[];
   competitors: string[];
   prompts: string[];
+  owned_domains?: string[];
+  competitor_domains?: Record<string, string[]>;
 };
 
 function fmtPct(n: number, digits = 0) {
@@ -124,28 +126,34 @@ export default function BrandTracker() {
 
   const ownUrl = cfg?.brand_url || "";
   const competitorsList = cfg?.competitors || [];
+  const classifierCtx = useMemo(() => ({
+    ownBrandUrl: ownUrl,
+    ownedDomains: cfg?.owned_domains || [],
+    competitors: competitorsList,
+    competitorDomains: cfg?.competitor_domains || {},
+  }), [ownUrl, competitorsList, cfg?.owned_domains, cfg?.competitor_domains]);
 
   const topCitations = useMemo(() => {
     const m: Record<string, { count: number; type: DomainType }> = {};
     for (const r of validRuns) for (const url of r.citations) {
       const host = hostname(url);
-      if (!m[host]) m[host] = { count: 0, type: classifyDomain(url, ownUrl, competitorsList) };
+      if (!m[host]) m[host] = { count: 0, type: classifyDomain(url, classifierCtx) };
       m[host].count++;
     }
     return Object.entries(m).sort((a, b) => b[1].count - a[1].count).slice(0, 15);
-  }, [validRuns, ownUrl, competitorsList]);
+  }, [validRuns, classifierCtx]);
 
   const domainTypeBreakdown = useMemo(() => {
     const m: Record<DomainType, number> = { you: 0, competitor: 0, ugc: 0, reference: 0, editorial: 0, corporate: 0, institutional: 0, other: 0 };
     for (const r of validRuns) for (const url of r.citations) {
-      m[classifyDomain(url, ownUrl, competitorsList)]++;
+      m[classifyDomain(url, classifierCtx)]++;
     }
     const total = Object.values(m).reduce((a, b) => a + b, 0) || 1;
     return (Object.entries(m) as Array<[DomainType, number]>)
       .map(([type, count]) => ({ type, count, pct: count / total }))
       .filter((x) => x.count > 0)
       .sort((a, b) => b.count - a.count);
-  }, [validRuns, ownUrl, competitorsList]);
+  }, [validRuns, classifierCtx]);
 
   const avgListPosition = useMemo(() => {
     const positions = validRuns.map((r) => r.position_in_list).filter((p): p is number => typeof p === "number");
@@ -462,7 +470,7 @@ export default function BrandTracker() {
                       {r.citations.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
                           {r.citations.slice(0, 6).map((c) => {
-                            const t = classifyDomain(c, ownUrl, competitorsList);
+                            const t = classifyDomain(c, classifierCtx);
                             return (
                               <a key={c} href={c} target="_blank" rel="noreferrer" className={`text-[10px] px-1.5 py-0.5 rounded border ${domainTypeColor(t)} hover:underline inline-flex items-center gap-0.5`}>
                                 {hostname(c)}<ExternalLink className="h-2.5 w-2.5" />
