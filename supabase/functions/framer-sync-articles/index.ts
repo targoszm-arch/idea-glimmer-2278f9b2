@@ -331,6 +331,21 @@ serve(async (req) => {
       // Also drop any remaining img tags without a src
       content = content.replace(/<img(?![^>]*\bsrc=)[^>]*\/?>/gi, "");
 
+      // Normalise every surviving <img> to render at full article-column
+      // width. TipTap inserts bare <img src> with no width/height/style,
+      // and Framer's CMS template falls back to a tiny default render. We
+      // force a large explicit width (which Framer's RichText respects when
+      // sizing within its container) and an inline style as a belt-and-
+      // braces fallback for any consumer that strips the attribute.
+      content = content.replace(/<img\b([^>]*)>/gi, (_m, attrs) => {
+        // Drop existing width / height / style so they don't fight ours.
+        const cleaned = String(attrs)
+          .replace(/\s*\bwidth\s*=\s*("[^"]*"|'[^']*'|\S+)/gi, "")
+          .replace(/\s*\bheight\s*=\s*("[^"]*"|'[^']*'|\S+)/gi, "")
+          .replace(/\s*\bstyle\s*=\s*("[^"]*"|'[^']*')/gi, "");
+        return `<img${cleaned} width="1200" style="display:block;width:100%;max-width:100%;height:auto">`;
+      });
+
       return {
         ...a,
         content,
