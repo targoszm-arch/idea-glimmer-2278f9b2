@@ -222,12 +222,22 @@ function LinkedInExtension() {
         </CardHeader>
         <CardContent className="pt-0 pb-4 space-y-4">
           <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2 text-xs">
-            <p className="font-medium text-sm">Install</p>
+            <div className="flex items-center justify-between">
+              <p className="font-medium text-sm">Install</p>
+              <a
+                href="/linkedin-analytics-extension.zip"
+                download
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary underline hover:no-underline"
+              >
+                <ExternalLink className="h-3 w-3" /> Download extension (.zip)
+              </a>
+            </div>
             <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
-              <li>Download the extension from <a className="underline" href="https://github.com/targoszm-arch/linkedin-analytics-extension" target="_blank" rel="noreferrer">GitHub</a> (or your local copy at <code>~/linkedin-analytics-extension</code>).</li>
-              <li>Open <code>chrome://extensions</code>, enable Developer Mode, click <strong>Load unpacked</strong>, pick that folder.</li>
-              <li>Open the extension popup → <strong>Settings</strong> → paste a token below and the ContentLab URL <code>{SUPABASE_URL}</code>.</li>
-              <li>Click <strong>Refresh</strong>. Data shows up in <a className="underline" href="/analytics/linkedin">Monitor → LinkedIn Analytics</a>.</li>
+              <li>Click <strong>Download extension (.zip)</strong> above, then unzip the file anywhere on your machine.</li>
+              <li>Open <code>chrome://extensions</code> in Chrome, toggle <strong>Developer mode</strong> on (top right), click <strong>Load unpacked</strong>, and pick the unzipped folder.</li>
+              <li>Below, click <strong>New token</strong>, copy the value, then right-click the extension icon → <strong>Options</strong> → paste the token. The ContentLab URL is pre-filled.</li>
+              <li>Add LinkedIn company URLs you want to track (one per line) in the Options page. Save.</li>
+              <li>Click the extension icon → <strong>Refresh</strong>. Data appears in <a className="underline" href="/analytics/linkedin">Monitor → LinkedIn Analytics</a>.</li>
             </ol>
           </div>
 
