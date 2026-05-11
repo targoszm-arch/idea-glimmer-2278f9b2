@@ -521,21 +521,20 @@ serve(async (req) => {
     const overrideId: string | undefined = bodyJson?.user_id_override;
 
     if (overrideId) {
-      // Internal-call path. Decode the JWT and verify role=service_role.
-      // No network call — robust to env/key drift between functions.
-      let role: string | undefined;
-      try {
-        const payloadB64 = token.split('.')[1];
-        const padded = payloadB64 + '='.repeat((4 - payloadB64.length % 4) % 4);
-        const json = JSON.parse(atob(padded.replace(/-/g, '+').replace(/_/g, '/')));
-        role = json?.role;
-      } catch {
-        role = undefined;
-      }
-      if (role !== 'service_role') {
-        console.error('generate-article: user_id_override given but token role is', role);
+      // Internal-call path. Probe whether the caller's token has admin
+      // privileges by attempting auth.admin.getUserById — which only succeeds
+      // for keys with the service_role role. This is robust to Supabase's
+      // asymmetric-JWT migration (new keys may not have role=service_role
+      // as a top-level JWT claim).
+      const probe = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        token, // use the caller's token, not our env's service key
+      );
+      const { data: probeUser, error: probeErr } = await probe.auth.admin.getUserById(overrideId);
+      if (probeErr || !probeUser?.user) {
+        console.error('generate-article: admin probe failed for user_id_override', overrideId, probeErr?.message);
         return new Response(
-          JSON.stringify({ error: 'Unauthorized', detail: 'user_id_override requires a service_role JWT' }),
+          JSON.stringify({ error: 'Unauthorized', detail: 'user_id_override requires a service_role key' }),
           { status: 401, headers: corsHeaders },
         );
       }
