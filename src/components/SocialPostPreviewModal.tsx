@@ -25,6 +25,7 @@ interface Props {
   // (Reschedule affordance on scheduled rows) reuse this single modal so
   // we don't grow a second scheduling UI.
   existingPostId?: string;
+  initialTab?: "preview" | "schedule";
   initialScheduledAt?: string;
   onSaved?: () => void;    // called after save/schedule
 }
@@ -47,10 +48,10 @@ function toLocalInputValue(iso?: string): string {
 }
 
 export function SocialPostPreviewModal({
-  open, onClose, platform, content, mediaUrl, mediaType, articleUrl, articleTitle, articleId, topic, existingPostId, initialScheduledAt, onSaved
+  open, onClose, platform, content, mediaUrl, mediaType, articleUrl, articleTitle, articleId, topic, existingPostId, initialScheduledAt, onSaved, initialTab
 }: Props) {
   const isReschedule = !!existingPostId;
-  const [tab, setTab] = useState<"preview" | "schedule">(isReschedule ? "schedule" : "preview");
+  const [tab, setTab] = useState<"preview" | "schedule">(initialTab ?? (isReschedule ? "schedule" : "preview"));
   const [editedContent, setEditedContent] = useState(content);
   const [scheduleDate, setScheduleDate] = useState(() => toLocalInputValue(initialScheduledAt));
   const [posting, setPosting] = useState(false);
@@ -70,11 +71,11 @@ export function SocialPostPreviewModal({
     setEditedContent(content);
     // In reschedule mode the user is explicitly editing a scheduled row,
     // so jump straight to the Schedule tab and preload the existing date.
-    setTab(isReschedule ? "schedule" : "preview");
+    setTab(initialTab ?? (isReschedule ? "schedule" : "preview"));
     setScheduleDate(toLocalInputValue(initialScheduledAt));
     setPosted(false);
     setScheduled(false);
-  }, [open, content, isReschedule, initialScheduledAt]);
+  }, [open, content, isReschedule, initialScheduledAt, initialTab]);
 
   if (!open) return null;
 

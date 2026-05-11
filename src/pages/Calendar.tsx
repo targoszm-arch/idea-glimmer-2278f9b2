@@ -185,6 +185,8 @@ export default function CalendarPage() {
   const [socialPostPickerOpen, setSocialPostPickerOpen] = useState(false);
   const [socialPostDraft, setSocialPostDraft] = useState<PickedPost | null>(null);
   const [socialPostReschedule, setSocialPostReschedule] = useState<any | null>(null);
+  // Same modal as reschedule but opens on the 'preview' tab where the textarea lives.
+  const [socialPostEdit, setSocialPostEdit] = useState<any | null>(null);
 
   const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
@@ -662,6 +664,13 @@ export default function CalendarPage() {
                               {p.status === "scheduled" && (
                                 <>
                                   <button
+                                    onClick={(e) => { e.stopPropagation(); setSocialPostEdit(p); }}
+                                    className="p-1 rounded hover:bg-white text-indigo-600"
+                                    title="Edit post content"
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                  </button>
+                                  <button
                                     onClick={(e) => { e.stopPropagation(); setSocialPostReschedule(p); }}
                                     className="p-1 rounded hover:bg-white text-sky-700"
                                     title="Reschedule this post"
@@ -756,6 +765,13 @@ export default function CalendarPage() {
                             {" · "}{p.platform || "linkedin"}
                           </p>
                         </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSocialPostEdit(p); }}
+                          className="shrink-0 p-1 rounded hover:bg-indigo-50 text-indigo-600"
+                          title="Edit post content"
+                        >
+                          <Edit className="w-3 h-3" />
+                        </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); setSocialPostReschedule(p); }}
                           className="shrink-0 p-1 rounded hover:bg-sky-50 text-sky-700"
@@ -970,18 +986,19 @@ export default function CalendarPage() {
           onPick={(d) => { setSocialPostPickerOpen(false); setSocialPostDraft(d); }}
         />
 
-        {/* ── Social Post Schedule / Reschedule Modal ── */}
+        {/* ── Social Post Schedule / Reschedule / Edit Modal ── */}
         <SocialPostPreviewModal
-          open={!!socialPostReschedule || !!socialPostDraft}
-          onClose={() => { setSocialPostDraft(null); setSocialPostReschedule(null); }}
-          platform={(socialPostReschedule?.platform as any) || socialPostDraft?.platform || "linkedin"}
-          content={socialPostReschedule?.content ?? socialPostDraft?.content ?? ""}
-          articleId={socialPostReschedule?.article_id || socialPostDraft?.articleId || undefined}
-          articleTitle={socialPostReschedule?.article_title || socialPostDraft?.articleTitle || undefined}
-          topic={socialPostReschedule?.topic || socialPostDraft?.topic || undefined}
-          existingPostId={socialPostReschedule?.id}
-          initialScheduledAt={socialPostReschedule?.scheduled_at || undefined}
-          onSaved={() => { setSocialPostDraft(null); setSocialPostReschedule(null); loadAll(); }}
+          open={!!socialPostReschedule || !!socialPostDraft || !!socialPostEdit}
+          onClose={() => { setSocialPostDraft(null); setSocialPostReschedule(null); setSocialPostEdit(null); }}
+          platform={(socialPostReschedule?.platform as any) || socialPostEdit?.platform || socialPostDraft?.platform || "linkedin"}
+          content={socialPostReschedule?.content ?? socialPostEdit?.content ?? socialPostDraft?.content ?? ""}
+          articleId={socialPostReschedule?.article_id || socialPostEdit?.article_id || socialPostDraft?.articleId || undefined}
+          articleTitle={socialPostReschedule?.article_title || socialPostEdit?.article_title || socialPostDraft?.articleTitle || undefined}
+          topic={socialPostReschedule?.topic || socialPostEdit?.topic || socialPostDraft?.topic || undefined}
+          existingPostId={socialPostReschedule?.id || socialPostEdit?.id}
+          initialScheduledAt={socialPostReschedule?.scheduled_at || socialPostEdit?.scheduled_at || undefined}
+          initialTab={socialPostEdit ? "preview" : socialPostReschedule ? "schedule" : undefined}
+          onSaved={() => { setSocialPostDraft(null); setSocialPostReschedule(null); setSocialPostEdit(null); loadAll(); }}
         />
 
       </div>
