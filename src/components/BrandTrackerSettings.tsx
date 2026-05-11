@@ -27,7 +27,7 @@ export default function BrandTrackerSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [cfg, setCfg] = useState<Config>({ brand_name: "", brand_url: "", brand_aliases: [], competitors: [], prompts: [], model_tier: "balanced", runs_per_prompt: 3, web_browsing: true, use_llm_judge: true });
+  const [cfg, setCfg] = useState<Config>({ brand_name: "", brand_url: "", brand_aliases: [], competitors: [], prompts: [], model_tier: "premium", runs_per_prompt: 5, web_browsing: true, use_llm_judge: true });
   const [aliasInput, setAliasInput] = useState("");
   const [competitorInput, setCompetitorInput] = useState("");
   const [promptInput, setPromptInput] = useState("");
@@ -43,8 +43,8 @@ export default function BrandTrackerSettings() {
           brand_aliases: d.brand_aliases || [],
           competitors: d.competitors || [],
           prompts: d.prompts || [],
-          model_tier: d.model_tier || "balanced",
-          runs_per_prompt: d.runs_per_prompt || 3,
+          model_tier: d.model_tier || "premium",
+          runs_per_prompt: d.runs_per_prompt || 5,
           web_browsing: d.web_browsing !== false,
           use_llm_judge: d.use_llm_judge !== false,
         });

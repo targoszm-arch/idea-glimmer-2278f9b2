@@ -65,7 +65,16 @@ type ProviderResult = {
 
 // ---------- ChatGPT ---------------------------------------------------------
 
-async function runOpenAI(prompt: string, tier: Tier, browsing: boolean): Promise<ProviderResult> {
+// Spread temperatures evenly across [0.2, 1.0] for N runs so we sample
+// different parts of the response distribution instead of clustering near
+// one point. For 1 run: 0.4. For 2: [0.3, 0.7]. For 5: [0.2, 0.4, 0.6, 0.8, 1.0].
+function temperatureFor(runIndex: number, runsPerPrompt: number): number {
+  if (runsPerPrompt <= 1) return 0.4;
+  const t = 0.2 + (runIndex / (runsPerPrompt - 1)) * 0.8;
+  return Math.round(t * 10) / 10;
+}
+
+async function runOpenAI(prompt: string, tier: Tier, browsing: boolean, temperature: number): Promise<ProviderResult> {
   if (!OPENAI_API_KEY) return { provider: "chatgpt", model: "", response_text: "", citations: [], tokens_used: null, web_browsing_used: false, error: "OPENAI_API_KEY not set" };
   const model = MODELS[tier].chatgpt;
   if (browsing) {
@@ -77,13 +86,13 @@ async function runOpenAI(prompt: string, tier: Tier, browsing: boolean): Promise
         model,
         tools: [{ type: "web_search_preview" }],
         input: prompt,
-        temperature: 0.4,
+        temperature,
       }),
     });
     const data = await res.json();
     if (!res.ok) {
       // Fall back to plain chat if web_search_preview unsupported on this account.
-      return runOpenAIPlain(prompt, model);
+      return runOpenAIPlain(prompt, model, temperature);
     }
     const output = data?.output || [];
     let text = "";
@@ -102,10 +111,10 @@ async function runOpenAI(prompt: string, tier: Tier, browsing: boolean): Promise
     }
     return { provider: "chatgpt", model, response_text: text, citations: dedupe([...citations, ...extractUrls(text)]), tokens_used: data?.usage?.total_tokens ?? null, web_browsing_used: true };
   }
-  return runOpenAIPlain(prompt, model);
+  return runOpenAIPlain(prompt, model, temperature);
 }
 
-async function runOpenAIPlain(prompt: string, model: string): Promise<ProviderResult> {
+async function runOpenAIPlain(prompt: string, model: string, temperature: number): Promise<ProviderResult> {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
@@ -119,12 +128,13 @@ async function runOpenAIPlain(prompt: string, model: string): Promise<ProviderRe
 
 // ---------- Claude ----------------------------------------------------------
 
-async function runClaude(prompt: string, tier: Tier, browsing: boolean): Promise<ProviderResult> {
+async function runClaude(prompt: string, tier: Tier, browsing: boolean, temperature: number): Promise<ProviderResult> {
   if (!ANTHROPIC_API_KEY) return { provider: "claude", model: "", response_text: "", citations: [], tokens_used: null, web_browsing_used: false, error: "ANTHROPIC_API_KEY not set" };
   const model = MODELS[tier].claude;
   const body: any = {
     model,
     max_tokens: 1500,
+    temperature,
     messages: [{ role: "user", content: prompt }],
   };
   if (browsing) {
@@ -137,7 +147,7 @@ async function runClaude(prompt: string, tier: Tier, browsing: boolean): Promise
   });
   const data = await res.json();
   if (!res.ok) {
-    if (browsing) return runClaude(prompt, tier, false); // fall back without browsing
+    if (browsing) return runClaude(prompt, tier, false, temperature); // fall back without browsing
     return { provider: "claude", model, response_text: "", citations: [], tokens_used: null, web_browsing_used: false, error: data?.error?.message || `HTTP ${res.status}` };
   }
   const blocks = data?.content || [];
@@ -161,13 +171,13 @@ async function runClaude(prompt: string, tier: Tier, browsing: boolean): Promise
 
 // ---------- Perplexity ------------------------------------------------------
 
-async function runPerplexity(prompt: string, tier: Tier): Promise<ProviderResult> {
+async function runPerplexity(prompt: string, tier: Tier, temperature: number): Promise<ProviderResult> {
   if (!PERPLEXITY_API_KEY) return { provider: "perplexity", model: "", response_text: "", citations: [], tokens_used: null, web_browsing_used: false, error: "PERPLEXITY_API_KEY not set" };
   const model = MODELS[tier].perplexity;
   const res = await fetch("https://api.perplexity.ai/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${PERPLEXITY_API_KEY}` },
-    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.4 }),
+    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature }),
   });
   const data = await res.json();
   if (!res.ok) return { provider: "perplexity", model, response_text: "", citations: [], tokens_used: null, web_browsing_used: false, error: data?.error?.message || `HTTP ${res.status}` };
@@ -308,17 +318,17 @@ Deno.serve(async (req) => {
 
   if (prompts.length === 0) return json({ error: "No prompt provided and no saved prompts to run." }, 400);
 
-  const runners: Record<Provider, (p: string) => Promise<ProviderResult>> = {
-    chatgpt: (p) => runOpenAI(p, tier, browsing),
-    claude: (p) => runClaude(p, tier, browsing),
-    perplexity: (p) => runPerplexity(p, tier),
-  };
-
   const allInserts: any[] = [];
 
   for (const prompt of prompts) {
     for (let runIndex = 0; runIndex < runsPerPrompt; runIndex++) {
-      const providerResults = await Promise.all(requestedProviders.map((p) => runners[p](prompt)));
+      const temp = temperatureFor(runIndex, runsPerPrompt);
+      const runners: Record<Provider, () => Promise<ProviderResult>> = {
+        chatgpt: () => runOpenAI(prompt, tier, browsing, temp),
+        claude: () => runClaude(prompt, tier, browsing, temp),
+        perplexity: () => runPerplexity(prompt, tier, temp),
+      };
+      const providerResults = await Promise.all(requestedProviders.map((p) => runners[p]()));
       // Judge in parallel after we have all provider responses.
       const judgeResults = useJudge
         ? await Promise.all(providerResults.map((r) => r.response_text ? llmJudge(cfg.brand_name!, (cfg.brand_aliases as string[]) || [], r.response_text) : null))
