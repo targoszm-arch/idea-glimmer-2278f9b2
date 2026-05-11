@@ -2,12 +2,14 @@ import { useLocation, useNavigate } from "react-router-dom";
 import PageLayout from "@/components/PageLayout";
 import { lazy, Suspense } from "react";
 import { Loader2 } from "lucide-react";
+import { lazyWithRetry } from "@/lib/lazy-with-retry";
 
-// Lazy load each tab's content
-const AISettings    = lazy(() => import("./AISettings"));
-const BrandAssets   = lazy(() => import("./BrandAssets"));
-const Integrations  = lazy(() => import("./Integrations"));
-const TeamSettings  = lazy(() => import("./TeamSettings"));
+// Lazy load each tab's content. lazyWithRetry handles stale-chunk failures
+// after a new deploy by forcing a one-time hard reload.
+const AISettings    = lazyWithRetry(() => import("./AISettings"));
+const BrandAssets   = lazyWithRetry(() => import("./BrandAssets"));
+const Integrations  = lazyWithRetry(() => import("./Integrations"));
+const TeamSettings  = lazyWithRetry(() => import("./TeamSettings"));
 
 const TABS = [
   { key: "ai",           label: "AI Settings",  path: "/settings" },
