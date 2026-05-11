@@ -30,8 +30,10 @@ const json = (body: unknown, status = 200) =>
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") || "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
 const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY") || "";
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
+const XAI_API_KEY = Deno.env.get("XAI_API_KEY") || Deno.env.get("GROK_API_KEY") || "";
 
-const PROVIDERS = ["chatgpt", "claude", "perplexity"] as const;
+const PROVIDERS = ["chatgpt", "claude", "perplexity", "gemini", "grok"] as const;
 type Provider = typeof PROVIDERS[number];
 type Tier = "fast" | "balanced" | "premium";
 
@@ -40,16 +42,22 @@ const MODELS: Record<Tier, Record<Provider, string>> = {
     chatgpt: "gpt-4o-mini",
     claude: "claude-haiku-4-5-20251001",
     perplexity: "sonar",
+    gemini: "gemini-2.5-flash",
+    grok: "grok-2-mini-latest",
   },
   balanced: {
     chatgpt: "gpt-4o",
     claude: "claude-sonnet-4-6",
     perplexity: "sonar",
+    gemini: "gemini-2.5-pro",
+    grok: "grok-2-latest",
   },
   premium: {
     chatgpt: "gpt-4o",
     claude: "claude-opus-4-7",
     perplexity: "sonar-pro",
+    gemini: "gemini-2.5-pro",
+    grok: "grok-2-latest",
   },
 };
 
@@ -186,6 +194,67 @@ async function runPerplexity(prompt: string, tier: Tier, temperature: number): P
   return { provider: "perplexity", model, response_text: text, citations: dedupe([...explicit, ...extractUrls(text)]), tokens_used: data?.usage?.total_tokens ?? null, web_browsing_used: true /* sonar always browses */ };
 }
 
+// ---------- Gemini ----------------------------------------------------------
+
+async function runGemini(prompt: string, tier: Tier, browsing: boolean, temperature: number): Promise<ProviderResult> {
+  if (!GEMINI_API_KEY) return { provider: "gemini", model: "", response_text: "", citations: [], tokens_used: null, web_browsing_used: false, error: "GEMINI_API_KEY not set" };
+  const model = MODELS[tier].gemini;
+  const body: any = {
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: { temperature, maxOutputTokens: 1500 },
+  };
+  if (browsing) body.tools = [{ google_search: {} }]; // Built-in Google Search grounding tool.
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    if (browsing) return runGemini(prompt, tier, false, temperature);
+    return { provider: "gemini", model, response_text: "", citations: [], tokens_used: null, web_browsing_used: false, error: data?.error?.message || `HTTP ${res.status}` };
+  }
+  const candidate = data?.candidates?.[0];
+  const parts = candidate?.content?.parts || [];
+  const text = parts.map((p: any) => p?.text || "").join("");
+  const groundingChunks = candidate?.groundingMetadata?.groundingChunks || [];
+  const citations: string[] = [];
+  for (const c of groundingChunks) {
+    const uri = c?.web?.uri || c?.retrievedContext?.uri;
+    if (uri) citations.push(uri);
+  }
+  const tokens = (data?.usageMetadata?.totalTokenCount) ?? null;
+  return { provider: "gemini", model, response_text: text, citations: dedupe([...citations, ...extractUrls(text)]), tokens_used: tokens, web_browsing_used: browsing && groundingChunks.length > 0 };
+}
+
+// ---------- Grok (xAI) ------------------------------------------------------
+
+async function runGrok(prompt: string, tier: Tier, browsing: boolean, temperature: number): Promise<ProviderResult> {
+  if (!XAI_API_KEY) return { provider: "grok", model: "", response_text: "", citations: [], tokens_used: null, web_browsing_used: false, error: "XAI_API_KEY / GROK_API_KEY not set" };
+  const model = MODELS[tier].grok;
+  // xAI exposes an OpenAI-compatible chat-completions endpoint.
+  const body: any = {
+    model,
+    messages: [{ role: "user", content: prompt }],
+    temperature,
+  };
+  // Grok's Live Search (web browsing) — pass search_parameters to enable.
+  if (browsing) body.search_parameters = { mode: "auto", return_citations: true, max_search_results: 5 };
+  const res = await fetch("https://api.x.ai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${XAI_API_KEY}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    if (browsing) return runGrok(prompt, tier, false, temperature);
+    return { provider: "grok", model, response_text: "", citations: [], tokens_used: null, web_browsing_used: false, error: data?.error?.message || data?.error || `HTTP ${res.status}` };
+  }
+  const text: string = data?.choices?.[0]?.message?.content || "";
+  const explicit: string[] = Array.isArray(data?.citations) ? data.citations : [];
+  return { provider: "grok", model, response_text: text, citations: dedupe([...explicit, ...extractUrls(text)]), tokens_used: data?.usage?.total_tokens ?? null, web_browsing_used: browsing };
+}
+
 // ---------- Helpers ---------------------------------------------------------
 
 function extractUrls(text: string): string[] {
@@ -196,6 +265,32 @@ function extractUrls(text: string): string[] {
 }
 
 function dedupe<T>(arr: T[]): T[] { return Array.from(new Set(arr)); }
+
+// Rank-in-list: if the response is a numbered or bulleted list of recommendations
+// and the brand appears as one of the items, return its 1-based position. Returns
+// null if the brand isn't found as a list item.
+function rankInList(text: string, terms: string[]): number | null {
+  if (!text || terms.length === 0) return null;
+  const lowerTerms = terms.map((t) => t.toLowerCase().trim()).filter(Boolean);
+  // Split by lines, then find lines that look like list items: "1.", "1)", "- ", "* "
+  const lines = text.split(/\r?\n/);
+  let rank = 0;
+  for (const raw of lines) {
+    const line = raw.trim();
+    const numMatch = line.match(/^(\d+)[.)]\s+(.+)/);
+    const bulletMatch = line.match(/^[-*•]\s+(.+)/);
+    if (!numMatch && !bulletMatch) continue;
+    rank++;
+    const content = (numMatch ? numMatch[2] : bulletMatch![1]).toLowerCase();
+    // Match only first-200-char of each bullet to avoid catching the brand
+    // mentioned mid-paragraph inside another bullet.
+    const head = content.slice(0, 200);
+    for (const t of lowerTerms) {
+      if (head.includes(t)) return rank;
+    }
+  }
+  return null;
+}
 
 function detectMentions(text: string, terms: string[]): { matched: string[]; firstPosition: number | null } {
   if (!text || terms.length === 0) return { matched: [], firstPosition: null };
@@ -327,6 +422,8 @@ Deno.serve(async (req) => {
         chatgpt: () => runOpenAI(prompt, tier, browsing, temp),
         claude: () => runClaude(prompt, tier, browsing, temp),
         perplexity: () => runPerplexity(prompt, tier, temp),
+        gemini: () => runGemini(prompt, tier, browsing, temp),
+        grok: () => runGrok(prompt, tier, browsing, temp),
       };
       const providerResults = await Promise.all(requestedProviders.map((p) => runners[p]()));
       // Judge in parallel after we have all provider responses.
@@ -351,6 +448,7 @@ Deno.serve(async (req) => {
           response_text: r.response_text,
           mentions_brand,
           brand_position: brandHit.firstPosition,
+          position_in_list: rankInList(r.response_text, brandTerms),
           mentions_competitors: compHit.matched,
           citations: r.citations,
           tokens_used: r.tokens_used,

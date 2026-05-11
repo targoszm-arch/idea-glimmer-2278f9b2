@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Radar, RefreshCw, ExternalLink, AlertCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { classifyDomain, domainTypeColor, type DomainType } from "@/lib/domain-classifier";
 
 const SUPABASE_URL = "https://rnshobvpqegttrpaowxe.supabase.co";
 
@@ -19,6 +20,7 @@ type Run = {
   response_text: string | null;
   mentions_brand: boolean;
   brand_position: number | null;
+  position_in_list: number | null;
   mentions_competitors: string[];
   citations: string[];
   tokens_used: number | null;
@@ -120,13 +122,35 @@ export default function BrandTracker() {
       .sort((a, b) => b.mentions - a.mentions);
   }, [cfg, validRuns, brandHits]);
 
+  const ownUrl = cfg?.brand_url || "";
+  const competitorsList = cfg?.competitors || [];
+
   const topCitations = useMemo(() => {
-    const m: Record<string, number> = {};
+    const m: Record<string, { count: number; type: DomainType }> = {};
     for (const r of validRuns) for (const url of r.citations) {
       const host = hostname(url);
-      m[host] = (m[host] || 0) + 1;
+      if (!m[host]) m[host] = { count: 0, type: classifyDomain(url, ownUrl, competitorsList) };
+      m[host].count++;
     }
-    return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 15);
+    return Object.entries(m).sort((a, b) => b[1].count - a[1].count).slice(0, 15);
+  }, [validRuns, ownUrl, competitorsList]);
+
+  const domainTypeBreakdown = useMemo(() => {
+    const m: Record<DomainType, number> = { you: 0, competitor: 0, ugc: 0, reference: 0, editorial: 0, corporate: 0, institutional: 0, other: 0 };
+    for (const r of validRuns) for (const url of r.citations) {
+      m[classifyDomain(url, ownUrl, competitorsList)]++;
+    }
+    const total = Object.values(m).reduce((a, b) => a + b, 0) || 1;
+    return (Object.entries(m) as Array<[DomainType, number]>)
+      .map(([type, count]) => ({ type, count, pct: count / total }))
+      .filter((x) => x.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }, [validRuns, ownUrl, competitorsList]);
+
+  const avgListPosition = useMemo(() => {
+    const positions = validRuns.map((r) => r.position_in_list).filter((p): p is number => typeof p === "number");
+    if (positions.length === 0) return null;
+    return positions.reduce((a, b) => a + b, 0) / positions.length;
   }, [validRuns]);
 
   const trend = useMemo(() => {
@@ -309,10 +333,11 @@ export default function BrandTracker() {
                     <p className="text-xs text-muted-foreground">No citations extracted yet.</p>
                   ) : (
                     <div className="space-y-1.5 max-h-44 overflow-y-auto">
-                      {topCitations.map(([host, count]) => (
-                        <div key={host} className="flex items-center justify-between text-xs">
-                          <a href={`https://${host}`} target="_blank" rel="noreferrer" className="text-primary hover:underline truncate">{host}</a>
-                          <Badge variant="outline" className="text-[10px]">{count}</Badge>
+                      {topCitations.map(([host, info]) => (
+                        <div key={host} className="flex items-center justify-between gap-2 text-xs">
+                          <a href={`https://${host}`} target="_blank" rel="noreferrer" className="text-primary hover:underline truncate flex-1">{host}</a>
+                          <Badge variant="outline" className={`text-[10px] capitalize ${domainTypeColor(info.type)}`}>{info.type === "you" ? "You" : info.type}</Badge>
+                          <Badge variant="outline" className="text-[10px] tabular-nums">{info.count}</Badge>
                         </div>
                       ))}
                     </div>
@@ -320,6 +345,39 @@ export default function BrandTracker() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Domain-type breakdown */}
+            {domainTypeBreakdown.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center justify-between">
+                    Source types
+                    {avgListPosition !== null && (
+                      <span className="text-xs font-normal text-muted-foreground">
+                        Avg list rank: <span className="font-medium text-foreground">#{avgListPosition.toFixed(1)}</span>
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1.5">
+                    {domainTypeBreakdown.map((d) => (
+                      <div key={d.type} className="space-y-0.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="flex items-center gap-2">
+                            <Badge variant="outline" className={`text-[10px] capitalize ${domainTypeColor(d.type)}`}>{d.type === "you" ? "You" : d.type}</Badge>
+                          </span>
+                          <span className="tabular-nums text-muted-foreground">{d.count} · {fmtPct(d.pct, 0)}</span>
+                        </div>
+                        <div className="h-1.5 bg-muted rounded overflow-hidden">
+                          <div className={`h-full ${d.type === "you" ? "bg-green-500" : d.type === "competitor" ? "bg-red-500" : "bg-muted-foreground/60"}`} style={{ width: `${d.pct * 100}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Per-prompt breakdown with drilldown */}
             <Card>
@@ -345,6 +403,7 @@ export default function BrandTracker() {
                                 <Badge variant="outline" className="text-[10px] capitalize">{r.provider}{r.model_tier ? ` · ${r.model_tier}` : ""}</Badge>
                                 {r.web_browsing_used && <Badge variant="outline" className="text-[10px] border-blue-300 bg-blue-50 text-blue-700">🌐 browsed</Badge>}
                                 {r.mentions_brand ? <Badge className="text-[10px] bg-green-100 text-green-800 hover:bg-green-100">Brand mentioned</Badge> : <Badge variant="outline" className="text-[10px] text-muted-foreground">No brand</Badge>}
+                                {r.position_in_list != null && <Badge variant="outline" className="text-[10px] border-amber-300 bg-amber-50 text-amber-800">#{r.position_in_list} in list</Badge>}
                                 {r.llm_judge_prominence && <Badge variant="outline" className="text-[10px] capitalize">{r.llm_judge_prominence}</Badge>}
                                 {r.llm_judge_sentiment && <Badge variant="outline" className={`text-[10px] capitalize ${r.llm_judge_sentiment === "positive" ? "border-green-300 text-green-700 bg-green-50" : r.llm_judge_sentiment === "negative" ? "border-red-300 text-red-700 bg-red-50" : "border-muted text-muted-foreground"}`}>{r.llm_judge_sentiment}</Badge>}
                                 {r.mentions_competitors.length > 0 && <span className="text-[10px] text-muted-foreground">vs {r.mentions_competitors.join(", ")}</span>}
@@ -367,6 +426,50 @@ export default function BrandTracker() {
                               )}
                             </div>
                           ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Recent Chats — flat list of every individual response */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  Recent Chats ({validRuns.length})
+                  <span className="text-xs font-normal text-muted-foreground">Every individual provider response</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1.5 max-h-[600px] overflow-y-auto">
+                  {validRuns.slice(0, 100).map((r) => (
+                    <div key={r.id} className="border rounded-md p-2 text-xs hover:bg-muted/10">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <Badge variant="outline" className="text-[10px] capitalize">{r.provider}</Badge>
+                        {r.web_browsing_used && <Badge variant="outline" className="text-[10px] border-blue-300 bg-blue-50 text-blue-700">🌐</Badge>}
+                        {r.mentions_brand ? <Badge className="text-[10px] bg-green-100 text-green-800 hover:bg-green-100">You mentioned</Badge> : <Badge variant="outline" className="text-[10px] text-muted-foreground">No mention</Badge>}
+                        {r.position_in_list != null && <Badge variant="outline" className="text-[10px] border-amber-300 bg-amber-50 text-amber-800">#{r.position_in_list}</Badge>}
+                        {r.llm_judge_sentiment && <Badge variant="outline" className={`text-[10px] capitalize ${r.llm_judge_sentiment === "positive" ? "border-green-300 text-green-700 bg-green-50" : r.llm_judge_sentiment === "negative" ? "border-red-300 text-red-700 bg-red-50" : ""}`}>{r.llm_judge_sentiment}</Badge>}
+                        <span className="text-[10px] text-muted-foreground ml-auto">{new Date(r.created_at).toLocaleString()}</span>
+                      </div>
+                      <div className="text-foreground line-clamp-1 mb-0.5"><span className="text-muted-foreground">Q:</span> {r.prompt}</div>
+                      <details>
+                        <summary className="cursor-pointer text-muted-foreground hover:text-foreground line-clamp-1">A: {r.response_text?.slice(0, 200) || "(empty)"}</summary>
+                        <div className="mt-1 whitespace-pre-wrap bg-background border rounded p-2 max-h-60 overflow-y-auto">{r.response_text || "(empty)"}</div>
+                      </details>
+                      {r.citations.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {r.citations.slice(0, 6).map((c) => {
+                            const t = classifyDomain(c, ownUrl, competitorsList);
+                            return (
+                              <a key={c} href={c} target="_blank" rel="noreferrer" className={`text-[10px] px-1.5 py-0.5 rounded border ${domainTypeColor(t)} hover:underline inline-flex items-center gap-0.5`}>
+                                {hostname(c)}<ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            );
+                          })}
+                          {r.citations.length > 6 && <span className="text-[10px] text-muted-foreground">+{r.citations.length - 6}</span>}
                         </div>
                       )}
                     </div>
