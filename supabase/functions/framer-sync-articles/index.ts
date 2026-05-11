@@ -331,20 +331,38 @@ serve(async (req) => {
       // Also drop any remaining img tags without a src
       content = content.replace(/<img(?![^>]*\bsrc=)[^>]*\/?>/gi, "");
 
-      // Normalise every surviving <img> to render at full article-column
-      // width. TipTap inserts bare <img src> with no width/height/style,
-      // and Framer's CMS template falls back to a tiny default render. We
-      // force a large explicit width (which Framer's RichText respects when
-      // sizing within its container) and an inline style as a belt-and-
-      // braces fallback for any consumer that strips the attribute.
-      content = content.replace(/<img\b([^>]*)>/gi, (_m, attrs) => {
-        // Drop existing width / height / style so they don't fight ours.
-        const cleaned = String(attrs)
-          .replace(/\s*\bwidth\s*=\s*("[^"]*"|'[^']*'|\S+)/gi, "")
-          .replace(/\s*\bheight\s*=\s*("[^"]*"|'[^']*'|\S+)/gi, "")
-          .replace(/\s*\bstyle\s*=\s*("[^"]*"|'[^']*')/gi, "");
-        return `<img${cleaned} width="1200" style="display:block;width:100%;max-width:100%;height:auto">`;
+      // Extract every body <img> into separate CMS fields so the Framer
+      // template can render each as a real Image component with template-
+      // controlled sizing. Framer's RichText field strips inline width/
+      // style attributes, so leaving images inline left them rendering at
+      // their natural pixel size (often tiny). Separate fields solve this.
+      //
+      // We support up to 8 inline body images per article. Any image
+      // beyond that stays in the body so we don't silently drop content.
+      const MAX_BODY_IMAGES = 8;
+      const bodyImages: Array<{ url: string; alt: string }> = [];
+      const imgRe = /<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi;
+      let extracted = 0;
+      content = content.replace(imgRe, (match, src) => {
+        if (extracted >= MAX_BODY_IMAGES) return match; // leave overflow in body
+        const altMatch = match.match(/\balt=["']([^"']*)["']/i);
+        bodyImages.push({ url: src, alt: altMatch ? altMatch[1] : "" });
+        extracted++;
+        // Use an inline <span> placeholder so we don't break HTML validity
+        // when the image was positioned mid-paragraph (TipTap normally
+        // blocks images but some editors / pastes leave them inline).
+        // The template can use these markers to render the image slot in
+        // place, or simply ignore them and stack body images at the end.
+        return `<span data-body-image-slot="${extracted}">[Image ${extracted}]</span>`;
       });
+
+      // Build flat per-slot fields (body_image_1..8 + body_image_1_alt..8)
+      // so the Framer plugin can map each to a dedicated image field.
+      const bodyImageFields: Record<string, string> = {};
+      for (let i = 0; i < MAX_BODY_IMAGES; i++) {
+        bodyImageFields[`body_image_${i + 1}`] = bodyImages[i]?.url ?? "";
+        bodyImageFields[`body_image_${i + 1}_alt`] = bodyImages[i]?.alt ?? "";
+      }
 
       return {
         ...a,
@@ -353,6 +371,8 @@ serve(async (req) => {
         keywords,
         facts,
         references,
+        ...bodyImageFields,
+        body_image_count: bodyImages.length,
       };
     });
 

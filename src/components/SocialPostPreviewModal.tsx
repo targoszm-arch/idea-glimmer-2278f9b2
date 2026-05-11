@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, Linkedin, Twitter, Instagram, Send, Calendar, Loader2, Check, ExternalLink, ChevronDown, ChevronUp, ImagePlus, Trash2 } from "lucide-react";
+import { X, Linkedin, Twitter, Instagram, Send, Calendar, Loader2, Check, ExternalLink, ChevronDown, ChevronUp, ImagePlus, Trash2, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -66,6 +66,9 @@ export function SocialPostPreviewModal({
   const [uploadedMediaUrl, setUploadedMediaUrl] = useState<string | null>(null);
   const [uploadedMediaType, setUploadedMediaType] = useState<"image" | "video" | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [aiVideoOpen, setAiVideoOpen] = useState(false);
+  const [aiVideoTemplate, setAiVideoTemplate] = useState("");
+  const [aiVideoStarting, setAiVideoStarting] = useState(false);
   const { toast } = useToast();
 
   // The image actually shown in the preview + saved to the row.
@@ -95,24 +98,27 @@ export function SocialPostPreviewModal({
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Max 10MB. Compress and retry.", variant: "destructive" });
+    const isVideo = file.type.startsWith("video/");
+    const maxBytes = isVideo ? 200 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      toast({ title: "File too large", description: `Max ${isVideo ? "200" : "10"}MB. Compress and retry.`, variant: "destructive" });
       return;
     }
     setUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const path = `social-post-images/${user.id}/${Date.now()}.${ext}`;
+      const ext = file.name.split(".").pop()?.toLowerCase() || (isVideo ? "mp4" : "jpg");
+      const bucket = isVideo ? "reel-videos" : "article-covers";
+      const path = `${isVideo ? "social-post-videos" : "social-post-images"}/${user.id}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
-        .from("article-covers")
+        .from(bucket)
         .upload(path, file, { contentType: file.type, upsert: false });
       if (upErr) throw upErr;
-      const { data } = supabase.storage.from("article-covers").getPublicUrl(path);
+      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
       setUploadedMediaUrl(data.publicUrl);
-      setUploadedMediaType(file.type.startsWith("video/") ? "video" : "image");
-      toast({ title: "Image attached" });
+      setUploadedMediaType(isVideo ? "video" : "image");
+      toast({ title: isVideo ? "Video attached" : "Image attached" });
     } catch (err: any) {
       toast({ title: "Upload failed", description: err.message, variant: "destructive" });
     } finally {
@@ -125,6 +131,40 @@ export function SocialPostPreviewModal({
   function removeImage() {
     setUploadedMediaUrl(null);
     setUploadedMediaType(null);
+  }
+
+  async function triggerAiVideo() {
+    if (!editedContent.trim()) {
+      toast({ title: "Write the post first", description: "The post text becomes the video's spoken script seed.", variant: "destructive" });
+      return;
+    }
+    if (!aiVideoTemplate.trim()) {
+      toast({ title: "HeyGen template ID required", variant: "destructive" });
+      return;
+    }
+    setAiVideoStarting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/trigger-skillstudio-video`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({
+          topic: editedContent.slice(0, 1500),
+          heygenTemplateId: aiVideoTemplate.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || data?.detail || `HTTP ${res.status}`);
+      toast({
+        title: "Video generation started",
+        description: "Skill Studio AI is rendering. Takes 2–5 min. Come back and Refresh the post to attach the video URL.",
+      });
+      setAiVideoOpen(false);
+    } catch (e: any) {
+      toast({ title: "Could not start video generation", description: e.message, variant: "destructive" });
+    } finally {
+      setAiVideoStarting(false);
+    }
   }
 
   if (!open) return null;
@@ -278,19 +318,27 @@ export function SocialPostPreviewModal({
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-medium text-foreground">Edit post content</label>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
                     <label className="inline-flex items-center gap-1 text-xs text-primary hover:underline cursor-pointer">
                       {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
-                      {uploading ? "Uploading…" : effectiveMediaUrl ? "Replace image" : "Add image"}
-                      <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} disabled={uploading} />
+                      {uploading ? "Uploading…" : effectiveMediaUrl ? `Replace ${effectiveMediaType === "video" ? "video" : "image"}` : "Add image / video"}
+                      <input type="file" accept="image/*,video/mp4,video/quicktime,video/webm" className="hidden" onChange={handleFileSelect} disabled={uploading} />
                     </label>
+                    <button
+                      type="button"
+                      onClick={() => setAiVideoOpen((v) => !v)}
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      title="Generate a HeyGen avatar video from this post text via Skill Studio AI"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" /> Generate AI video
+                    </button>
                     {effectiveMediaUrl && (
                       <button
                         type="button"
                         onClick={removeImage}
                         className="inline-flex items-center gap-1 text-xs text-destructive hover:underline"
                       >
-                        <Trash2 className="h-3.5 w-3.5" /> Remove image
+                        <Trash2 className="h-3.5 w-3.5" /> Remove
                       </button>
                     )}
                   </div>
@@ -306,6 +354,44 @@ export function SocialPostPreviewModal({
                   {charCount.toLocaleString()} / {meta.charLimit.toLocaleString()}
                 </p>
               </div>
+
+              {aiVideoOpen && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+                  <div className="text-xs font-medium flex items-center gap-1">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" /> Generate AI video with Skill Studio
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Your post text becomes the spoken script. HeyGen renders an avatar video. Takes 2–5 min, billed to the Skill Studio AI account configured by your admin.
+                  </p>
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground block mb-1">HeyGen template ID</label>
+                    <input
+                      value={aiVideoTemplate}
+                      onChange={(e) => setAiVideoTemplate(e.target.value)}
+                      placeholder="e.g. 4f3...e9c"
+                      className="w-full text-xs border border-border rounded-md px-2 py-1.5 bg-background"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">Find IDs in Skill Studio AI → HeyGen Templates. We'll let you pick from a dropdown once the template list endpoint is wired.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={triggerAiVideo}
+                      disabled={aiVideoStarting || !aiVideoTemplate.trim()}
+                      className="text-xs font-medium bg-primary text-primary-foreground rounded-md px-3 py-1.5 disabled:opacity-50"
+                    >
+                      {aiVideoStarting ? <><Loader2 className="h-3 w-3 animate-spin inline mr-1" />Starting…</> : "Start generation"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAiVideoOpen(false)}
+                      className="text-xs text-muted-foreground hover:underline"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="p-5 space-y-4">

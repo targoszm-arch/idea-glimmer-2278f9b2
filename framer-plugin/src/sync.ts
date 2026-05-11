@@ -21,6 +21,26 @@ export const FIELDS = [
     { id: "Keywords",         name: "Keywords",            type: "string"        },
     { id: "Facts",            name: "References & Facts",  type: "formattedText" },
     { id: "References",       name: "References (URLs)",   type: "string"        },
+    // Body images — exposed as separate image fields so the Framer page
+    // template can render each at the correct size, instead of Framer's
+    // RichText silently shrinking inline <img>s to their intrinsic size.
+    // Up to 8 slots; matches MAX_BODY_IMAGES in framer-sync-articles.
+    { id: "Body Image 1",     name: "Body Image 1",        type: "image"         },
+    { id: "Body Image 1 Alt", name: "Body Image 1 Alt",    type: "string"        },
+    { id: "Body Image 2",     name: "Body Image 2",        type: "image"         },
+    { id: "Body Image 2 Alt", name: "Body Image 2 Alt",    type: "string"        },
+    { id: "Body Image 3",     name: "Body Image 3",        type: "image"         },
+    { id: "Body Image 3 Alt", name: "Body Image 3 Alt",    type: "string"        },
+    { id: "Body Image 4",     name: "Body Image 4",        type: "image"         },
+    { id: "Body Image 4 Alt", name: "Body Image 4 Alt",    type: "string"        },
+    { id: "Body Image 5",     name: "Body Image 5",        type: "image"         },
+    { id: "Body Image 5 Alt", name: "Body Image 5 Alt",    type: "string"        },
+    { id: "Body Image 6",     name: "Body Image 6",        type: "image"         },
+    { id: "Body Image 6 Alt", name: "Body Image 6 Alt",    type: "string"        },
+    { id: "Body Image 7",     name: "Body Image 7",        type: "image"         },
+    { id: "Body Image 7 Alt", name: "Body Image 7 Alt",    type: "string"        },
+    { id: "Body Image 8",     name: "Body Image 8",        type: "image"         },
+    { id: "Body Image 8 Alt", name: "Body Image 8 Alt",    type: "string"        },
 ] as const satisfies { id: string; name: string; type: string }[]
 
 type Article = {
@@ -29,6 +49,15 @@ type Article = {
     cover_image_url: string | null; created_at: string
     reading_time_minutes: number | null; author_name: string | null
     keywords: string | null; facts: string | null; references: string | null
+    // Body images extracted from content HTML by framer-sync-articles.
+    body_image_1?: string; body_image_1_alt?: string
+    body_image_2?: string; body_image_2_alt?: string
+    body_image_3?: string; body_image_3_alt?: string
+    body_image_4?: string; body_image_4_alt?: string
+    body_image_5?: string; body_image_5_alt?: string
+    body_image_6?: string; body_image_6_alt?: string
+    body_image_7?: string; body_image_7_alt?: string
+    body_image_8?: string; body_image_8_alt?: string
 }
 
 async function getStoredApiKey(): Promise<string | null> {
@@ -87,6 +116,22 @@ export async function performSync(collection: ManagedCollection, category = "all
             "Keywords":         { type: "string",        value: a.keywords ?? "" },
             "Facts":            { type: "formattedText", value: a.facts ?? "" },
             "References":       { type: "string",        value: a.references ?? "" },
+            "Body Image 1":     { type: "image",         value: a.body_image_1 || null },
+            "Body Image 1 Alt": { type: "string",        value: a.body_image_1_alt ?? "" },
+            "Body Image 2":     { type: "image",         value: a.body_image_2 || null },
+            "Body Image 2 Alt": { type: "string",        value: a.body_image_2_alt ?? "" },
+            "Body Image 3":     { type: "image",         value: a.body_image_3 || null },
+            "Body Image 3 Alt": { type: "string",        value: a.body_image_3_alt ?? "" },
+            "Body Image 4":     { type: "image",         value: a.body_image_4 || null },
+            "Body Image 4 Alt": { type: "string",        value: a.body_image_4_alt ?? "" },
+            "Body Image 5":     { type: "image",         value: a.body_image_5 || null },
+            "Body Image 5 Alt": { type: "string",        value: a.body_image_5_alt ?? "" },
+            "Body Image 6":     { type: "image",         value: a.body_image_6 || null },
+            "Body Image 6 Alt": { type: "string",        value: a.body_image_6_alt ?? "" },
+            "Body Image 7":     { type: "image",         value: a.body_image_7 || null },
+            "Body Image 7 Alt": { type: "string",        value: a.body_image_7_alt ?? "" },
+            "Body Image 8":     { type: "image",         value: a.body_image_8 || null },
+            "Body Image 8 Alt": { type: "string",        value: a.body_image_8_alt ?? "" },
         }
 
         items.push({ id: a.id, slug: a.slug, draft: false, fieldData })
