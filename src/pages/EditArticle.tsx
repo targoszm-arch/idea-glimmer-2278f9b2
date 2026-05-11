@@ -994,20 +994,23 @@ const EditArticle = () => {
                   title="Lowercase, dashes between words. Auto-formatted on blur."
                   className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
 
-                <select
-                  value={displayType}
-                  onChange={(e) => setDisplayType(e.target.value)}
-                  title="Content type tag (display only — does not affect URL or generation)"
-                  className="w-44 rounded-lg border border-input bg-background pl-3 pr-8 py-2 text-sm capitalize"
-                >
-                  <option value="">— content type —</option>
-                  <option value="comparison">Comparison</option>
-                  <option value="guide">Guide</option>
-                  <option value="how-to">How-to</option>
-                  <option value="listicle">Listicle</option>
-                  <option value="product">Product</option>
-                  <option value="social post">Social post</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={displayType}
+                    onChange={(e) => setDisplayType(e.target.value)}
+                    title="Content type tag (display only — does not affect URL or generation)"
+                    className="w-44 appearance-none rounded-lg border border-input bg-background pl-3 pr-9 py-2 text-sm capitalize"
+                  >
+                    <option value="">— content type —</option>
+                    <option value="comparison">Comparison</option>
+                    <option value="guide">Guide</option>
+                    <option value="how-to">How-to</option>
+                    <option value="listicle">Listicle</option>
+                    <option value="product">Product</option>
+                    <option value="social post">Social post</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                </div>
 
                 <input
                   value={authorName}
