@@ -35,9 +35,9 @@ const NAV_GROUPS = [
   {
     label: "Monitor",
     items: [
-      { label: "Newsletter",  href: "/newsletter/analytics",  icon: BarChart2,   desc: "Newsletter analytics" },
-      { label: "LinkedIn",    href: "/analytics/linkedin",    icon: BarChart2,   desc: "LinkedIn analytics from browser extension" },
-      { label: "Reports",     href: "/reports",                icon: FileText,    desc: "Detailed reports" },
+      { label: "Newsletter",     href: "/newsletter/analytics",  icon: BarChart2,   desc: "Newsletter analytics" },
+      { label: "LinkedIn",       href: "/analytics/linkedin",    icon: BarChart2,   desc: "LinkedIn analytics from browser extension" },
+      { label: "Brand in AI",    href: "/brand-tracker",         icon: FileText,    desc: "How ChatGPT, Claude, and Perplexity mention your brand" },
     ],
   },
 ];
@@ -46,7 +46,7 @@ const NAV_GROUPS = [
 const GROUP_HREFS: Record<string, string[]> = {
   Create:  ["/dashboard", "/brand", "/social", "/ideas"],
   Publish: ["/new", "/calendar", "/automations", "/linkedin-rss"],
-  Monitor: ["/analytics", "/newsletter/analytics", "/analytics/linkedin", "/reports"],
+  Monitor: ["/analytics", "/newsletter/analytics", "/analytics/linkedin", "/brand-tracker"],
 };
 
 function NavDropdown({ group }: { group: typeof NAV_GROUPS[number] }) {

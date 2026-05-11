@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle, XCircle, Loader2, ExternalLink, Linkedin, Trash2, Copy, Plus, RefreshCw } from "lucide-react";
 import { useLinkedInExtension } from "@/hooks/useLinkedInExtension";
+import BrandTrackerSettings from "@/components/BrandTrackerSettings";
 
 const SUPABASE_URL = "https://rnshobvpqegttrpaowxe.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo";
@@ -821,6 +822,11 @@ export default function Integrations({ embedded = false }: { embedded?: boolean 
 
         {/* LinkedIn Browser Extension */}
         <LinkedInExtension />
+
+        {/* Brand Tracker */}
+        <div className="mt-4">
+          <BrandTrackerSettings />
+        </div>
 
         <div className="mt-8 p-4 bg-muted/50 rounded-lg">
           <p className="text-xs text-muted-foreground">

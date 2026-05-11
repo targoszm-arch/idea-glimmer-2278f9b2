@@ -1201,6 +1201,71 @@ async function listLinkedinPostsHandler(args: any, ctx: AuthContext): Promise<un
   return { count: posts.length, fetched_at: data.fetched_at, posts };
 }
 
+// Brand Tracker handlers ---------------------------------------------------
+
+async function getBrandConfigHandler(_args: any, ctx: AuthContext): Promise<unknown> {
+  const { data } = await ctx.admin
+    .from("brand_tracker_config")
+    .select("brand_name, brand_url, brand_aliases, competitors, prompts, updated_at")
+    .eq("user_id", ctx.userId)
+    .maybeSingle();
+  return data || { brand_name: null, message: "No brand tracker config yet — set one up in Settings → Integrations → Brand Tracker." };
+}
+
+async function getBrandVisibilityHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const days = clampInt(args?.days, 1, 365, 30);
+  const since = new Date(Date.now() - days * 86_400_000).toISOString();
+  const { data: runs, error } = await ctx.admin
+    .from("brand_tracker_runs")
+    .select("provider, mentions_brand, mentions_competitors, citations, prompt, created_at")
+    .eq("user_id", ctx.userId)
+    .gte("created_at", since)
+    .is("error", null);
+  if (error) throw new Error(error.message);
+  const total = runs?.length || 0;
+  if (total === 0) return { window_days: days, total_runs: 0, message: "No brand-tracker runs in this window. Run prompts in Monitor → Brand in AI." };
+
+  const hits = runs!.filter((r: any) => r.mentions_brand).length;
+  const byProvider: Record<string, { runs: number; hits: number }> = {};
+  const competitorCounts: Record<string, number> = {};
+  const citationCounts: Record<string, number> = {};
+  const promptStats: Record<string, { total: number; hits: number }> = {};
+  for (const r of runs as any[]) {
+    byProvider[r.provider] ??= { runs: 0, hits: 0 };
+    byProvider[r.provider].runs++;
+    if (r.mentions_brand) byProvider[r.provider].hits++;
+    for (const c of r.mentions_competitors || []) competitorCounts[c] = (competitorCounts[c] || 0) + 1;
+    for (const u of r.citations || []) {
+      try {
+        const host = new URL(u).hostname.replace(/^www\./, "");
+        citationCounts[host] = (citationCounts[host] || 0) + 1;
+      } catch { /* ignore */ }
+    }
+    promptStats[r.prompt] ??= { total: 0, hits: 0 };
+    promptStats[r.prompt].total++;
+    if (r.mentions_brand) promptStats[r.prompt].hits++;
+  }
+
+  return {
+    window_days: days,
+    total_runs: total,
+    overall_visibility: total ? hits / total : 0,
+    visibility_by_provider: Object.fromEntries(Object.entries(byProvider).map(([p, v]) => [p, { ...v, rate: v.runs ? v.hits / v.runs : 0 }])),
+    competitor_mention_counts: competitorCounts,
+    top_cited_domains: Object.entries(citationCounts).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([host, count]) => ({ host, count })),
+    prompts_missing_brand: Object.entries(promptStats).filter(([, v]) => v.hits === 0).map(([prompt, v]) => ({ prompt, runs: v.total })),
+  };
+}
+
+async function listBrandPromptsHandler(_args: any, ctx: AuthContext): Promise<unknown> {
+  const { data } = await ctx.admin
+    .from("brand_tracker_config")
+    .select("prompts")
+    .eq("user_id", ctx.userId)
+    .maybeSingle();
+  return { prompts: (data as any)?.prompts || [] };
+}
+
 async function cancelNewsletterScheduleHandler(args: any, ctx: AuthContext): Promise<unknown> {
   const id = args?.id;
   if (typeof id !== "string" || id.length === 0) throw new Error("`id` is required");
@@ -1837,6 +1902,44 @@ const TOOLS: ToolDef[] = [
       openWorldHint: false,
     },
     handler: listLinkedinPostsHandler,
+  },
+  {
+    name: "get_brand_tracker_config",
+    description:
+      "Get the user's brand tracker setup: brand_name, brand_url, brand aliases, tracked competitors, and the list of prompts being run against ChatGPT/Claude/Perplexity. Read-only.",
+    inputSchema: { type: "object", properties: {} },
+    annotations: {
+      title: "Get brand tracker configuration",
+      readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false,
+    },
+    handler: getBrandConfigHandler,
+  },
+  {
+    name: "get_brand_visibility",
+    description:
+      "Aggregate brand visibility metrics from LLM brand tracker runs in a time window. Returns overall_visibility (0-1 share of LLM responses that mentioned the user's brand), visibility_by_provider (chatgpt/claude/perplexity), competitor_mention_counts, top_cited_domains, and prompts_missing_brand (prompts where the brand has never been mentioned — these are content gaps to address). Read-only.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        days: { type: "integer", minimum: 1, maximum: 365, default: 30, description: "Lookback window in days" },
+      },
+    },
+    annotations: {
+      title: "Get brand visibility in LLMs",
+      readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false,
+    },
+    handler: getBrandVisibilityHandler,
+  },
+  {
+    name: "list_brand_prompts",
+    description:
+      "List the prompts being tracked against ChatGPT/Claude/Perplexity for brand-visibility monitoring. These are the questions a target customer might ask an LLM in the user's category. Read-only.",
+    inputSchema: { type: "object", properties: {} },
+    annotations: {
+      title: "List brand tracker prompts",
+      readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false,
+    },
+    handler: listBrandPromptsHandler,
   },
 ];
 

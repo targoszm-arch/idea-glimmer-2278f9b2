@@ -34,6 +34,7 @@ import CalendarPage from "./pages/Calendar";
 import SignupConfirm from "./pages/SignupConfirm";
 import NewsletterAnalytics from "./pages/NewsletterAnalytics";
 import LinkedInAnalytics from "./pages/LinkedInAnalytics";
+import BrandTracker from "./pages/BrandTracker";
 import OAuthAuthorize from "./pages/OAuthAuthorize";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
@@ -87,6 +88,8 @@ const App = () => (
             <Route path="/newsletter/analytics" element={<ProtectedRoute><NewsletterAnalytics /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><NewsletterAnalytics /></ProtectedRoute>} />
             <Route path="/analytics/linkedin" element={<ProtectedRoute><LinkedInAnalytics /></ProtectedRoute>} />
+            <Route path="/brand-tracker" element={<ProtectedRoute><BrandTracker /></ProtectedRoute>} />
+            <Route path="/reports" element={<Navigate to="/brand-tracker" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           </AppShell>
