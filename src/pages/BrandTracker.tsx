@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Radar, RefreshCw, ExternalLink, AlertCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, Cell, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { classifyDomain, domainTypeColor, type DomainType } from "@/lib/domain-classifier";
 
 const SUPABASE_URL = "https://rnshobvpqegttrpaowxe.supabase.co";
@@ -50,6 +50,29 @@ function fmtPct(n: number, digits = 0) {
 
 function hostname(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
+}
+
+// Stable palette — picked to be visually distinct but not eye-burning.
+// Index by deterministic hash of brand name so the same brand keeps its color
+// across renders and across the page (chart + legend + KPI table).
+const BRAND_COLORS = [
+  "#7c3aed", // violet
+  "#0ea5e9", // sky
+  "#10b981", // emerald
+  "#f97316", // orange
+  "#ec4899", // pink
+  "#eab308", // amber
+  "#06b6d4", // cyan
+  "#a855f7", // purple
+  "#22c55e", // green
+  "#ef4444", // red
+  "#14b8a6", // teal
+  "#8b5cf6", // violet-2
+];
+function brandColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return BRAND_COLORS[h % BRAND_COLORS.length];
 }
 
 export default function BrandTracker() {
@@ -315,44 +338,84 @@ export default function BrandTracker() {
               </Card>
             </div>
 
-            {/* Share of voice + Citations */}
-            <div className="grid md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm">Share of voice</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="h-40">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={shareOfVoice} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                        <XAxis type="number" tick={{ fontSize: 10 }} />
-                        <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 10 }} />
-                        <Tooltip />
-                        <Bar dataKey="mentions" fill="#7c3aed" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Share of voice — full width with brand-coloured bars + legend */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  Share of voice
+                  <span className="text-xs font-normal text-muted-foreground">Mentions across {validRuns.length} responses</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* Legend */}
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-3 text-xs">
+                  {shareOfVoice.map((s) => {
+                    const isYou = s.name === cfg.brand_name;
+                    return (
+                      <div key={s.name} className="flex items-center gap-1.5">
+                        <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: brandColor(s.name) }} />
+                        <span className={isYou ? "font-semibold text-foreground" : "text-muted-foreground"}>
+                          {s.name}{isYou && " (you)"}
+                        </span>
+                        <span className="tabular-nums text-muted-foreground">{fmtPct(s.share, 0)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
 
-              <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm">Top cited sources</CardTitle></CardHeader>
-                <CardContent>
-                  {topCitations.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No citations extracted yet.</p>
-                  ) : (
-                    <div className="space-y-1.5 max-h-44 overflow-y-auto">
-                      {topCitations.map(([host, info]) => (
-                        <div key={host} className="flex items-center justify-between gap-2 text-xs">
-                          <a href={`https://${host}`} target="_blank" rel="noreferrer" className="text-primary hover:underline truncate flex-1">{host}</a>
-                          <Badge variant="outline" className={`text-[10px] capitalize ${domainTypeColor(info.type)}`}>{info.type === "you" ? "You" : info.type}</Badge>
-                          <Badge variant="outline" className="text-[10px] tabular-nums">{info.count}</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                <div style={{ height: Math.max(180, shareOfVoice.length * 32 + 40) }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={shareOfVoice} layout="vertical" margin={{ left: 20, right: 40 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#eee" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        width={140}
+                        tick={(props) => {
+                          const { x, y, payload } = props;
+                          const isYou = payload.value === cfg.brand_name;
+                          return (
+                            <text x={x} y={y} dy={4} textAnchor="end" fontSize={11} fontWeight={isYou ? 600 : 400} fill={isYou ? "#111" : "#555"}>
+                              {payload.value}{isYou ? " ★" : ""}
+                            </text>
+                          );
+                        }}
+                      />
+                      <Tooltip
+                        cursor={{ fill: "rgba(0,0,0,0.04)" }}
+                        formatter={(value: any, _name, props: any) => [`${value} mentions · ${fmtPct(props.payload.share, 1)}`, props.payload.name]}
+                      />
+                      <Bar dataKey="mentions" radius={[0, 4, 4, 0]}>
+                        {shareOfVoice.map((s) => (
+                          <Cell key={s.name} fill={brandColor(s.name)} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Top cited sources — own full-width row */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Top cited sources</CardTitle></CardHeader>
+              <CardContent>
+                {topCitations.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No citations extracted yet.</p>
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-x-6 gap-y-1.5 max-h-72 overflow-y-auto">
+                    {topCitations.map(([host, info]) => (
+                      <div key={host} className="flex items-center justify-between gap-2 text-xs">
+                        <a href={`https://${host}`} target="_blank" rel="noreferrer" className="text-primary hover:underline truncate flex-1">{host}</a>
+                        <Badge variant="outline" className={`text-[10px] capitalize ${domainTypeColor(info.type)}`}>{info.type === "you" ? "You" : info.type}</Badge>
+                        <Badge variant="outline" className="text-[10px] tabular-nums">{info.count}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Domain-type breakdown */}
             {domainTypeBreakdown.length > 0 && (
