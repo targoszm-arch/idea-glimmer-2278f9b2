@@ -1,5 +1,8 @@
 project_id = "rnshobvpqegttrpaowxe"
 
+[functions.linkedin-extension-sync]
+verify_jwt = false
+
 [functions.generate-article]
 verify_jwt = false
 
