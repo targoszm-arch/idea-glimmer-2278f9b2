@@ -171,8 +171,17 @@ function LinkedInExtension() {
 
   async function revokeToken(id: string) {
     if (!confirm("Revoke this token? The extension using it will stop syncing.")) return;
-    await supabase.from("linkedin_extension_tokens" as any).update({ revoked_at: new Date().toISOString() }).eq("id", id);
-    await load();
+    const { error } = await supabase
+      .from("linkedin_extension_tokens" as any)
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) {
+      toast({ title: "Could not revoke", description: error.message, variant: "destructive" });
+      return;
+    }
+    // Optimistic remove so the row disappears immediately (load() filters by revoked_at IS NULL).
+    setTokens((prev) => prev.filter((t) => t.id !== id));
+    toast({ title: "Token revoked" });
   }
 
   async function copyToClipboard(text: string) {
@@ -232,12 +241,13 @@ function LinkedInExtension() {
                 <ExternalLink className="h-3 w-3" /> Download extension (.zip)
               </a>
             </div>
-            <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
-              <li>Click <strong>Download extension (.zip)</strong> above, then unzip the file anywhere on your machine.</li>
-              <li>Open <code>chrome://extensions</code> in Chrome, toggle <strong>Developer mode</strong> on (top right), click <strong>Load unpacked</strong>, and pick the unzipped folder.</li>
-              <li>Below, click <strong>New token</strong>, copy the value, then right-click the extension icon → <strong>Options</strong> → paste the token. The ContentLab URL is pre-filled.</li>
-              <li>Add LinkedIn company URLs you want to track (one per line) in the Options page. Save.</li>
-              <li>Click the extension icon → <strong>Refresh</strong>. Data appears in <a className="underline" href="/analytics/linkedin">Monitor → LinkedIn Analytics</a>.</li>
+            <ol className="list-decimal pl-5 space-y-1.5 text-muted-foreground">
+              <li>Click <strong>Download extension (.zip)</strong> above, then <strong>unzip</strong> the file (double-click on Mac).</li>
+              <li>In Chrome, open <code>chrome://extensions</code> → toggle <strong>Developer mode</strong> on (top-right corner) → click <strong>Load unpacked</strong> → pick the unzipped folder.</li>
+              <li>Pin the extension: click the puzzle-piece icon in Chrome's toolbar → click the pin next to <strong>LinkedIn Personal Analytics</strong>. The blue "in" icon now sits in your toolbar.</li>
+              <li>Below, click <strong>New token</strong> and copy it.</li>
+              <li>Click the blue extension icon in your toolbar → in the popup, click <strong>⚙ Settings</strong>. Paste the token into the <strong>API token</strong> field. Add LinkedIn company URLs to track (one per line). Click <strong>Save</strong>, then <strong>Test connection</strong>.</li>
+              <li>Click the extension icon again → <strong>Refresh</strong>. Data flows to <a className="underline" href="/analytics/linkedin">Monitor → LinkedIn Analytics</a>.</li>
             </ol>
           </div>
 
