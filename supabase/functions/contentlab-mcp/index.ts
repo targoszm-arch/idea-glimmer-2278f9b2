@@ -1086,6 +1086,121 @@ async function scheduleNewsletterHandler(args: any, ctx: AuthContext): Promise<u
   };
 }
 
+// LinkedIn analytics handlers ----------------------------------------------
+// Read snapshots written by the LinkedIn Browser Extension via the
+// linkedin-extension-sync edge function. Each user's data is isolated by
+// user_id; we filter explicitly even though RLS would too.
+
+function liFindNumber(obj: any, keys: string[], depth = 0): number | null {
+  if (!obj || depth > 6 || typeof obj !== "object") return null;
+  for (const k of keys) {
+    if (typeof obj[k] === "number") return obj[k];
+    if (typeof obj[k] === "string" && /^\d+$/.test(obj[k])) return parseInt(obj[k], 10);
+  }
+  for (const v of Object.values(obj)) {
+    if (v && typeof v === "object") {
+      const f = liFindNumber(v, keys, depth + 1);
+      if (f != null) return f;
+    }
+  }
+  return null;
+}
+
+async function getLinkedinProfileHandler(_args: any, ctx: AuthContext): Promise<unknown> {
+  const { data, error } = await ctx.admin
+    .from("linkedin_snapshots")
+    .select("data, fetched_at")
+    .eq("user_id", ctx.userId)
+    .eq("kind", "profile")
+    .order("fetched_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return { profile: null, message: "No LinkedIn profile snapshot yet. User needs to install the browser extension and click Refresh." };
+  const d: any = data.data;
+  return {
+    fetched_at: data.fetched_at,
+    profile: d.profile ?? null,
+    summary: {
+      followers: liFindNumber(d.analytics, ["followerCount", "numFollowers"]) ?? liFindNumber(d.following, ["followerCount"]),
+      connections: liFindNumber(d.connections, ["totalResultCount", "total", "count"]),
+      post_impressions: liFindNumber(d.analytics, ["postImpressions", "impressions"]),
+      profile_views: liFindNumber(d.analytics, ["numProfileViews", "profileViews"]),
+    },
+  };
+}
+
+async function listLinkedinCompaniesHandler(_args: any, ctx: AuthContext): Promise<unknown> {
+  const { data, error } = await ctx.admin
+    .from("linkedin_snapshots")
+    .select("company_id, data, fetched_at")
+    .eq("user_id", ctx.userId)
+    .eq("kind", "company")
+    .order("fetched_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  const companies = (data ?? []).map((row: any) => {
+    const c = row.data ?? {};
+    return {
+      id: row.company_id,
+      name: c.name,
+      universalName: c.universalName,
+      followerCount:
+        liFindNumber(c.followerStats, ["organicFollowerCount", "totalFollowerCount"]) ?? c.followerCount,
+      pageViews: liFindNumber(c.pageStats, ["totalPageViews", "allPageViews"]),
+      impressions: liFindNumber(c.shareStats, ["impressionCount", "totalImpressions"]),
+      engagements: liFindNumber(c.shareStats, ["engagement", "engagementCount", "totalEngagements"]),
+      fetched_at: row.fetched_at,
+    };
+  });
+  return { count: companies.length, companies };
+}
+
+async function getLinkedinCompanyAnalyticsHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const id = args?.company_id;
+  if (typeof id !== "string" || !id) throw new Error("`company_id` is required");
+  const { data, error } = await ctx.admin
+    .from("linkedin_snapshots")
+    .select("data, fetched_at")
+    .eq("user_id", ctx.userId)
+    .eq("kind", "company")
+    .eq("company_id", id)
+    .order("fetched_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return { company: null, message: `No snapshot for company ${id}.` };
+  return { fetched_at: data.fetched_at, company: data.data };
+}
+
+async function listLinkedinPostsHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const { data, error } = await ctx.admin
+    .from("linkedin_snapshots")
+    .select("data, fetched_at")
+    .eq("user_id", ctx.userId)
+    .eq("kind", "profile")
+    .order("fetched_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return { posts: [], message: "No profile snapshot yet." };
+  const profileData: any = data.data;
+  const elements =
+    profileData?.posts?.data?.feedDashProfileUpdatesByMemberShareFeed?.elements ||
+    profileData?.posts?.data?.elements || [];
+  const limit = clampInt(args?.limit, 1, 50, 25);
+  const posts = elements.slice(0, limit).map((el: any) => ({
+    text: String(
+      el?.commentary?.text?.text || el?.commentary?.text ||
+      el?.content?.commentary?.text?.text || ""
+    ).slice(0, 600),
+    reactions: liFindNumber(el, ["numLikes", "totalReactions", "numReactions"]),
+    comments: liFindNumber(el, ["numComments", "commentsCount"]),
+    reshares: liFindNumber(el, ["numShares", "reshareCount", "sharesCount"]),
+    impressions: liFindNumber(el, ["impressionCount", "totalImpressions"]),
+  }));
+  return { count: posts.length, fetched_at: data.fetched_at, posts };
+}
+
 async function cancelNewsletterScheduleHandler(args: any, ctx: AuthContext): Promise<unknown> {
   const id = args?.id;
   if (typeof id !== "string" || id.length === 0) throw new Error("`id` is required");
@@ -1655,6 +1770,73 @@ const TOOLS: ToolDef[] = [
       openWorldHint: false,
     },
     handler: cancelNewsletterScheduleHandler,
+  },
+  {
+    name: "get_linkedin_profile",
+    description:
+      "Get the latest LinkedIn profile snapshot for the authenticated user: name, headline, follower count, connection count, post impressions (90d) and profile views. Data is sourced from the LinkedIn Browser Extension — if the extension has never run, returns `profile: null` with a hint to install it. Read-only.",
+    inputSchema: { type: "object", properties: {} },
+    annotations: {
+      title: "Get LinkedIn profile snapshot",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: getLinkedinProfileHandler,
+  },
+  {
+    name: "list_linkedin_companies",
+    description:
+      "List every LinkedIn Company Page the user admins, with the most recently synced follower count, page views, impressions and engagements per page. Pulled from the LinkedIn Browser Extension snapshots. Read-only.",
+    inputSchema: { type: "object", properties: {} },
+    annotations: {
+      title: "List admin'd LinkedIn company pages",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: listLinkedinCompaniesHandler,
+  },
+  {
+    name: "get_linkedin_company_analytics",
+    description:
+      "Get the full latest analytics snapshot for a specific LinkedIn company page (passed by LinkedIn company id, as returned by `list_linkedin_companies`). Includes raw page stats, follower stats and share stats from LinkedIn's organization endpoints. Read-only.",
+    inputSchema: {
+      type: "object",
+      required: ["company_id"],
+      properties: {
+        company_id: { type: "string", description: "LinkedIn company id (e.g. '12345678'). Get from list_linkedin_companies." },
+      },
+    },
+    annotations: {
+      title: "Get LinkedIn company analytics",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: getLinkedinCompanyAnalyticsHandler,
+  },
+  {
+    name: "list_linkedin_posts",
+    description:
+      "List the user's recent LinkedIn posts with reactions, comments, reshares and (where available) impressions. Sourced from the latest profile snapshot via the LinkedIn Browser Extension. Read-only.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: { type: "integer", minimum: 1, maximum: 50, default: 25 },
+      },
+    },
+    annotations: {
+      title: "List recent LinkedIn posts",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: listLinkedinPostsHandler,
   },
 ];
 

@@ -33,6 +33,7 @@ import Automations from "./pages/Automations";
 import CalendarPage from "./pages/Calendar";
 import SignupConfirm from "./pages/SignupConfirm";
 import NewsletterAnalytics from "./pages/NewsletterAnalytics";
+import LinkedInAnalytics from "./pages/LinkedInAnalytics";
 import OAuthAuthorize from "./pages/OAuthAuthorize";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
@@ -85,6 +86,7 @@ const App = () => (
             <Route path="/linkedin-rss" element={<ProtectedRoute><LinkedInRSS /></ProtectedRoute>} />
             <Route path="/newsletter/analytics" element={<ProtectedRoute><NewsletterAnalytics /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><NewsletterAnalytics /></ProtectedRoute>} />
+            <Route path="/analytics/linkedin" element={<ProtectedRoute><LinkedInAnalytics /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           </AppShell>
