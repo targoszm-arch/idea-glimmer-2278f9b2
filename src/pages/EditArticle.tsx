@@ -978,42 +978,43 @@ const EditArticle = () => {
               }
             </div>
 
-            <div className="mb-4 flex flex-wrap gap-4">
+            <div className="mb-4">
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Article Title"
-                className="flex-1 border-none bg-transparent text-3xl font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none" />
-              
-              <input
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                onBlur={(e) => setCategory(toSlug(e.target.value))}
-                placeholder="category-slug"
-                title="Lowercase, dashes between words. Auto-formatted on blur."
-                className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
+                className="w-full border-none bg-transparent text-3xl font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none" />
 
-              <select
-                value={displayType}
-                onChange={(e) => setDisplayType(e.target.value)}
-                title="Content type tag (display only — does not affect URL or generation)"
-                className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm capitalize"
-              >
-                <option value="">— content type —</option>
-                <option value="comparison">Comparison</option>
-                <option value="guide">Guide</option>
-                <option value="how-to">How-to</option>
-                <option value="listicle">Listicle</option>
-                <option value="product">Product</option>
-                <option value="social post">Social post</option>
-              </select>
+              <div className="mt-3 flex flex-wrap gap-3">
+                <input
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  onBlur={(e) => setCategory(toSlug(e.target.value))}
+                  placeholder="category-slug"
+                  title="Lowercase, dashes between words. Auto-formatted on blur."
+                  className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
 
-              <input
-                value={authorName}
-                onChange={(e) => setAuthorName(e.target.value)}
-                placeholder="Author Name"
-                className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
+                <select
+                  value={displayType}
+                  onChange={(e) => setDisplayType(e.target.value)}
+                  title="Content type tag (display only — does not affect URL or generation)"
+                  className="w-44 rounded-lg border border-input bg-background pl-3 pr-8 py-2 text-sm capitalize"
+                >
+                  <option value="">— content type —</option>
+                  <option value="comparison">Comparison</option>
+                  <option value="guide">Guide</option>
+                  <option value="how-to">How-to</option>
+                  <option value="listicle">Listicle</option>
+                  <option value="product">Product</option>
+                  <option value="social post">Social post</option>
+                </select>
 
+                <input
+                  value={authorName}
+                  onChange={(e) => setAuthorName(e.target.value)}
+                  placeholder="Author Name"
+                  className="w-40 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
+              </div>
             </div>
 
             <div className="mt-4">
