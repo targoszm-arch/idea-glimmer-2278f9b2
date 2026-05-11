@@ -831,6 +831,52 @@ async function updateArticleHandler(args: any, ctx: AuthContext): Promise<unknow
   return data;
 }
 
+// Deletes a social post by id, scoped to the authenticated user. By design:
+//   - draft / scheduled / failed / cancelled → deleted from social_posts
+//   - posted (already live) → row is deleted from our DB BUT the live post on
+//     LinkedIn / Twitter / etc is NOT removed (we don't have a delete-on-platform
+//     flow). The response makes this explicit so callers can confirm before
+//     proceeding.
+async function deleteSocialPostHandler(args: any, ctx: AuthContext): Promise<unknown> {
+  const id = args?.id;
+  if (typeof id !== "string" || !id) throw new Error("`id` is required (social_posts UUID)");
+
+  // Fetch first so we can return a helpful message + verify ownership before
+  // mutating. RLS would also catch other-user IDs, but a clear error is nicer.
+  const { data: existing, error: fetchErr } = await ctx.admin
+    .from("social_posts")
+    .select("id, platform, status, posted_url, scheduled_at")
+    .eq("id", id)
+    .eq("user_id", ctx.userId)
+    .maybeSingle();
+  if (fetchErr) throw new Error(fetchErr.message);
+  if (!existing) throw new Error(`No social post ${id} found for this user.`);
+
+  if (existing.status === "posted" && !args?.force) {
+    return {
+      success: false,
+      requires_force: true,
+      message: `Post ${id} was already published${existing.posted_url ? ` at ${existing.posted_url}` : ""}. Deleting here will NOT remove it from ${existing.platform}; you'll need to delete it manually on the platform. Call this tool again with \`force: true\` to remove just the ContentLab record.`,
+      post: existing,
+    };
+  }
+
+  const { error: delErr } = await ctx.admin
+    .from("social_posts")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", ctx.userId);
+  if (delErr) throw new Error(delErr.message);
+
+  return {
+    success: true,
+    deleted: existing,
+    note: existing.status === "posted"
+      ? `ContentLab record removed. The live post on ${existing.platform} is still up — delete it manually if needed.`
+      : `Removed before publication.`,
+  };
+}
+
 async function listSocialPostsHandler(args: any, ctx: AuthContext): Promise<unknown> {
   const limit = clampInt(args?.limit, 1, 200, 50);
 
@@ -1639,6 +1685,27 @@ const TOOLS: ToolDef[] = [
       openWorldHint: false,
     },
     handler: listSocialPostsHandler,
+  },
+  {
+    name: "delete_social_post",
+    description:
+      "Delete a social post by ID. Works for drafts, scheduled (cancels future publishing), failed, and posted records. For posts that have already been published to LinkedIn/etc, this only removes the ContentLab record — the live post on the platform is NOT deleted. Such cases require `force: true` after the user has been warned. Always use list_social_posts first to find the right ID.",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: {
+        id: { type: "string", format: "uuid", description: "social_posts.id (from list_social_posts)" },
+        force: { type: "boolean", default: false, description: "Required to delete records of already-published posts. Pass true only after explicitly confirming with the user that they understand the live post on the platform won't be removed." },
+      },
+    },
+    annotations: {
+      title: "Delete social post",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: deleteSocialPostHandler,
   },
   {
     name: "schedule_social_post",
