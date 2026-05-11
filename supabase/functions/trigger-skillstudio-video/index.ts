@@ -2,13 +2,14 @@
 // behalf of the authenticated ContentLab user and returns the course_videos
 // row id so the client can poll for completion.
 //
-// Required ContentLab Supabase secrets:
-//   SKILLSTUDIO_API_BASE       e.g. https://oxlujbymtjugefaqmwuy.supabase.co
-//   SKILLSTUDIO_API_KEY        the x-api-key shared secret (the value
-//                              the lms-backend stores in
-//                              COMPLIANCE_API_KEY)
-//   SKILLSTUDIO_TARGET_USER_ID lms-backend user id that owns the
-//                              generated video (i.e. who pays for credits)
+// Required ContentLab Supabase secret:
+//   COMPLIANCE_API_KEY  — shared x-api-key with lms-backend.
+//
+// Optional:
+//   SKILLSTUDIO_API_BASE — defaults to lms-backend's production URL.
+//   SKILLSTUDIO_TARGET_USER_ID — lms-backend user id billed for the
+//     render. If unset, lms-backend uses its own COMPLIANCE_TARGET_USER_ID
+//     default.
 
 import { requireAuth } from "../_shared/auth.ts";
 
@@ -21,7 +22,8 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
 const API_BASE = Deno.env.get("SKILLSTUDIO_API_BASE") || "https://oxlujbymtjugefaqmwuy.supabase.co";
-const API_KEY = Deno.env.get("SKILLSTUDIO_API_KEY") || "";
+// Match the secret name lms-backend uses so the user only manages one value.
+const API_KEY = Deno.env.get("COMPLIANCE_API_KEY") || Deno.env.get("SKILLSTUDIO_API_KEY") || "";
 const TARGET_USER_ID = Deno.env.get("SKILLSTUDIO_TARGET_USER_ID") || "";
 
 Deno.serve(async (req) => {
@@ -30,10 +32,10 @@ Deno.serve(async (req) => {
 
   try { await requireAuth(req); } catch (r) { return r as Response; }
 
-  if (!API_KEY || !TARGET_USER_ID) {
+  if (!API_KEY) {
     return json({
       error: "Skill Studio AI integration is not configured",
-      detail: "ContentLab admin needs to set SKILLSTUDIO_API_KEY and SKILLSTUDIO_TARGET_USER_ID in Supabase function secrets.",
+      detail: "Set COMPLIANCE_API_KEY in ContentLab Supabase function secrets.",
     }, 503);
   }
 
@@ -50,9 +52,11 @@ Deno.serve(async (req) => {
   // flow accepts any UUID here.
   const courseId = crypto.randomUUID();
 
-  const payload = {
+  // userId is required upstream when x-api-key is used UNLESS lms-backend
+  // has its own COMPLIANCE_TARGET_USER_ID set as a default. We pass it only
+  // if explicitly configured on our side, else let lms-backend fall back.
+  const payload: Record<string, any> = {
     courseId,
-    userId: TARGET_USER_ID,
     enableAvatarIntro: true,
     enableCinematicBroll: false,
     heygenTemplateId,
@@ -65,6 +69,7 @@ Deno.serve(async (req) => {
       objectives: Array.isArray(body?.objectives) ? body.objectives : [],
     },
   };
+  if (TARGET_USER_ID) payload.userId = TARGET_USER_ID;
 
   const res = await fetch(`${API_BASE}/functions/v1/generate-avatar-video`, {
     method: "POST",
