@@ -15,6 +15,7 @@ type Run = {
   prompt: string;
   provider: string;
   model: string | null;
+  model_tier: string | null;
   response_text: string | null;
   mentions_brand: boolean;
   brand_position: number | null;
@@ -23,6 +24,12 @@ type Run = {
   tokens_used: number | null;
   error: string | null;
   created_at: string;
+  llm_judge_mentioned: boolean | null;
+  llm_judge_sentiment: "positive" | "neutral" | "negative" | null;
+  llm_judge_prominence: "primary" | "secondary" | "passing" | null;
+  llm_judge_context: string | null;
+  run_index: number;
+  web_browsing_used: boolean;
 };
 
 type Config = {
@@ -223,13 +230,15 @@ export default function BrandTracker() {
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm">Total runs</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Sentiment</CardTitle></CardHeader>
                 <CardContent>
-                  <div className="text-4xl font-bold tabular-nums">{totalRuns}</div>
-                  <div className="text-xs text-muted-foreground mt-1">across {cfg.prompts.length} prompts × 3 providers</div>
+                  <SentimentBreakdown runs={validRuns} />
                 </CardContent>
               </Card>
             </div>
+
+            {/* Detection-method comparison */}
+            <DetectionMethodBanner runs={validRuns} />
 
             {/* Visibility by provider + Trend */}
             <div className="grid md:grid-cols-2 gap-4">
@@ -332,12 +341,16 @@ export default function BrandTracker() {
                         <div className="border-t bg-muted/10 p-3 space-y-3">
                           {p.runs.map((r) => (
                             <div key={r.id} className="text-xs">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge variant="outline" className="text-[10px] capitalize">{r.provider}</Badge>
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <Badge variant="outline" className="text-[10px] capitalize">{r.provider}{r.model_tier ? ` · ${r.model_tier}` : ""}</Badge>
+                                {r.web_browsing_used && <Badge variant="outline" className="text-[10px] border-blue-300 bg-blue-50 text-blue-700">🌐 browsed</Badge>}
                                 {r.mentions_brand ? <Badge className="text-[10px] bg-green-100 text-green-800 hover:bg-green-100">Brand mentioned</Badge> : <Badge variant="outline" className="text-[10px] text-muted-foreground">No brand</Badge>}
-                                {r.mentions_competitors.length > 0 && <span className="text-[10px] text-muted-foreground">Competitors: {r.mentions_competitors.join(", ")}</span>}
-                                <span className="text-[10px] text-muted-foreground ml-auto">{new Date(r.created_at).toLocaleString()}</span>
+                                {r.llm_judge_prominence && <Badge variant="outline" className="text-[10px] capitalize">{r.llm_judge_prominence}</Badge>}
+                                {r.llm_judge_sentiment && <Badge variant="outline" className={`text-[10px] capitalize ${r.llm_judge_sentiment === "positive" ? "border-green-300 text-green-700 bg-green-50" : r.llm_judge_sentiment === "negative" ? "border-red-300 text-red-700 bg-red-50" : "border-muted text-muted-foreground"}`}>{r.llm_judge_sentiment}</Badge>}
+                                {r.mentions_competitors.length > 0 && <span className="text-[10px] text-muted-foreground">vs {r.mentions_competitors.join(", ")}</span>}
+                                <span className="text-[10px] text-muted-foreground ml-auto">run #{r.run_index + 1} · {new Date(r.created_at).toLocaleString()}</span>
                               </div>
+                              {r.llm_judge_context && <div className="text-[11px] italic text-muted-foreground mb-1">Judge: "{r.llm_judge_context}"</div>}
                               <details className="text-muted-foreground">
                                 <summary className="cursor-pointer hover:text-foreground">View response ({r.response_text?.length || 0} chars)</summary>
                                 <div className="mt-1 whitespace-pre-wrap text-foreground bg-background border rounded p-2 max-h-60 overflow-y-auto">{r.response_text || "(empty)"}</div>
@@ -365,5 +378,51 @@ export default function BrandTracker() {
         )}
       </div>
     </PageLayout>
+  );
+}
+
+function SentimentBreakdown({ runs }: { runs: Run[] }) {
+  const mentioned = runs.filter((r) => r.mentions_brand);
+  const counts = { positive: 0, neutral: 0, negative: 0 };
+  let judged = 0;
+  for (const r of mentioned) {
+    if (r.llm_judge_sentiment) { counts[r.llm_judge_sentiment]++; judged++; }
+  }
+  if (judged === 0) {
+    return <div className="text-xs text-muted-foreground">Turn on "Use LLM-as-judge" in Settings to track sentiment.</div>;
+  }
+  const total = counts.positive + counts.neutral + counts.negative;
+  return (
+    <div className="space-y-1.5">
+      {(["positive", "neutral", "negative"] as const).map((s) => {
+        const pct = total ? counts[s] / total : 0;
+        const color = s === "positive" ? "bg-green-500" : s === "negative" ? "bg-red-500" : "bg-muted-foreground/60";
+        return (
+          <div key={s}>
+            <div className="flex items-center justify-between text-xs">
+              <span className="capitalize">{s}</span>
+              <span className="tabular-nums text-muted-foreground">{counts[s]} · {(pct * 100).toFixed(0)}%</span>
+            </div>
+            <div className="h-1.5 bg-muted rounded overflow-hidden">
+              <div className={`h-full ${color}`} style={{ width: `${pct * 100}%` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DetectionMethodBanner({ runs }: { runs: Run[] }) {
+  const judged = runs.filter((r) => r.llm_judge_mentioned !== null);
+  if (judged.length === 0) return null;
+  const substringMatched = judged.filter((r) => (r.mentions_competitors.length === 0 && r.llm_judge_mentioned !== r.mentions_brand)).length;
+  const disagreements = judged.filter((r) => r.llm_judge_mentioned !== null && (r.mentions_brand !== r.llm_judge_mentioned)).length;
+  if (disagreements === 0) return null;
+  return (
+    <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs">
+      <span className="font-medium text-blue-900">{disagreements} response{disagreements === 1 ? "" : "s"}</span>{" "}
+      <span className="text-blue-800">where the LLM judge caught a paraphrased / pronoun mention that the substring matcher missed (or vice-versa). Counts above use the judge's verdict when available.</span>
+    </div>
   );
 }

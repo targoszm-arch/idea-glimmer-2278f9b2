@@ -14,6 +14,10 @@ type Config = {
   brand_aliases: string[];
   competitors: string[];
   prompts: string[];
+  model_tier: "fast" | "balanced" | "premium";
+  runs_per_prompt: number;
+  web_browsing: boolean;
+  use_llm_judge: boolean;
 };
 
 const SUPABASE_URL = "https://rnshobvpqegttrpaowxe.supabase.co";
@@ -23,7 +27,7 @@ export default function BrandTrackerSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [cfg, setCfg] = useState<Config>({ brand_name: "", brand_url: "", brand_aliases: [], competitors: [], prompts: [] });
+  const [cfg, setCfg] = useState<Config>({ brand_name: "", brand_url: "", brand_aliases: [], competitors: [], prompts: [], model_tier: "balanced", runs_per_prompt: 3, web_browsing: true, use_llm_judge: true });
   const [aliasInput, setAliasInput] = useState("");
   const [competitorInput, setCompetitorInput] = useState("");
   const [promptInput, setPromptInput] = useState("");
@@ -32,12 +36,17 @@ export default function BrandTrackerSettings() {
     (async () => {
       const { data } = await supabase.from("brand_tracker_config" as any).select("*").maybeSingle();
       if (data) {
+        const d = data as any;
         setCfg({
-          brand_name: (data as any).brand_name || "",
-          brand_url: (data as any).brand_url || "",
-          brand_aliases: (data as any).brand_aliases || [],
-          competitors: (data as any).competitors || [],
-          prompts: (data as any).prompts || [],
+          brand_name: d.brand_name || "",
+          brand_url: d.brand_url || "",
+          brand_aliases: d.brand_aliases || [],
+          competitors: d.competitors || [],
+          prompts: d.prompts || [],
+          model_tier: d.model_tier || "balanced",
+          runs_per_prompt: d.runs_per_prompt || 3,
+          web_browsing: d.web_browsing !== false,
+          use_llm_judge: d.use_llm_judge !== false,
         });
       }
       setLoading(false);
@@ -199,11 +208,92 @@ export default function BrandTrackerSettings() {
           )}
         </div>
 
+        <div className="rounded-md border border-border bg-muted/20 p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">Accuracy & cost</Label>
+            <CostEstimate cfg={cfg} />
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Model tier</Label>
+              <p className="text-[11px] text-muted-foreground mb-1">Higher tiers reflect what real users see better, at higher cost per run.</p>
+              <select
+                value={cfg.model_tier}
+                onChange={(e) => setCfg({ ...cfg, model_tier: e.target.value as Config["model_tier"] })}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="fast">Fast — gpt-4o-mini · haiku-4.5 · sonar</option>
+                <option value="balanced">Balanced — gpt-4o · sonnet-4.6 · sonar</option>
+                <option value="premium">Premium — gpt-4o · opus-4.7 · sonar-pro</option>
+              </select>
+            </div>
+
+            <div>
+              <Label className="text-xs">Runs per prompt</Label>
+              <p className="text-[11px] text-muted-foreground mb-1">Each prompt fires N times per provider. Averaging cuts noise from non-determinism.</p>
+              <select
+                value={cfg.runs_per_prompt}
+                onChange={(e) => setCfg({ ...cfg, runs_per_prompt: parseInt(e.target.value, 10) })}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                {[1, 2, 3, 5, 7, 10].map((n) => <option key={n} value={n}>{n}× per prompt</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={cfg.web_browsing}
+                onChange={(e) => setCfg({ ...cfg, web_browsing: e.target.checked })}
+                className="mt-0.5"
+              />
+              <div className="text-xs">
+                <div className="font-medium">Enable web browsing</div>
+                <div className="text-muted-foreground">Lets ChatGPT and Claude search the web before answering — closer to chatgpt.com / claude.ai user experience. Perplexity always browses. Slower, slightly more expensive.</div>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={cfg.use_llm_judge}
+                onChange={(e) => setCfg({ ...cfg, use_llm_judge: e.target.checked })}
+                className="mt-0.5"
+              />
+              <div className="text-xs">
+                <div className="font-medium">Use LLM-as-judge for mention detection</div>
+                <div className="text-muted-foreground">After each response, Claude haiku rates whether your brand was mentioned (catching paraphrases, acronyms, pronouns) plus sentiment + prominence. Removes false positives where your name is a common word. Adds ~$0.001 per response.</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
         <Button onClick={save} disabled={saving} className="w-full">
           {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Saving…</> : "Save brand tracker config"}
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+// Rough USD cost estimate per "Run all prompts" click. Multipliers are based
+// on Nov 2025 per-1M-token prices, assuming ~600 input + ~600 output tokens
+// per response. Web search adds a small flat per-query fee on some providers.
+function CostEstimate({ cfg }: { cfg: Config }) {
+  const responsesPerRun = cfg.prompts.length * cfg.runs_per_prompt * 3; // 3 providers
+  // per-response cost in cents (approx, rounded up to keep estimates conservative)
+  const perResponse = cfg.model_tier === "fast" ? 0.15 : cfg.model_tier === "balanced" ? 0.6 : 2.5;
+  const judgeCost = cfg.use_llm_judge ? 0.1 : 0;
+  const browsingCost = cfg.web_browsing ? 0.3 : 0;
+  const totalCents = responsesPerRun * (perResponse + judgeCost + browsingCost);
+  const dollars = totalCents / 100;
+  return (
+    <span className="text-xs text-muted-foreground tabular-nums">
+      ~${dollars.toFixed(2)} per run · {responsesPerRun} responses
+    </span>
   );
 }
 
