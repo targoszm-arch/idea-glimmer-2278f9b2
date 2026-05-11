@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, XCircle, Loader2, ExternalLink, Linkedin, Trash2, Copy, Plus } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ExternalLink, Linkedin, Trash2, Copy, Plus, RefreshCw } from "lucide-react";
+import { useLinkedInExtension } from "@/hooks/useLinkedInExtension";
 
 const SUPABASE_URL = "https://rnshobvpqegttrpaowxe.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc2hvYnZwcWVndHRycGFvd3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5Mzc0MzAsImV4cCI6MjA4ODUxMzQzMH0.EA4gEzrhDTGp4Ga7TOuAEPfPtWFSOLqEEpVTNONCVuo";
@@ -126,6 +127,7 @@ function LinkedInConnect() {
 
 function LinkedInExtension() {
   const { toast } = useToast();
+  const { available: extAvailable, version: extVersion, refresh: extRefresh, refreshing } = useLinkedInExtension();
   const [tokens, setTokens] = useState<Array<{ id: string; label: string | null; created_at: string; last_used_at: string | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -188,12 +190,34 @@ function LinkedInExtension() {
                 <Linkedin className="h-5 w-5 text-white" />
               </div>
               <div>
-                <CardTitle className="text-base">LinkedIn Browser Extension</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2">
+                  LinkedIn Browser Extension
+                  {extAvailable === true && (
+                    <Badge variant="outline" className="text-[10px] gap-1 border-green-300 bg-green-50 text-green-700">
+                      <CheckCircle className="h-3 w-3" /> Installed{extVersion ? ` v${extVersion}` : ""}
+                    </Badge>
+                  )}
+                  {extAvailable === false && (
+                    <Badge variant="outline" className="text-[10px] gap-1 border-muted text-muted-foreground">
+                      <XCircle className="h-3 w-3" /> Not detected
+                    </Badge>
+                  )}
+                </CardTitle>
                 <CardDescription className="text-xs mt-0.5">
                   Pulls follower, impression and engagement stats from your LinkedIn session into ContentLab Analytics.
                 </CardDescription>
               </div>
             </div>
+            {extAvailable && (
+              <Button size="sm" variant="outline" onClick={async () => {
+                const r = await extRefresh();
+                if (r.ok) toast({ title: "Synced from LinkedIn" });
+                else toast({ title: "Refresh failed", description: r.error, variant: "destructive" });
+              }} disabled={refreshing}>
+                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${refreshing ? "animate-spin" : ""}`} />
+                {refreshing ? "Syncing…" : "Refresh now"}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="pt-0 pb-4 space-y-4">

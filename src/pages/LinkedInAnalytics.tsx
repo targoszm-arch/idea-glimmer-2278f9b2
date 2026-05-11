@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import PageLayout from "@/components/PageLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Linkedin, TrendingUp, TrendingDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Linkedin, TrendingUp, TrendingDown, RefreshCw, AlertCircle } from "lucide-react";
+import { useLinkedInExtension } from "@/hooks/useLinkedInExtension";
+import { useToast } from "@/hooks/use-toast";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
@@ -79,17 +82,32 @@ function Delta({ pct }: { pct: number | null }) {
 export default function LinkedInAnalytics() {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(true);
+  const { available: extAvailable, refresh: extRefresh, refreshing } = useLinkedInExtension();
+  const { toast } = useToast();
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("linkedin_snapshots" as any)
-        .select("*")
-        .order("fetched_at", { ascending: false });
-      setSnapshots(((data as any) || []) as Snapshot[]);
-      setLoading(false);
-    })();
-  }, []);
+  async function load() {
+    const { data } = await supabase
+      .from("linkedin_snapshots" as any)
+      .select("*")
+      .order("fetched_at", { ascending: false });
+    setSnapshots(((data as any) || []) as Snapshot[]);
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  async function handleRefresh() {
+    const result = await extRefresh();
+    if (!result.ok) {
+      toast({ title: "Refresh failed", description: result.error || "Unknown error", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Synced from LinkedIn" });
+    await load();
+  }
+
+  const lastSync = snapshots[0]?.fetched_at;
+  const staleHours = lastSync ? (Date.now() - new Date(lastSync).getTime()) / 3_600_000 : Infinity;
+  const isStale = staleHours > 24;
 
   const profile = useMemo(() => snapshots.find((s) => s.kind === "profile")?.data ?? null, [snapshots]);
   const companies = useMemo(() => snapshots.filter((s) => s.kind === "company").map((s) => s.data), [snapshots]);
@@ -162,12 +180,45 @@ export default function LinkedInAnalytics() {
   return (
     <PageLayout>
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">LinkedIn Analytics</h1>
-            <p className="text-sm text-muted-foreground">Synced from your browser extension. Refresh in the extension popup to update.</p>
+            <p className="text-sm text-muted-foreground">
+              {lastSync ? `Last synced ${new Date(lastSync).toLocaleString()}` : "No data synced yet"}
+              {extAvailable === false && " · Extension not detected"}
+            </p>
           </div>
+          {extAvailable && (
+            <Button onClick={handleRefresh} disabled={refreshing} size="sm">
+              <RefreshCw className={`h-4 w-4 mr-1.5 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Syncing…" : "Refresh now"}
+            </Button>
+          )}
         </div>
+
+        {extAvailable === false && (
+          <div className="flex items-start gap-2 rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-xs">
+            <AlertCircle className="h-4 w-4 text-yellow-700 mt-0.5" />
+            <div>
+              <div className="font-medium text-yellow-900">LinkedIn Browser Extension not detected on this page.</div>
+              <div className="text-yellow-800">
+                Install it from <a href="/integrations" className="underline">Settings → Integrations</a> to enable one-click refresh from here.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isStale && extAvailable && (
+          <div className="flex items-center justify-between rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-xs">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-yellow-700" />
+              <span className="text-yellow-900">Data is more than {Math.floor(staleHours / 24)} day(s) old.</span>
+            </div>
+            <Button size="sm" variant="outline" onClick={handleRefresh} disabled={refreshing}>
+              <RefreshCw className={`h-3.5 w-3.5 mr-1 ${refreshing ? "animate-spin" : ""}`} />Refresh
+            </Button>
+          </div>
+        )}
 
         {/* Top row: Activity + Earned Media Value */}
         <div className="grid md:grid-cols-2 gap-4">

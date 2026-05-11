@@ -3,6 +3,10 @@
     "zapier": {
       "type": "http",
       "url": "https://mcp.zapier.com/api/v1/connect"
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=rnshobvpqegttrpaowxe"
     }
   }
 }
