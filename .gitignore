@@ -30,3 +30,6 @@ framer-plugin/node_modules
 canva-app/node_modules
 .vercel
 .env*.local
+CLAUDE.md
+idea-glimmer-2278f9b2/
+supabase/.temp/
