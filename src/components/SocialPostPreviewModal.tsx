@@ -159,7 +159,8 @@ export function SocialPostPreviewModal({
         title: "Video generation started",
         description: "Skill Studio AI is rendering. Takes 2–5 min. Come back and Refresh the post to attach the video URL.",
       });
-      setAiVideoOpen(false);
+      // DO NOT auto-close — closing shifts focus and can trigger the primary
+      // action button (Post / Schedule). User dismisses manually via Close.
     } catch (e: any) {
       toast({ title: "Could not start video generation", description: e.message, variant: "destructive" });
     } finally {
@@ -173,6 +174,28 @@ export function SocialPostPreviewModal({
   const isLinkedIn = platform === "linkedin";
   const charCount = editedContent.length;
   const overLimit = charCount > meta.charLimit;
+
+  // Saves edits to an existing post without publishing or rescheduling.
+  // The only path that should fire when the user is editing — never call
+  // postNow / schedulePost for an existing post unless they're explicitly
+  // re-publishing.
+  async function saveEdits() {
+    if (!existingPostId) return;
+    try {
+      const { error } = await supabase.from("social_posts" as any)
+        .update({
+          content: editedContent,
+          media_url: effectiveMediaUrl,
+          media_type: effectiveMediaType,
+        })
+        .eq("id", existingPostId);
+      if (error) throw error;
+      toast({ title: "Saved" });
+      onSaved?.();
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.message, variant: "destructive" });
+    }
+  }
 
   async function postNow() {
     if (!isLinkedIn) {
@@ -264,9 +287,9 @@ export function SocialPostPreviewModal({
             <span className="font-semibold text-sm">{meta.label} Post</span>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={() => setTab("preview")} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>Preview</button>
-            <button onClick={() => setTab("schedule")} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "schedule" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>Schedule</button>
-            <button onClick={onClose} className="ml-2 p-1.5 rounded-lg hover:bg-muted transition-colors"><X className="h-4 w-4 text-muted-foreground" /></button>
+            <button type="button" onClick={() => setTab("preview")} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>Preview</button>
+            <button type="button" onClick={() => setTab("schedule")} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "schedule" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>Schedule</button>
+            <button type="button" onClick={onClose} className="ml-2 p-1.5 rounded-lg hover:bg-muted transition-colors"><X className="h-4 w-4 text-muted-foreground" /></button>
           </div>
         </div>
 
@@ -368,6 +391,7 @@ export function SocialPostPreviewModal({
                     <input
                       value={aiVideoTemplate}
                       onChange={(e) => setAiVideoTemplate(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); triggerAiVideo(); } }}
                       placeholder="e.g. 4f3...e9c"
                       className="w-full text-xs border border-border rounded-md px-2 py-1.5 bg-background"
                     />
@@ -425,28 +449,45 @@ export function SocialPostPreviewModal({
         <div className="px-5 py-4 border-t border-border flex gap-2">
           {tab === "preview" ? (
             <>
-              <button onClick={() => setTab("schedule")} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors">
-                <Calendar className="h-4 w-4" /> Schedule
-              </button>
-              {isLinkedIn ? (
-                <button onClick={postNow} disabled={posting || posted || overLimit}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${posted ? "bg-green-500 text-white" : "bg-[#0A66C2] hover:bg-[#004182] text-white"}`}>
-                  {posted ? <Check className="h-4 w-4" /> : posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  {posted ? "Posted!" : "Post to LinkedIn"}
-                </button>
+              {isReschedule ? (
+                <>
+                  {/* EDIT MODE: never offer Post Now — only Save edits + Reschedule.
+                      Prevents the Enter-key / focus-shift class of bugs that
+                      caused unapproved posts to fire. */}
+                  <button type="button" onClick={() => setTab("schedule")} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors">
+                    <Calendar className="h-4 w-4" /> Reschedule
+                  </button>
+                  <button type="button" onClick={saveEdits}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold transition-colors">
+                    <Check className="h-4 w-4" /> Save changes
+                  </button>
+                </>
               ) : (
-                <button onClick={() => { navigator.clipboard.writeText(editedContent); toast({ title: "Copied!" }); }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
-                  Copy to Clipboard
-                </button>
+                <>
+                  <button type="button" onClick={() => setTab("schedule")} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors">
+                    <Calendar className="h-4 w-4" /> Schedule
+                  </button>
+                  {isLinkedIn ? (
+                    <button type="button" onClick={postNow} disabled={posting || posted || overLimit}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${posted ? "bg-green-500 text-white" : "bg-[#0A66C2] hover:bg-[#004182] text-white"}`}>
+                      {posted ? <Check className="h-4 w-4" /> : posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      {posted ? "Posted!" : "Post to LinkedIn"}
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => { navigator.clipboard.writeText(editedContent); toast({ title: "Copied!" }); }}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
+                      Copy to Clipboard
+                    </button>
+                  )}
+                </>
               )}
             </>
           ) : (
             <>
-              <button onClick={() => setTab("preview")} className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors">
+              <button type="button" onClick={() => setTab("preview")} className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors">
                 Back
               </button>
-              <button onClick={schedulePost} disabled={scheduling || scheduled || !scheduleDate}
+              <button type="button" onClick={schedulePost} disabled={scheduling || scheduled || !scheduleDate}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${scheduled ? "bg-green-500 text-white" : "bg-primary hover:bg-primary/90 text-primary-foreground"}`}>
                 {scheduled ? <Check className="h-4 w-4" /> : scheduling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calendar className="h-4 w-4" />}
                 {scheduled ? (isReschedule ? "Rescheduled!" : "Scheduled!") : (isReschedule ? "Reschedule Post" : "Schedule Post")}
