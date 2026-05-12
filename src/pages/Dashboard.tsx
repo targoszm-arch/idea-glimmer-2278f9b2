@@ -290,6 +290,23 @@ const Dashboard = () => {
             <p className="mt-1 text-muted-foreground">
               {filtered.length} of {articles.length} article{articles.length !== 1 ? "s" : ""} in your library
             </p>
+            {(() => {
+              // Surface articles that ContentLab marks 'published' but whose
+              // url_path is still on the default boilerplate template —
+              // they've never been pushed live via the Framer plugin.
+              const unsyncedCount = articles.filter((a: any) =>
+                a.status === "published" &&
+                a.url_path?.startsWith("help/knowledge-base/") &&
+                a.url_path?.endsWith("/documentation-articles"),
+              ).length;
+              if (unsyncedCount === 0) return null;
+              return (
+                <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs text-amber-900">
+                  <span className="font-semibold">{unsyncedCount}</span>
+                  <span>article{unsyncedCount === 1 ? "" : "s"} marked published but never reached the live site. Open the Framer plugin → click <strong>Sync</strong>.</span>
+                </div>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-2">
 <Link
