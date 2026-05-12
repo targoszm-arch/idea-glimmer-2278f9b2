@@ -81,16 +81,40 @@ export default function BrandTracker() {
   const [running, setRunning] = useState(false);
   const [cfg, setCfg] = useState<Config | null>(null);
   const [runs, setRuns] = useState<Run[]>([]);
+  const [bingRows, setBingRows] = useState<any[]>([]);
+  const [syncingBing, setSyncingBing] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   async function load() {
-    const [cfgRes, runsRes] = await Promise.all([
+    const [cfgRes, runsRes, bingRes] = await Promise.all([
       supabase.from("brand_tracker_config" as any).select("*").maybeSingle(),
       supabase.from("brand_tracker_runs" as any).select("*").order("created_at", { ascending: false }).limit(500),
+      supabase.from("bing_ai_citations" as any).select("*").order("fetched_at", { ascending: false }).limit(500),
     ]);
     if (cfgRes.data) setCfg(cfgRes.data as any);
     setRuns(((runsRes.data as any) || []) as Run[]);
+    setBingRows(((bingRes.data as any) || []) as any[]);
     setLoading(false);
+  }
+
+  async function syncBing() {
+    if (!cfg?.brand_url) { toast({ title: "Set your brand URL in Settings → Brand Tracker first", variant: "destructive" }); return; }
+    setSyncingBing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/bing-ai-performance-sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ siteUrl: cfg.brand_url }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || data?.detail || `HTTP ${res.status}`);
+      if (data?.success) toast({ title: `Imported ${data.rows} Bing AI citation rows`, description: `Endpoint: ${data.endpoint}` });
+      else toast({ title: "Bing returned no data", description: data?.hint || "Check edge function logs", variant: "destructive" });
+      await load();
+    } catch (e: any) {
+      toast({ title: "Bing sync failed", description: e.message, variant: "destructive" });
+    } finally { setSyncingBing(false); }
   }
   useEffect(() => { load(); }, []);
 
@@ -412,6 +436,67 @@ export default function BrandTracker() {
                         <Badge variant="outline" className="text-[10px] tabular-nums">{info.count}</Badge>
                       </div>
                     ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Bing AI Performance — citations from Copilot / Bing Chat / Search-with-AI */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  Bing AI citations
+                  <Button size="sm" variant="outline" onClick={syncBing} disabled={syncingBing}>
+                    <RefreshCw className={`h-3.5 w-3.5 mr-1 ${syncingBing ? "animate-spin" : ""}`} />
+                    {syncingBing ? "Syncing…" : "Sync from Bing"}
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {bingRows.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No Bing AI data yet. Click <strong>Sync from Bing</strong> to pull from Bing Webmaster's AI Performance endpoint.
+                    Requires <code>BING_WEBMASTER_API_KEY</code> in ContentLab Supabase function secrets.
+                  </p>
+                ) : (
+                  <div>
+                    <div className="grid grid-cols-3 gap-3 mb-3">
+                      <div>
+                        <div className="text-2xl font-bold tabular-nums">{bingRows.reduce((s, r) => s + (r.impressions || 0), 0).toLocaleString()}</div>
+                        <div className="text-xs text-muted-foreground">Impressions</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold tabular-nums">{bingRows.reduce((s, r) => s + (r.clicks || 0), 0).toLocaleString()}</div>
+                        <div className="text-xs text-muted-foreground">Clicks</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold tabular-nums">{bingRows.length}</div>
+                        <div className="text-xs text-muted-foreground">Queries / URLs</div>
+                      </div>
+                    </div>
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground border-b pb-1.5 mb-1 grid grid-cols-12 gap-2">
+                      <span className="col-span-7">Query / URL</span>
+                      <span className="col-span-2 text-right">Impressions</span>
+                      <span className="col-span-1 text-right">Clicks</span>
+                      <span className="col-span-2 text-right">Source</span>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto space-y-1">
+                      {bingRows
+                        .slice()
+                        .sort((a, b) => (b.impressions || 0) - (a.impressions || 0))
+                        .slice(0, 100)
+                        .map((r) => (
+                        <div key={r.id} className="grid grid-cols-12 gap-2 text-xs py-1 border-b last:border-0">
+                          <div className="col-span-7 truncate">
+                            {r.query && <div className="font-medium">{r.query}</div>}
+                            {r.page_url && <a href={r.page_url} target="_blank" rel="noreferrer" className="text-primary hover:underline text-[11px] truncate block">{r.page_url}</a>}
+                          </div>
+                          <div className="col-span-2 text-right tabular-nums">{(r.impressions || 0).toLocaleString()}</div>
+                          <div className="col-span-1 text-right tabular-nums">{(r.clicks || 0).toLocaleString()}</div>
+                          <div className="col-span-2 text-right text-muted-foreground text-[10px] truncate">{r.ai_source || ""}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </CardContent>
