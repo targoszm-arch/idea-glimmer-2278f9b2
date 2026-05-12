@@ -291,13 +291,15 @@ const Dashboard = () => {
               {filtered.length} of {articles.length} article{articles.length !== 1 ? "s" : ""} in your library
             </p>
             {(() => {
-              // Surface articles that ContentLab marks 'published' but whose
-              // url_path is still on the default boilerplate template —
-              // they've never been pushed live via the Framer plugin.
+              // Articles are 'on the live site' once the Framer plugin
+              // writes framer_item_id back. Anything published but missing
+              // that marker hasn't been synced yet. We also flag the
+              // boilerplate-template fallback for safety on legacy rows.
               const unsyncedCount = articles.filter((a: any) =>
                 a.status === "published" &&
-                a.url_path?.startsWith("help/knowledge-base/") &&
-                a.url_path?.endsWith("/documentation-articles"),
+                !a.framer_item_id &&
+                (a.url_path?.startsWith("help/knowledge-base/") ||
+                 !a.framer_live_url),
               ).length;
               if (unsyncedCount === 0) return null;
               return (

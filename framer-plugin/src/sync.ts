@@ -140,15 +140,51 @@ export async function performSync(collection: ManagedCollection, category = "all
     if (existingIds.size > 0) await collection.removeItems(Array.from(existingIds))
     await collection.addItems(items)
 
-    // Write actual Framer-assigned slugs back to ContentLab so url_path stays
-    // in sync. Framer auto-prepends the Category field slug to each item slug.
+    // Write three things back to ContentLab so the library shows accurate
+    // 'live on site' state and our RSS / sitemap emit the right URLs:
+    //
+    //   1. framer_item_id — positive 'this is now in the Framer CMS'
+    //      confirmation. Without it ContentLab can't distinguish
+    //      'published, never synced' from 'published, synced and live'.
+    //   2. url_path / framer_slug — what category path Framer assigned.
+    //   3. framer_live_url — the absolute URL the post is published at.
+    //      Built from the site's production publish URL + Framer's slug.
     try {
         const syncedItems: Array<{ id: string; slug: string }> = await collection.getItems()
         const idToFramerSlug = new Map(syncedItems.map((item) => [item.id, item.slug]))
-        const urlPathUpdates = articles
-            .filter((a) => idToFramerSlug.has(a.id))
-            .map((a) => ({ id: a.id, framer_slug: idToFramerSlug.get(a.id) as string }))
-        if (urlPathUpdates.length > 0) {
+
+        // Resolve the live site origin (production publish URL). On a draft
+        // project this can be null — that's fine, we just skip framer_live_url
+        // for this run and url_path is still updated.
+        let siteOrigin: string | null = null
+        try {
+            const publishInfo = await framer.getPublishInfo()
+            const prodUrl = publishInfo?.production?.url
+            if (prodUrl) siteOrigin = new URL(prodUrl).origin
+        } catch (e) {
+            console.warn("getPublishInfo failed (non-blocking):", e)
+        }
+
+        const synced = articles.filter((a) => idToFramerSlug.has(a.id))
+
+        const urlPathUpdates = synced.map((a) => ({
+            id: a.id,
+            framer_slug: idToFramerSlug.get(a.id) as string,
+        }))
+
+        const liveUrlUpdates = siteOrigin
+            ? synced.map((a) => ({
+                  id: a.id,
+                  framer_live_url: `${siteOrigin}/${idToFramerSlug.get(a.id)}`,
+              }))
+            : []
+
+        const itemIdUpdates = synced.map((a) => ({
+            id: a.id,
+            framer_item_id: a.id, // Framer ManagedCollection items are keyed by the id we provided
+        }))
+
+        if (urlPathUpdates.length > 0 || liveUrlUpdates.length > 0 || itemIdUpdates.length > 0) {
             await fetch(SYNC_ENDPOINT, {
                 method: "POST",
                 headers: {
@@ -156,11 +192,15 @@ export async function performSync(collection: ManagedCollection, category = "all
                     apikey: SUPABASE_ANON_KEY,
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ url_path_updates: urlPathUpdates }),
+                body: JSON.stringify({
+                    url_path_updates: urlPathUpdates,
+                    live_url_updates: liveUrlUpdates,
+                    framer_item_id_updates: itemIdUpdates,
+                }),
             })
         }
     } catch (e) {
-        console.warn("url_path write-back failed (non-blocking):", e)
+        console.warn("Framer sync write-back failed (non-blocking):", e)
     }
 
     return items.length

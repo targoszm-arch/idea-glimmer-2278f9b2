@@ -61,6 +61,21 @@ serve(async (req) => {
       const liveUrlUpdates: Array<{ id: string; framer_live_url: string }> =
         body.live_url_updates ?? [];
       const updates: Array<{ id: string; framer_slug: string }> = body.url_path_updates ?? [];
+      const itemIdUpdates: Array<{ id: string; framer_item_id: string }> =
+        body.framer_item_id_updates ?? [];
+
+      // Positive 'this article is in Framer CMS' marker. Dashboard reads this
+      // to distinguish 'published locally' from 'published AND on live site'.
+      let itemIdUpdated = 0;
+      for (const { id, framer_item_id } of itemIdUpdates) {
+        if (!id || !framer_item_id) continue;
+        const { error } = await adminSupabase
+          .from("articles")
+          .update({ framer_item_id })
+          .eq("id", id)
+          .eq("user_id", userId);
+        if (!error) itemIdUpdated++;
+      }
 
       // Persist Framer's published URLs first — this is what RSS reads.
       let liveUrlUpdated = 0;
@@ -78,7 +93,12 @@ serve(async (req) => {
 
       if (!updates.length) {
         return new Response(
-          JSON.stringify({ ok: true, updated: 0, live_urls_updated: liveUrlUpdated }),
+          JSON.stringify({
+            ok: true,
+            updated: 0,
+            live_urls_updated: liveUrlUpdated,
+            framer_item_ids_updated: itemIdUpdated,
+          }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }

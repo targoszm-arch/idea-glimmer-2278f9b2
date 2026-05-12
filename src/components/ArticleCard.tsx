@@ -54,11 +54,10 @@ const ArticleCard = ({ article, selectable, selected, onToggleSelect }: ArticleC
               {article.display_type}
             </Badge>
           )}
-          {/* Articles whose url_path was never overwritten by the Framer plugin's
-              sync are still on the default 'help/knowledge-base/.../documentation-articles'
-              template — they look 'published' in ContentLab but never reached the
-              live site. Surface that loudly so the user can hit Sync in Framer. */}
-          {article.status === "published" && (article as any).url_path?.startsWith("help/knowledge-base/") && (article as any).url_path?.endsWith("/documentation-articles") && (
+          {/* 'Not on live site' = published in ContentLab but the Framer plugin
+              hasn't written framer_item_id back yet. Legacy fallback: also
+              flag articles still on the help/knowledge-base/* template path. */}
+          {article.status === "published" && !(article as any).framer_item_id && (
             <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 bg-amber-50">
               Not on live site
             </Badge>
