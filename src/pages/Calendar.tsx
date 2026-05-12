@@ -627,6 +627,15 @@ export default function CalendarPage() {
                           title={p.status === "scheduled" ? "Click to edit content or reschedule" : "Click to preview full post"}
                         >
                           <div className="flex items-start justify-between gap-2">
+                            {/* Day-cell thumbnail. Same purpose as in the right panel —
+                                no scheduled post should be unidentifiable at a glance. */}
+                            {p.media_url ? (
+                              p.media_type === "video" ? (
+                                <video src={p.media_url} muted className="shrink-0 w-8 h-8 rounded object-cover bg-black" />
+                              ) : (
+                                <img src={p.media_url} alt="" className="shrink-0 w-8 h-8 rounded object-cover bg-muted" />
+                              )
+                            ) : null}
                             <div className="min-w-0 flex-1">
                               <p className={`text-xs font-medium truncate ${
                                 p.status === "posted" ? "text-green-800" :
@@ -758,9 +767,18 @@ export default function CalendarPage() {
                         onClick={() => setPreviewItem({ kind: "social", post: p })}
                         title="Click to preview full post"
                       >
+                        {/* Thumbnail of attached media so the user knows what's about to publish without opening the modal. */}
+                        {p.media_url ? (
+                          p.media_type === "video" ? (
+                            <video src={p.media_url} muted className="shrink-0 w-14 h-14 rounded object-cover bg-black" />
+                          ) : (
+                            <img src={p.media_url} alt="" className="shrink-0 w-14 h-14 rounded object-cover bg-muted" />
+                          )
+                        ) : null}
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-medium text-foreground truncate">{p.topic || (p.platform || "linkedin") + " post"}</p>
-                          <p className="text-[10px] text-muted-foreground">
+                          <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{p.content}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
                             {new Date(p.scheduled_at).toLocaleDateString()} at {new Date(p.scheduled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             {" · "}{p.platform || "linkedin"}
                           </p>

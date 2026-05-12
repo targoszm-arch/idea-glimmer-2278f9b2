@@ -296,6 +296,17 @@ export function SocialLibraryContent() {
                 {/* Post content */}
                 <div className="px-4 py-3">
                   <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{post.content}</p>
+                  {/* Attached media — show inline so the user can see what
+                      will actually go live without opening the modal. */}
+                  {post.media_url && (
+                    <div className="mt-3 rounded-lg overflow-hidden border border-border bg-muted/20">
+                      {post.media_type === "video" ? (
+                        <video src={post.media_url} controls className="w-full max-h-80 object-contain bg-black" />
+                      ) : (
+                        <img src={post.media_url} alt="attached media" className="w-full max-h-80 object-contain bg-muted" />
+                      )}
+                    </div>
+                  )}
                 </div>
                 {/* Copy bar */}
                 <div className="px-4 pb-3">
