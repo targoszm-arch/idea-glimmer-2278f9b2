@@ -214,8 +214,14 @@ export function SocialPostPreviewModal({
       toast({ title: "Direct posting only supported for LinkedIn currently", description: "For other platforms, copy the content and post manually." });
       return;
     }
+    if (!editedContent.trim()) {
+      toast({ title: "Post is empty", variant: "destructive" });
+      return;
+    }
     setPosting(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in — refresh and try again");
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`${SUPABASE_URL}/functions/v1/linkedin-publish`, {
         method: "POST",
@@ -225,14 +231,27 @@ export function SocialPostPreviewModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Post failed");
 
-      // Save to library as posted
-      await supabase.from("social_posts" as any).insert({
-        platform, content: editedContent, topic: topic || articleTitle,
-        title: articleTitle || topic, article_id: articleId || null,
+      // Library record. user_id is required for RLS; topic is NOT NULL so
+      // we always pass a fallback derived from the content.
+      const fallbackTopic = topic || articleTitle || editedContent.trim().slice(0, 80) || "manual";
+      const { error: insErr } = await supabase.from("social_posts" as any).insert({
+        user_id: user.id,
+        platform, content: editedContent, topic: fallbackTopic,
+        title: articleTitle || fallbackTopic, article_id: articleId || null,
         article_title: articleTitle || null, status: "posted",
         posted_at: new Date().toISOString(), posted_url: data.post_url || null,
-        media_url: mediaUrl || null, media_type: mediaType || null,
+        media_url: effectiveMediaUrl, media_type: effectiveMediaType,
       });
+      if (insErr) {
+        // The post IS live on LinkedIn — say so honestly instead of "Post failed".
+        toast({
+          title: "Posted to LinkedIn (library record failed)",
+          description: `Live at ${data.post_url || "LinkedIn"}. Library insert error: ${insErr.message}`,
+          variant: "destructive",
+        });
+        setPosting(false);
+        return;
+      }
 
       setPosted(true);
       toast({ title: "✓ Posted to LinkedIn!" });
@@ -270,9 +289,10 @@ export function SocialPostPreviewModal({
         setScheduled(true);
         toast({ title: "✓ Post rescheduled!", description: `Will be sent ${new Date(scheduleDate).toLocaleString()}` });
       } else {
+        const fallbackTopic = topic || articleTitle || editedContent.trim().slice(0, 80) || "manual";
         const { error } = await supabase.from("social_posts" as any).insert({
           user_id: user.id, platform, content: editedContent,
-          topic: topic || articleTitle, title: articleTitle || topic,
+          topic: fallbackTopic, title: articleTitle || fallbackTopic,
           article_id: articleId || null, article_title: articleTitle || null,
           scheduled_at: newScheduledAt, status: "scheduled",
           media_url: effectiveMediaUrl, media_type: effectiveMediaType,
