@@ -69,6 +69,7 @@ export function SocialPostPreviewModal({
   const [aiVideoOpen, setAiVideoOpen] = useState(false);
   const [aiVideoTemplate, setAiVideoTemplate] = useState("");
   const [aiVideoStarting, setAiVideoStarting] = useState(false);
+  const [genImageLoading, setGenImageLoading] = useState(false);
   const { toast } = useToast();
 
   // The image actually shown in the preview + saved to the row.
@@ -131,6 +132,38 @@ export function SocialPostPreviewModal({
   function removeImage() {
     setUploadedMediaUrl(null);
     setUploadedMediaType(null);
+  }
+
+  async function generateAiImage() {
+    if (!editedContent.trim()) {
+      toast({ title: "Write the post first", description: "The post text becomes the image prompt.", variant: "destructive" });
+      return;
+    }
+    setGenImageLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      // generate-cover-image takes a topic-style prompt + optional context.
+      // For social posts we feed the whole content (capped to 800 chars so
+      // the model isn't drowned). It returns { image_url } pointing at a
+      // public file in article-covers/covers/.
+      const firstLine = editedContent.split("\n").find((l) => l.trim()) || editedContent;
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-cover-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}`, apikey: SUPABASE_ANON_KEY },
+        body: JSON.stringify({ prompt: firstLine.trim().slice(0, 200), context: editedContent.slice(0, 800) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const url = data.image_url || data.url || data.publicUrl;
+      if (!url) throw new Error("No image URL returned");
+      setUploadedMediaUrl(url);
+      setUploadedMediaType("image");
+      toast({ title: "Image generated" });
+    } catch (e: any) {
+      toast({ title: "Image generation failed", description: e.message, variant: "destructive" });
+    } finally {
+      setGenImageLoading(false);
+    }
   }
 
   async function triggerAiVideo() {
@@ -226,7 +259,12 @@ export function SocialPostPreviewModal({
       const res = await fetch(`${SUPABASE_URL}/functions/v1/linkedin-publish`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}`, apikey: SUPABASE_ANON_KEY },
-        body: JSON.stringify({ content: editedContent, article_url: articleUrl }),
+        body: JSON.stringify({
+          content: editedContent,
+          article_url: articleUrl,
+          media_url: effectiveMediaUrl,
+          media_type: effectiveMediaType,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Post failed");
@@ -379,6 +417,16 @@ export function SocialPostPreviewModal({
                       {uploading ? "Uploading…" : effectiveMediaUrl ? `Replace ${effectiveMediaType === "video" ? "video" : "image"}` : "Add image / video"}
                       <input type="file" accept="image/*,video/mp4,video/quicktime,video/webm" className="hidden" onChange={handleFileSelect} disabled={uploading} />
                     </label>
+                    <button
+                      type="button"
+                      onClick={generateAiImage}
+                      disabled={genImageLoading}
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
+                      title="Generate an AI image from this post text"
+                    >
+                      {genImageLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      {genImageLoading ? "Generating…" : "Generate AI image"}
+                    </button>
                     <button
                       type="button"
                       onClick={() => setAiVideoOpen((v) => !v)}
