@@ -528,37 +528,25 @@ export function SocialPostPreviewModal({
         <div className="px-5 py-4 border-t border-border flex gap-2">
           {tab === "preview" ? (
             <>
+              {/* Edit-tab footer. To switch to scheduling, the user clicks the
+                  Schedule tab in the header — no duplicate footer Schedule
+                  button. */}
               {isReschedule ? (
-                <>
-                  {/* EDIT MODE: never offer Post Now — only Save edits + Reschedule.
-                      Prevents the Enter-key / focus-shift class of bugs that
-                      caused unapproved posts to fire. */}
-                  <button type="button" onClick={() => setTab("schedule")} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors">
-                    <Calendar className="h-4 w-4" /> Reschedule
-                  </button>
-                  <button type="button" onClick={saveEdits}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold transition-colors">
-                    <Check className="h-4 w-4" /> Save changes
-                  </button>
-                </>
+                <button type="button" onClick={saveEdits}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold transition-colors">
+                  <Check className="h-4 w-4" /> Save changes
+                </button>
+              ) : isLinkedIn ? (
+                <button type="button" onClick={postNow} disabled={posting || posted || overLimit}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${posted ? "bg-green-500 text-white" : "bg-[#0A66C2] hover:bg-[#004182] text-white"}`}>
+                  {posted ? <Check className="h-4 w-4" /> : posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {posted ? "Posted!" : "Post to LinkedIn"}
+                </button>
               ) : (
-                <>
-                  <button type="button" onClick={() => setTab("schedule")} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors">
-                    <Calendar className="h-4 w-4" /> Schedule
-                  </button>
-                  {isLinkedIn ? (
-                    <button type="button" onClick={postNow} disabled={posting || posted || overLimit}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${posted ? "bg-green-500 text-white" : "bg-[#0A66C2] hover:bg-[#004182] text-white"}`}>
-                      {posted ? <Check className="h-4 w-4" /> : posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      {posted ? "Posted!" : "Post to LinkedIn"}
-                    </button>
-                  ) : (
-                    <button type="button" onClick={() => { navigator.clipboard.writeText(editedContent); toast({ title: "Copied!" }); }}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
-                      Copy to Clipboard
-                    </button>
-                  )}
-                </>
+                <button type="button" onClick={() => { navigator.clipboard.writeText(editedContent); toast({ title: "Copied!" }); }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
+                  Copy to Clipboard
+                </button>
               )}
             </>
           ) : (
