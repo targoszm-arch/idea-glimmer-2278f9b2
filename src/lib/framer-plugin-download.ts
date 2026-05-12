@@ -177,6 +177,43 @@ export const PLUGIN_HTML = `<!DOCTYPE html>
           });
 
           await collection.addItems(items);
+
+          // Write back to ContentLab so its library reflects 'on live site':
+          //   framer_item_id  — positive 'this row is in Framer CMS' marker
+          //   framer_live_url — built from the production site URL + slug
+          //   url_path        — derived server-side from category + slug
+          // Without this writeback every article looks "not on live site"
+          // in the Dashboard even after a successful sync.
+          try {
+            const syncedItems = await collection.getItems();
+            const idToFramerSlug = new Map(syncedItems.map(it => [it.id, it.slug]));
+            let siteOrigin = null;
+            try {
+              const publishInfo = await framer.getPublishInfo();
+              const prodUrl = publishInfo && publishInfo.production && publishInfo.production.url;
+              if (prodUrl) siteOrigin = new URL(prodUrl).origin;
+            } catch (e) { /* draft project — no live URL yet */ }
+
+            const synced = articles.filter(a => idToFramerSlug.has(a.id));
+            const url_path_updates    = synced.map(a => ({ id: a.id, framer_slug: idToFramerSlug.get(a.id) }));
+            const framer_item_id_updates = synced.map(a => ({ id: a.id, framer_item_id: a.id }));
+            const live_url_updates    = siteOrigin
+              ? synced.map(a => ({ id: a.id, framer_live_url: siteOrigin + "/" + idToFramerSlug.get(a.id) }))
+              : [];
+
+            await fetch(SYNC_ENDPOINT, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer " + SUPABASE_ANON_KEY,
+                apikey: SUPABASE_ANON_KEY,
+              },
+              body: JSON.stringify({ url_path_updates, framer_item_id_updates, live_url_updates }),
+            });
+          } catch (e) {
+            console.warn("ContentLab writeback failed (non-blocking):", e);
+          }
+
           setStatus("Synced " + articles.length + " article(s) ✓", "success");
           framer.showToast("Synced " + articles.length + " article(s) ✓");
         } catch (err) {
