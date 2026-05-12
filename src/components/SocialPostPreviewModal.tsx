@@ -58,10 +58,10 @@ export function SocialPostPreviewModal({
   const [scheduling, setScheduling] = useState(false);
   const [posted, setPosted] = useState(false);
   const [scheduled, setScheduled] = useState(false);
-  // Preview is collapsed by default when editing an existing post (the user
-  // is here to rewrite, not admire). New drafts: expanded so user sees what
-  // the AI generated.
-  const [previewOpen, setPreviewOpen] = useState(!existingPostId);
+  // Preview card is open by default in BOTH modes so the Edit tab is never
+  // visually empty after a click. Users can still collapse it via the chevron
+  // to free vertical space for the textarea.
+  const [previewOpen, setPreviewOpen] = useState(true);
   // User-uploaded image overrides the article cover passed in via props.
   const [uploadedMediaUrl, setUploadedMediaUrl] = useState<string | null>(null);
   const [uploadedMediaType, setUploadedMediaType] = useState<"image" | "video" | null>(null);
@@ -91,7 +91,7 @@ export function SocialPostPreviewModal({
     setScheduleDate(toLocalInputValue(initialScheduledAt));
     setPosted(false);
     setScheduled(false);
-    setPreviewOpen(!isReschedule);
+    setPreviewOpen(true);
     setUploadedMediaUrl(null);
     setUploadedMediaType(null);
   }, [open, content, isReschedule, initialScheduledAt, initialTab]);
@@ -357,7 +357,7 @@ export function SocialPostPreviewModal({
             <span className="font-semibold text-sm">{meta.label} Post</span>
           </div>
           <div className="flex items-center gap-1">
-            <button type="button" onClick={() => setTab("preview")} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>Preview</button>
+            <button type="button" onClick={() => setTab("preview")} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>Edit</button>
             <button type="button" onClick={() => setTab("schedule")} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "schedule" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>Schedule</button>
             <button type="button" onClick={onClose} className="ml-2 p-1.5 rounded-lg hover:bg-muted transition-colors"><X className="h-4 w-4 text-muted-foreground" /></button>
           </div>
@@ -366,46 +366,45 @@ export function SocialPostPreviewModal({
         <div className="overflow-y-auto max-h-[70vh]">
           {tab === "preview" ? (
             <div className="p-5 space-y-3">
-              {/* Collapsible preview */}
-              <button
-                type="button"
-                onClick={() => setPreviewOpen((v) => !v)}
-                className="w-full flex items-center justify-between text-xs font-medium text-muted-foreground hover:text-foreground transition"
-              >
-                <span>Preview how this will look on {meta.label}</span>
-                {previewOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-              </button>
-
-              {previewOpen && (
-                <div className="border border-border rounded-xl overflow-hidden bg-white">
-                  <div className={`h-1.5 ${meta.bg}`} />
-                  <div className="p-4">
-                    <div className="flex items-center gap-2.5 mb-3">
-                      <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">You</div>
-                      <div>
-                        <p className="text-xs font-semibold text-foreground">Your Name</p>
-                        <p className="text-[10px] text-muted-foreground">{meta.label} · Just now</p>
-                      </div>
+              {/* Compact preview — always visible, never collapsed. Earlier
+                  attempts to make it collapsible led to a broken UX where
+                  clicking the 'Preview' tab seemed to do nothing because the
+                  preview card was hidden by default in edit mode. */}
+              <details className="border border-border rounded-xl overflow-hidden bg-white" open={previewOpen}>
+                <summary
+                  onClick={(e) => { e.preventDefault(); setPreviewOpen((v) => !v); }}
+                  className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition flex items-center justify-between"
+                >
+                  <span>Preview on {meta.label}</span>
+                  {previewOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </summary>
+                <div className={`h-1 ${meta.bg}`} />
+                <div className="p-4">
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">You</div>
+                    <div>
+                      <p className="text-xs font-semibold text-foreground">Your Name</p>
+                      <p className="text-[10px] text-muted-foreground">{meta.label} · Just now</p>
                     </div>
-                    <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{editedContent}</p>
-                    {effectiveMediaUrl && (
-                      <div className="mt-3 rounded-lg overflow-hidden border border-border">
-                        {effectiveMediaType === "video" ? (
-                          <video src={effectiveMediaUrl} controls className="w-full max-h-64 object-cover" />
-                        ) : (
-                          <img src={effectiveMediaUrl} alt="media" className="w-full max-h-64 object-cover" />
-                        )}
-                      </div>
-                    )}
-                    {articleUrl && isLinkedIn && (
-                      <div className="mt-3 border border-border rounded-lg p-3 flex items-center gap-2 bg-muted/30">
-                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className="text-xs text-muted-foreground truncate">{articleTitle || articleUrl}</span>
-                      </div>
-                    )}
                   </div>
+                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{editedContent}</p>
+                  {effectiveMediaUrl && (
+                    <div className="mt-3 rounded-lg overflow-hidden border border-border">
+                      {effectiveMediaType === "video" ? (
+                        <video src={effectiveMediaUrl} controls className="w-full max-h-64 object-cover" />
+                      ) : (
+                        <img src={effectiveMediaUrl} alt="media" className="w-full max-h-64 object-cover" />
+                      )}
+                    </div>
+                  )}
+                  {articleUrl && isLinkedIn && (
+                    <div className="mt-3 border border-border rounded-lg p-3 flex items-center gap-2 bg-muted/30">
+                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      <span className="text-xs text-muted-foreground truncate">{articleTitle || articleUrl}</span>
+                    </div>
+                  )}
                 </div>
-              )}
+              </details>
 
               {/* Editable content */}
               <div>
