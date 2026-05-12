@@ -366,18 +366,8 @@ export function SocialPostPreviewModal({
         <div className="overflow-y-auto max-h-[70vh]">
           {tab === "preview" ? (
             <div className="p-5 space-y-3">
-              {/* Compact preview — always visible, never collapsed. Earlier
-                  attempts to make it collapsible led to a broken UX where
-                  clicking the 'Preview' tab seemed to do nothing because the
-                  preview card was hidden by default in edit mode. */}
-              <details className="border border-border rounded-xl overflow-hidden bg-white" open={previewOpen}>
-                <summary
-                  onClick={(e) => { e.preventDefault(); setPreviewOpen((v) => !v); }}
-                  className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition flex items-center justify-between"
-                >
-                  <span>Preview on {meta.label}</span>
-                  {previewOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                </summary>
+              {/* Preview — always visible. No collapse, no <details>. */}
+              <div className="border border-border rounded-xl overflow-hidden bg-white">
                 <div className={`h-1 ${meta.bg}`} />
                 <div className="p-4">
                   <div className="flex items-center gap-2.5 mb-3">
@@ -387,16 +377,16 @@ export function SocialPostPreviewModal({
                       <p className="text-[10px] text-muted-foreground">{meta.label} · Just now</p>
                     </div>
                   </div>
-                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{editedContent}</p>
-                  {effectiveMediaUrl && (
-                    <div className="mt-3 rounded-lg overflow-hidden border border-border">
+                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{editedContent || <span className="text-muted-foreground italic">(write your post below)</span>}</p>
+                  {effectiveMediaUrl ? (
+                    <div className="mt-3 rounded-lg overflow-hidden border border-border bg-muted/20">
                       {effectiveMediaType === "video" ? (
-                        <video src={effectiveMediaUrl} controls className="w-full max-h-64 object-cover" />
+                        <video src={effectiveMediaUrl} controls className="w-full max-h-80 object-contain bg-black" />
                       ) : (
-                        <img src={effectiveMediaUrl} alt="media" className="w-full max-h-64 object-cover" />
+                        <img src={effectiveMediaUrl} alt="post media" className="w-full max-h-80 object-contain bg-muted" />
                       )}
                     </div>
-                  )}
+                  ) : null}
                   {articleUrl && isLinkedIn && (
                     <div className="mt-3 border border-border rounded-lg p-3 flex items-center gap-2 bg-muted/30">
                       <ExternalLink className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
@@ -404,7 +394,7 @@ export function SocialPostPreviewModal({
                     </div>
                   )}
                 </div>
-              </details>
+              </div>
 
               {/* Editable content */}
               <div>
