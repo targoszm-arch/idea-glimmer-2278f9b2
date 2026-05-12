@@ -198,6 +198,18 @@ export function SocialPostPreviewModal({
   }
 
   async function postNow() {
+    // Hard guardrail: never let this run for an already-saved post. The UI
+    // hides the button in edit mode, but we double-check in case of any
+    // future regression that surfaces it.
+    if (existingPostId) {
+      toast({ title: "Use Save / Reschedule for existing posts", variant: "destructive" });
+      return;
+    }
+    const preview = (editedContent || "").slice(0, 120) + (editedContent.length > 120 ? "…" : "");
+    const ok = window.confirm(
+      `Publish to LinkedIn RIGHT NOW?\n\nThis cannot be undone from ContentLab — you'd have to delete on LinkedIn manually.\n\nPreview:\n"${preview}"\n\nClick OK to publish, Cancel to keep editing.`,
+    );
+    if (!ok) return;
     if (!isLinkedIn) {
       toast({ title: "Direct posting only supported for LinkedIn currently", description: "For other platforms, copy the content and post manually." });
       return;
