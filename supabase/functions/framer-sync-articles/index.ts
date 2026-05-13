@@ -396,6 +396,35 @@ serve(async (req) => {
       };
     });
 
+    // Normalise every <a> in body content so hyperlinks publish as
+    // underlined blue links on Framer. TipTap emits bare <a href="..">
+    // tags with no style/class — Framer's RichText renders those as
+    // plain text in its default template, which makes the body read
+    // like a wall of paragraphs with no visible affordances.
+    //
+    // Strategy:
+    //   - Force inline style (color + underline) so the link is visible
+    //     regardless of how the Framer template styles default <a>.
+    //   - Force target=_blank + rel safety for external links (any href
+    //     starting with http and not on the user's own domain).
+    //   - Preserve existing href/text content.
+    for (const a of articles) {
+      if (!a.content || typeof a.content !== "string") continue;
+      a.content = a.content.replace(/<a\b([^>]*)>/gi, (_m: string, attrs: string) => {
+        // Strip any pre-existing style attribute so ours wins.
+        const stripped = attrs.replace(/\s*\bstyle\s*=\s*("[^"]*"|'[^']*')/gi, "");
+        // Pull href to decide whether to force target=_blank.
+        const hrefMatch = stripped.match(/\bhref\s*=\s*("([^"]*)"|'([^']*)')/i);
+        const href = hrefMatch ? (hrefMatch[2] ?? hrefMatch[3] ?? "") : "";
+        const isExternal = /^https?:\/\//i.test(href);
+        const hasTarget = /\btarget\s*=/.test(stripped);
+        const hasRel = /\brel\s*=/.test(stripped);
+        const targetAttr = isExternal && !hasTarget ? ' target="_blank"' : "";
+        const relAttr = isExternal && !hasRel ? ' rel="noopener noreferrer"' : "";
+        return `<a${stripped} style="color:#0A66C2;text-decoration:underline"${targetAttr}${relAttr}>`;
+      });
+    }
+
     return new Response(
       JSON.stringify({ ok: true, count: articles.length, articles, categories }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
