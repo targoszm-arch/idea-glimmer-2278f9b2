@@ -33,3 +33,6 @@ canva-app/node_modules
 CLAUDE.md
 idea-glimmer-2278f9b2/
 supabase/.temp/
+
+# HubSpot config file
+hubspot.config.yml

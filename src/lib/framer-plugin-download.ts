@@ -1,8 +1,9 @@
 export const FRAMER_JSON = {
-  id: "skill-studio-cms-sync",
+  id: "ssblog",
   name: "Skill Studio Blog Sync",
   version: "1.0.0",
   description: "Sync published Skill Studio AI articles into a Framer managed collection.",
+  main: "index.html",
   modes: ["configureManagedCollection", "syncManagedCollection"],
 };
 
