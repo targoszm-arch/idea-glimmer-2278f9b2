@@ -396,24 +396,30 @@ serve(async (req) => {
       };
     });
 
-    // Normalise every <a> in body content so hyperlinks publish as
-    // underlined blue links on Framer. TipTap emits bare <a href="..">
-    // tags with no style/class — Framer's RichText renders those as
-    // plain text in its default template, which makes the body read
-    // like a wall of paragraphs with no visible affordances.
+    // Normalise every <a> so hyperlinks are at least visible after Framer
+    // ingests the HTML. Framer's RichText strips inline `style` on <a>
+    // (same way it does on <img>), so a `style="color:#0A66C2"` alone is
+    // dropped. What Framer DOES preserve from semantic HTML:
+    //   - <u> for underline
+    //   - <strong> for bold
+    //   - target/rel attributes on <a>
     //
     // Strategy:
-    //   - Force inline style (color + underline) so the link is visible
-    //     regardless of how the Framer template styles default <a>.
-    //   - Force target=_blank + rel safety for external links (any href
-    //     starting with http and not on the user's own domain).
-    //   - Preserve existing href/text content.
+    //   - Wrap the link text in <u>...</u> so it's underlined even when
+    //     Framer drops our inline style. This is the only style hint
+    //     that survives ingestion.
+    //   - Keep the inline color style anyway, in case Framer's behaviour
+    //     changes or the template's RichText renderer respects it.
+    //   - Force target=_blank + rel safety on external links.
+    //
+    // Colour: if Framer keeps stripping inline styles, the link colour
+    // (blue) has to come from the Framer page template's RichText
+    // settings (Body → Text styles → Link). Set the Link colour to
+    // #0A66C2 once in Framer Studio and every article inherits it.
     for (const a of articles) {
       if (!a.content || typeof a.content !== "string") continue;
-      a.content = a.content.replace(/<a\b([^>]*)>/gi, (_m: string, attrs: string) => {
-        // Strip any pre-existing style attribute so ours wins.
+      a.content = a.content.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (_m: string, attrs: string, inner: string) => {
         const stripped = attrs.replace(/\s*\bstyle\s*=\s*("[^"]*"|'[^']*')/gi, "");
-        // Pull href to decide whether to force target=_blank.
         const hrefMatch = stripped.match(/\bhref\s*=\s*("([^"]*)"|'([^']*)')/i);
         const href = hrefMatch ? (hrefMatch[2] ?? hrefMatch[3] ?? "") : "";
         const isExternal = /^https?:\/\//i.test(href);
@@ -421,7 +427,9 @@ serve(async (req) => {
         const hasRel = /\brel\s*=/.test(stripped);
         const targetAttr = isExternal && !hasTarget ? ' target="_blank"' : "";
         const relAttr = isExternal && !hasRel ? ' rel="noopener noreferrer"' : "";
-        return `<a${stripped} style="color:#0A66C2;text-decoration:underline"${targetAttr}${relAttr}>`;
+        // Don't double-wrap if the inner already has <u>.
+        const wrapped = /<u[\s>]/i.test(inner) ? inner : `<u>${inner}</u>`;
+        return `<a${stripped} style="color:#0A66C2;text-decoration:underline"${targetAttr}${relAttr}>${wrapped}</a>`;
       });
     }
 
