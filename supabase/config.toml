@@ -78,6 +78,12 @@ verify_jwt = false
 [functions.confluence-oauth-callback]
 verify_jwt = false
 
+[functions.hubspot-oauth-start]
+verify_jwt = false
+
+[functions.hubspot-oauth-callback]
+verify_jwt = false
+
 [functions.sync-to-confluence]
 verify_jwt = false
 
