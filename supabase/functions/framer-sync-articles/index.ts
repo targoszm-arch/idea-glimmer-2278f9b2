@@ -427,9 +427,18 @@ serve(async (req) => {
         const hasRel = /\brel\s*=/.test(stripped);
         const targetAttr = isExternal && !hasTarget ? ' target="_blank"' : "";
         const relAttr = isExternal && !hasRel ? ' rel="noopener noreferrer"' : "";
-        // Don't double-wrap if the inner already has <u>.
-        const wrapped = /<u[\s>]/i.test(inner) ? inner : `<u>${inner}</u>`;
-        return `<a${stripped} style="color:#0A66C2;text-decoration:underline"${targetAttr}${relAttr}>${wrapped}</a>`;
+        // Framer Rich Text strips `style` and `class` on <a>, AND the user's
+        // Framer template is locked so we can't change Link styling there.
+        // The only HTML that survives is semantic tags. Wrap with
+        // <strong><u> so the link is BOLD + UNDERLINED — unmistakable as
+        // a clickable affordance even without colour. Skip wrapping if
+        // the inner already contains <strong> or <u> so we don't nest.
+        const hasStrong = /<strong[\s>]/i.test(inner);
+        const hasU = /<u[\s>]/i.test(inner);
+        let wrapped = inner;
+        if (!hasU) wrapped = `<u>${wrapped}</u>`;
+        if (!hasStrong) wrapped = `<strong>${wrapped}</strong>`;
+        return `<a${stripped}${targetAttr}${relAttr}>${wrapped}</a>`;
       });
     }
 
