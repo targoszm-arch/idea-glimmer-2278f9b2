@@ -50,13 +50,25 @@ serve(async (req) => {
     if (!CLIENT_ID) return json({ error: "HubSpot OAuth not configured. Set HUBSPOT_CLIENT_ID secret." }, 500);
 
     const REDIRECT_URI = `${Deno.env.get("SUPABASE_URL")}/functions/v1/hubspot-oauth-callback`;
-    const state = btoa(JSON.stringify({ user_id: user.id, ts: Date.now() }));
+
+    // PKCE: generate a fresh random code_verifier per flow and embed it
+    // inside the OAuth `state` so the callback (different Deno isolate)
+    // can recover it for the token exchange. Per RFC 7636 the verifier
+    // is 43-128 chars from [A-Z a-z 0-9 - . _ ~]. We use base64url of
+    // 32 random bytes (43 chars).
+    const codeVerifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
+    const challengeBytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(codeVerifier));
+    const codeChallenge = b64url(new Uint8Array(challengeBytes));
+
+    const state = btoa(JSON.stringify({ user_id: user.id, ts: Date.now(), v: codeVerifier }));
 
     const params = new URLSearchParams({
       client_id: CLIENT_ID,
       redirect_uri: REDIRECT_URI,
       scope: SCOPES,
       state,
+      code_challenge: codeChallenge,
+      code_challenge_method: "S256",
     });
     return json({ url: `https://app.hubspot.com/oauth/authorize?${params}` });
   } catch (e) {
@@ -69,4 +81,11 @@ function json(payload: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// RFC 4648 §5 base64url encoder (no padding).
+function b64url(bytes: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }

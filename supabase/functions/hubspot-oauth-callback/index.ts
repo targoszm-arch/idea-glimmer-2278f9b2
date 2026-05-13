@@ -25,7 +25,10 @@ serve(async (req) => {
   }
 
   try {
-    const { user_id } = JSON.parse(atob(state));
+    // state from hubspot-oauth-start carries { user_id, ts, v (code_verifier) }.
+    const parsedState = JSON.parse(atob(state));
+    const user_id: string = parsedState.user_id;
+    const codeVerifier: string | undefined = parsedState.v;
 
     const CLIENT_ID = Deno.env.get("HUBSPOT_CLIENT_ID");
     const CLIENT_SECRET = Deno.env.get("HUBSPOT_CLIENT_SECRET");
@@ -34,16 +37,21 @@ serve(async (req) => {
     const REDIRECT_URI = `${Deno.env.get("SUPABASE_URL")}/functions/v1/hubspot-oauth-callback`;
 
     // Step 1: code → tokens. Form-encoded body, not JSON.
+    // PKCE: if the start endpoint embedded a code_verifier in state, send
+    // it here so HubSpot can confirm the SHA-256(verifier) == code_challenge
+    // we sent at the authorize step.
+    const tokenParams = new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      redirect_uri: REDIRECT_URI,
+      code,
+    });
+    if (codeVerifier) tokenParams.set("code_verifier", codeVerifier);
     const tokenRes = await fetch("https://api.hubapi.com/oauth/v1/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        redirect_uri: REDIRECT_URI,
-        code,
-      }).toString(),
+      body: tokenParams.toString(),
     });
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok || !tokenData.access_token) {
