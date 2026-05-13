@@ -405,7 +405,7 @@ function FramerCollections() {
   );
 }
 
-type Platform = "framer" | "notion" | "shopify" | "intercom" | "google" | "wordpress" | "canva" | "confluence";
+type Platform = "framer" | "notion" | "shopify" | "intercom" | "google" | "wordpress" | "canva" | "confluence" | "hubspot";
 
 type Integration = {
   platform: Platform;
@@ -461,12 +461,17 @@ const PLATFORMS = [
     description: "Design social graphics in Canva and save them directly to ContentLab",
     requiresSecrets: true,
   },
+  {
+    id: "hubspot" as Platform,
+    name: "HubSpot",
+    description: "Personalise outreach with contact + company variables ({{first_name}}, {{company_name}}, etc.)",
+  },
 ];
 
 export default function Integrations({ embedded = false }: { embedded?: boolean }) {
   const { toast } = useToast();
   const [connected, setConnected] = useState<Record<Platform, Integration | null>>({
-    framer: null, notion: null, shopify: null, intercom: null, google: null, wordpress: null, canva: null, confluence: null,
+    framer: null, notion: null, shopify: null, intercom: null, google: null, wordpress: null, canva: null, confluence: null, hubspot: null,
   });
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<Platform | null>(null);
