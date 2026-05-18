@@ -2213,6 +2213,17 @@ serve(async (req) => {
     return wellKnownJson(AUTH_SERVER_META);
   }
 
+  // Unknown /.well-known/* discovery probes (e.g. openid-configuration) must
+  // return 404, NOT 401. A 401 + WWW-Authenticate here is read by MCP clients
+  // as "discovery endpoint requires auth" and stalls the OAuth flow before the
+  // authorize step. Only the two well-known paths above are real metadata.
+  if (req.method === "GET" && path.includes("/.well-known/")) {
+    return new Response(JSON.stringify({ error: "Not Found" }), {
+      status: 404,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   // Any other GET:
   //   - No token → 401 + WWW-Authenticate (triggers OAuth discovery in the client)
   //   - Token present → 405 (SSE not supported; use POST for all MCP messages)
