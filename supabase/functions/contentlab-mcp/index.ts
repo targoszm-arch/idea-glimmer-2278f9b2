@@ -192,6 +192,10 @@ function base64urlDecode(s: string): Uint8Array {
 // Tool handlers
 // ---------------------------------------------------------------------------
 
+// Max bytes the worker will accumulate from one generation stream. Real
+// articles are well under 1 MB; anything larger is a model runaway loop.
+const MAX_GENERATED_BYTES = 4_000_000;
+
 // create_article — re-invoke the existing generate-article edge function so
 // credit deduction, Perplexity wiring, and the prompt stay in one place.
 // We use the service role key + user_id_override (the path generate-article
@@ -371,6 +375,30 @@ async function runArticleGeneration(articleId: string, args: any, userId: string
             const delta = json?.choices?.[0]?.delta?.content;
             if (typeof delta === "string") html += delta;
           } catch { /* skip malformed chunks */ }
+        }
+
+        // Runaway guard: the model occasionally enters a repetition loop and
+        // streams tens of MB for one article. Accumulating that into a single
+        // in-memory string OOM-kills the edge isolate — the task then dies
+        // silently and the row stays stuck 'generating'. A real article is
+        // well under 1 MB, so cap accumulation, abort cleanly, refund.
+        if (html.length > MAX_GENERATED_BYTES) {
+          try { await reader.cancel(); } catch { /* stream already closed */ }
+          await markGenerationFailed(
+            admin,
+            articleId,
+            `AI response exceeded ${MAX_GENERATED_BYTES} bytes — model runaway/repetition loop. Credits refunded; regenerate or rephrase the topic.`,
+          );
+          try {
+            await admin.rpc("deduct_credits", {
+              p_user_id: userId,
+              p_amount: -5,
+              p_action: "generate_article_refund_runaway",
+            });
+          } catch (e) {
+            console.error(`[run_generation] runaway refund failed for ${articleId}:`, e);
+          }
+          return;
         }
       }
 
