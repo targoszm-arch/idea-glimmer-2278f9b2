@@ -238,8 +238,6 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
     .replace(/^-+|-+$/g, "");
   args = { ...args, category: categorySlug };
 
-  const body = { ...args, user_id_override: ctx.userId };
-
   // Insert a placeholder row BEFORE detaching so the caller gets an
   // article_id immediately and can poll with get_article. If the
   // background generation fails, the row is updated with
@@ -257,6 +255,7 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
       content_type: args.content_type ?? "blog",
       status: "draft",
       generation_status: "generating",
+      generation_started_at: new Date().toISOString(),
     })
     .select("id")
     .single();
@@ -267,10 +266,63 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
 
   const articleId = placeholder.id;
 
-  // Synchronous probe: kick off the request to generate-article and await
-  // response headers BEFORE detaching the stream consumer. This lets us
-  // surface auth / quota / config failures back to the MCP caller as a
-  // proper tool error instead of leaving the placeholder spinning.
+  // Hand the actual generation off to a dedicated worker invocation. Each
+  // worker runs in its OWN edge isolate with a full wall-clock budget, so
+  // firing many create_article calls at once no longer stacks 60–150s
+  // background tasks into one shared isolate that gets evicted mid-stream
+  // (the cause of silent empty articles under concurrent load).
+  try {
+    const dispatch = await fetch(
+      `${supabaseUrl}/functions/v1/contentlab-mcp/_internal/run-generation`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ articleId, args, userId: ctx.userId }),
+      },
+    );
+    if (dispatch.status !== 202 && !dispatch.ok) {
+      const errText = await dispatch.text();
+      const detail = `generation dispatch failed: ${dispatch.status} ${errText.slice(0, 200)}`;
+      await markGenerationFailed(admin, articleId, detail);
+      throw new Error(detail);
+    }
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : "generation dispatch error";
+    await markGenerationFailed(admin, articleId, detail);
+    throw new Error(detail);
+  }
+
+  return {
+    status: "started",
+    article_id: articleId,
+    topic: args.topic,
+    message:
+      "Article generation started. Call `get_article` with the article_id to check progress — `generation_status` will be 'generating', 'complete', or 'failed'. Typical runtime is 90–150 seconds. If `generate_cover_image: true` was passed, the cover is attached after the article finishes.",
+  };
+}
+
+// runArticleGeneration — executed inside a dedicated worker invocation (see
+// the /_internal/run-generation route). One article per invocation = one
+// edge isolate with a full budget, so concurrent create_article calls can
+// no longer starve each other.
+async function runArticleGeneration(articleId: string, args: any, userId: string): Promise<void> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const admin = createClient(supabaseUrl, serviceKey);
+  // Local ctx shim so the generation body below can keep using `ctx.userId`.
+  const ctx = { userId };
+  const body = { ...args, user_id_override: userId };
+
+  // Stamp the (re)start so the watchdog measures from when THIS worker
+  // began — not from the row's created_at, which is stale on regeneration.
+  await admin
+    .from("articles")
+    .update({ generation_status: "generating", generation_started_at: new Date().toISOString(), generation_error: null })
+    .eq("id", articleId);
+
   const upstream = await fetch(`${supabaseUrl}/functions/v1/generate-article`, {
     method: "POST",
     headers: {
@@ -282,17 +334,15 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
 
   if (!upstream.ok) {
     const errText = await upstream.text();
-    const detail = `generate-article returned ${upstream.status}: ${errText.slice(0, 200)}`;
-    await markGenerationFailed(admin, articleId, detail);
-    throw new Error(detail);
+    await markGenerationFailed(admin, articleId, `generate-article returned ${upstream.status}: ${errText.slice(0, 200)}`);
+    return;
   }
   if (!upstream.body) {
-    const detail = "No response body from generate-article";
-    await markGenerationFailed(admin, articleId, detail);
-    throw new Error(detail);
+    await markGenerationFailed(admin, articleId, "No response body from generate-article");
+    return;
   }
 
-  const generation = (async () => {
+  {
     try {
       const res = upstream;
 
@@ -603,23 +653,10 @@ async function createArticleHandler(args: any, ctx: AuthContext): Promise<unknow
         }
       }
     } catch (e) {
-      console.error(`[create_article] background generation threw for user ${ctx.userId}:`, e);
+      console.error(`[run_generation] background generation threw for user ${ctx.userId}:`, e);
       await markGenerationFailed(admin, articleId, e instanceof Error ? e.message : "Unknown error");
     }
-  })();
-
-  // Detach so the HTTP response returns immediately.
-  // deno-lint-ignore no-explicit-any
-  const er = (globalThis as any).EdgeRuntime;
-  if (er?.waitUntil) er.waitUntil(generation);
-
-  return {
-    status: "started",
-    article_id: articleId,
-    topic: args.topic,
-    message:
-      "Article generation started. Call `get_article` with the article_id to check progress — `generation_status` will be 'generating', 'complete', or 'failed'. Typical runtime is 90–150 seconds. If `generate_cover_image: true` was passed, the cover is attached after the article finishes.",
-  };
+  }
 }
 
 async function markGenerationFailed(admin: any, articleId: string, error: string): Promise<void> {
@@ -2213,10 +2250,17 @@ serve(async (req) => {
     return wellKnownJson(AUTH_SERVER_META);
   }
 
-  // Unknown /.well-known/* discovery probes (e.g. openid-configuration) must
-  // return 404, NOT 401. A 401 + WWW-Authenticate here is read by MCP clients
-  // as "discovery endpoint requires auth" and stalls the OAuth flow before the
-  // authorize step. Only the two well-known paths above are real metadata.
+  // Claude's MCP connector performs OpenID-Connect-style discovery: it fetches
+  // /.well-known/openid-configuration to obtain the authorization server
+  // metadata (it does NOT fetch oauth-authorization-server). Serve the same
+  // metadata here so the OAuth flow can start. Returning 404/401 here leaves
+  // the client with no auth-server metadata and the connection fails.
+  if (req.method === "GET" && path.endsWith("/.well-known/openid-configuration")) {
+    return wellKnownJson(AUTH_SERVER_META);
+  }
+
+  // Any other unknown /.well-known/* probe → 404 (NOT 401: a 401 here is read
+  // by MCP clients as "discovery endpoint requires auth" and stalls the flow).
   if (req.method === "GET" && path.includes("/.well-known/")) {
     return new Response(JSON.stringify({ error: "Not Found" }), {
       status: 404,
@@ -2265,6 +2309,43 @@ serve(async (req) => {
 
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method Not Allowed" }, 405);
+  }
+
+  // Internal worker route: runs ONE article generation in its own edge
+  // isolate with a full wall-clock budget. create_article dispatches here
+  // instead of running generation as a waitUntil child of its own request
+  // — which, under concurrent load, stacked many 60–150s tasks into one
+  // isolate that got evicted mid-stream (silent empty articles). Service-
+  // role only; never reachable by MCP clients.
+  if (path.endsWith("/_internal/run-generation")) {
+    const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "").trim();
+    // Accept either the injected service-role env key (the normal
+    // create_article dispatch) or any token that is a valid JWT carrying
+    // role=service_role (used for ops / regeneration). Both are full-admin
+    // credentials, so this does not widen the trust boundary.
+    let authed = token.length > 0 && token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!authed && token.split(".").length === 3) {
+      try {
+        const claims = JSON.parse(
+          atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")),
+        );
+        authed = claims?.role === "service_role";
+      } catch { /* not a JWT */ }
+    }
+    if (!authed) {
+      return jsonResponse({ error: "Forbidden" }, 403);
+    }
+    let payload: any = null;
+    try { payload = await req.json(); } catch { /* invalid body handled below */ }
+    const { articleId, args, userId } = payload ?? {};
+    if (!articleId || !args || !userId) {
+      return jsonResponse({ error: "articleId, args and userId are required" }, 400);
+    }
+    const job = runArticleGeneration(articleId, args, userId);
+    // deno-lint-ignore no-explicit-any
+    const er = (globalThis as any).EdgeRuntime;
+    if (er?.waitUntil) er.waitUntil(job);
+    return jsonResponse({ status: "accepted", article_id: articleId }, 202);
   }
 
   const auth = await authenticate(req);
