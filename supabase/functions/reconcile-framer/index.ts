@@ -103,12 +103,22 @@ serve(async (req) => {
     // Fetch all article slugs from DB
     const { data: articles, error: dbError } = await adminSupabase
       .from("articles")
-      .select("slug")
+      .select("id, slug, framer_item_id")
       .eq("user_id", user.id);
 
     if (dbError) throw new Error(`DB error: ${dbError.message}`);
 
     const dbSlugs = new Set((articles || []).map((a: any) => a.slug));
+    // Stable identity set: a Framer item is only a true orphan if NEITHER its
+    // id NOR its slug is known to the DB. Matching by id means a slug change
+    // can never make a live item look orphaned — which previously caused
+    // reconcile to permanently DELETE live pages (and their URLs) whenever a
+    // slug drifted. The Framer managed-collection item id == the article id.
+    const dbIds = new Set<string>();
+    for (const a of articles || []) {
+      if (a.id) dbIds.add(a.id);
+      if (a.framer_item_id) dbIds.add(a.framer_item_id);
+    }
 
     // Dynamic import so the WS patch is in place before framer-api captures it
     const { connect } = await import("https://esm.sh/framer-api@0.1.2");
@@ -123,8 +133,12 @@ serve(async (req) => {
 
       const items = await collection.getItems();
 
-      // Find orphans: items in Framer whose slug is not in DB
-      const orphans = items.filter((item: any) => !dbSlugs.has(item.slug));
+      // True orphan: the item matches NO article by id AND no article by
+      // slug. A slug change alone leaves the id matching, so the live page
+      // is kept (its URL survives) instead of being deleted.
+      const orphans = items.filter(
+        (item: any) => !dbIds.has(item.id) && !dbSlugs.has(item.slug),
+      );
 
       if (orphans.length === 0) {
         return new Response(
